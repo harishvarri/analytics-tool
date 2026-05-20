@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withApiHandler } from '@/lib/api/handler';
 import { ok } from '@/lib/api/response';
 import { parseBody } from '@/lib/api/validate';
@@ -14,6 +15,18 @@ import { RUNTIME } from '@/config/runtime';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'content-type, x-ncpl-api-key',
+  'Access-Control-Max-Age': '86400',
+};
+
+/** Handle CORS preflight — browsers send this before the real POST. */
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
 
 /**
  * POST /api/v1/events
@@ -42,5 +55,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   await ensureSessionsForBatch(events, { ipHash, userAgent });
   const { inserted } = await insertEventsBatch(events, { ipHash, userAgent });
 
-  return ok({ inserted });
+  const res = ok({ inserted });
+  Object.entries(CORS_HEADERS).forEach(([k, v]) => res.headers.set(k, v));
+  return res;
 });

@@ -7,11 +7,7 @@ import { MAX_EVENT_BATCH_SIZE } from '@/constants/api';
  */
 
 export const portalIdSchema = z.enum([
-  'training',
-  'project-management',
-  'resume-marketing',
-  'job-application',
-  'admin',
+  'sentinel',
   'analytics',
 ]);
 
