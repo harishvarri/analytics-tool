@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Resume Marketing Portal</title>
+  <script>
+    window.NCPL_CONFIG = { endpoint: 'https://analytics.ncpl.internal/api/v1/events' };
+  </script>
+  <script src="/analytics.js" defer></script>
+</head>
+<body>
+  <h1>Candidate intake</h1>
+
+  <button id="submit-resume">Submit resume</button>
+  <button id="logout">Log out</button>
+
+  <script>
+    // identify the user once your auth resolves
+    document.addEventListener('DOMContentLoaded', () => {
+      // window.NCPL.identify(currentUser.id);
+
+      document.getElementById('submit-resume').addEventListener('click', () => {
+        NCPL.track('feature', 'resume.submitted', { source: 'cta-hero' });
+      });
+
+      document.getElementById('logout').addEventListener('click', () => {
+        NCPL.track('auth', 'auth.logout');
+        NCPL.identify(null);
+      });
+    });
+  </script>
+</body>
+</html>

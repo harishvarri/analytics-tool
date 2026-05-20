@@ -1,0 +1,41 @@
+import path from 'node:path';
+import type { NextConfig } from 'next';
+
+/**
+ * Hardened global headers. Applied to every response (the per-route handlers
+ * can still add CORS / Cache-Control as needed). CSP is intentionally
+ * permissive on connect-src so portals across subdomains can ingest; tighten
+ * to a fixed allow-list once portal hostnames are finalized.
+ */
+const securityHeaders = [
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'X-DNS-Prefetch-Control', value: 'on' },
+];
+
+const nextConfig: NextConfig = {
+  reactStrictMode: true,
+  poweredByHeader: false,
+  outputFileTracingRoot: path.join(__dirname, '../..'),
+  async headers() {
+    return [
+      { source: '/(.*)', headers: securityHeaders },
+      // Ingestion endpoint allows cross-origin POST from any internal portal.
+      // Lock `Access-Control-Allow-Origin` to a comma list once known.
+      {
+        source: '/api/v1/events',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'POST, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'content-type, x-ncpl-api-key' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
+        ],
+      },
+    ];
+  },
+};
+
+export default nextConfig;

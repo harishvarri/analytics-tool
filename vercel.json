@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run sdk:build && npm run build -w apps/web",
+  "installCommand": "npm install --legacy-peer-deps",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/v1/admin/refresh-aggregates",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/v1/admin/ensure-partitions",
+      "schedule": "0 0 1 * *"
+    }
+  ]
+}
