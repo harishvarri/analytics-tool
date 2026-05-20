@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Activity, BarChart3, GitBranch, LayoutDashboard, Network, Users } from 'lucide-react';
+import { Activity, BarChart3, FolderKanban, GitBranch, LayoutDashboard, Network, Users } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 
 export interface NavItem {
@@ -33,6 +33,12 @@ export const PRIMARY_NAV: readonly NavItem[] = [
     href: ROUTES.workflows,
     icon: GitBranch,
     description: 'Cycle time, throughput, bottlenecks and aging tickets',
+  },
+  {
+    label: 'Projects',
+    href: ROUTES.projects,
+    icon: FolderKanban,
+    description: 'Project Health Index per project',
   },
   {
     label: 'Realtime',

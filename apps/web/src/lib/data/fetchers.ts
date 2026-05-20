@@ -23,6 +23,12 @@ import {
   type WorkflowKpis,
 } from '../repositories/workflow';
 import {
+  getPortfolioSummary,
+  getProjectHealthList,
+  type PortfolioSummary,
+  type ProjectHealth,
+} from '../repositories/projectHealth';
+import {
   mockActiveUsers,
   mockCategoryBreakdown,
   mockDashboardKpis,
@@ -100,3 +106,13 @@ export const fetchAgingTickets = (limit = 20): Promise<AgingTicket[]> =>
 
 export const fetchBottlenecks = (): Promise<BottleneckRow[]> =>
   withMockFallback('workflow.bottlenecks', getBottlenecks, () => []);
+
+// ── Project Health Index (Module C) ─────────────────────────────────────────
+
+const emptyPortfolio: PortfolioSummary = { healthy: 0, atRisk: 0, critical: 0, total: 0, avgPhi: null };
+
+export const fetchProjectHealthList = (): Promise<ProjectHealth[]> =>
+  withMockFallback('phi.list', getProjectHealthList, () => []);
+
+export const fetchPortfolioSummary = (): Promise<PortfolioSummary> =>
+  withMockFallback('phi.summary', getPortfolioSummary, () => emptyPortfolio);

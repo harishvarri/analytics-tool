@@ -6,6 +6,7 @@ export const ROUTES = {
   realtime: '/dashboard/realtime',
   reports: '/dashboard/reports',
   workflows: '/dashboard/workflows',
+  projects: '/dashboard/projects',
   login: '/login',
 } as const;
 
