@@ -11,7 +11,10 @@ import type {
   DashboardKpis,
   PortalSummary,
   SessionSummary,
+  PortalId,
+  EventCategory,
 } from '@/types/analytics';
+import type { TimePoint } from '../mock/dashboard';
 
 /** 24-hour KPIs for the overview dashboard. */
 export async function getDashboardKpis(): Promise<DashboardKpis> {
@@ -46,21 +49,55 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
   };
 }
 
-/** Per-portal 24h summary. Reads the daily MV — fast even on hot tables. */
+/** Per-portal 24h summary. Prefers the daily MV; falls back to direct aggregation. */
 export async function getPortalSummaries(): Promise<PortalSummary[]> {
+  const admin = getSupabaseAdmin();
   const today = new Date().toISOString().slice(0, 10);
-  const { data, error } = await getSupabaseAdmin()
+
+  // Try the materialized view first (fast, refreshed every 5 min by cron).
+  const { data: mvData, error: mvError } = await admin
     .from('mv_portal_daily')
     .select('*')
     .eq('day', today);
+
+  if (!mvError && mvData && mvData.length > 0) {
+    const rows = mvData as PortalDailyRow[];
+    return rows.map((r) => ({
+      portalId: r.portal_id,
+      events24h: r.events,
+      users24h: r.users,
+      sessions24h: r.sessions,
+      errors24h: r.errors,
+    }));
+  }
+
+  // MV empty or error → aggregate directly from analytics_events (slightly slower but always fresh).
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from('analytics_events')
+    .select('portal_id, user_id, session_id, category')
+    .gte('occurred_at', since);
+
   if (error) throw new AppError('PORTAL_QUERY_FAILED', error.message, 500);
-  const rows = (data ?? []) as PortalDailyRow[];
-  return rows.map((r) => ({
-    portalId: r.portal_id,
-    events24h: r.events,
-    users24h: r.users,
-    sessions24h: r.sessions,
-    errors24h: r.errors,
+
+  const map = new Map<string, { events: number; users: Set<string>; sessions: Set<string>; errors: number }>();
+  for (const row of (data ?? []) as { portal_id: string; user_id: string | null; session_id: string | null; category: string }[]) {
+    if (!map.has(row.portal_id)) {
+      map.set(row.portal_id, { events: 0, users: new Set(), sessions: new Set(), errors: 0 });
+    }
+    const p = map.get(row.portal_id)!;
+    p.events++;
+    if (row.user_id) p.users.add(row.user_id);
+    if (row.session_id) p.sessions.add(row.session_id);
+    if (row.category === 'error') p.errors++;
+  }
+
+  return Array.from(map.entries()).map(([portalId, p]) => ({
+    portalId: portalId as PortalId,
+    events24h: p.events,
+    users24h: p.users.size,
+    sessions24h: p.sessions.size,
+    errors24h: p.errors,
   }));
 }
 
@@ -93,6 +130,72 @@ export interface UserActivityRow {
   displayName: string | null;
   lastSeenAt: string | null;
   events24h: number;
+}
+
+/**
+ * Hourly events + active-users time series for the last N hours.
+ * Groups rows in JS so we don't need a stored function.
+ */
+export async function getEventsTimeSeries(hours = 24): Promise<TimePoint[]> {
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('analytics_events')
+    .select('occurred_at, user_id')
+    .gte('occurred_at', since)
+    .order('occurred_at', { ascending: true });
+
+  if (error) throw new AppError('TIMESERIES_QUERY_FAILED', error.message, 500);
+
+  // Build hour buckets aligned to the current hour
+  const buckets = new Map<string, { events: number; users: Set<string> }>();
+  const now = Date.now();
+  for (let i = hours - 1; i >= 0; i--) {
+    const ts = new Date(now - i * 60 * 60 * 1000);
+    ts.setMinutes(0, 0, 0);
+    ts.setMilliseconds(0);
+    buckets.set(ts.toISOString(), { events: 0, users: new Set() });
+  }
+
+  for (const row of (data ?? []) as { occurred_at: string; user_id: string | null }[]) {
+    const ts = new Date(row.occurred_at);
+    ts.setMinutes(0, 0, 0);
+    ts.setMilliseconds(0);
+    const key = ts.toISOString();
+    if (buckets.has(key)) {
+      const b = buckets.get(key)!;
+      b.events++;
+      if (row.user_id) b.users.add(row.user_id);
+    }
+  }
+
+  return Array.from(buckets.entries()).map(([ts, b]) => ({
+    ts,
+    events: b.events,
+    users: b.users.size,
+  }));
+}
+
+/** Category breakdown for the last 24h — direct from analytics_events. */
+export async function getCategoryBreakdown(): Promise<{ category: EventCategory; events: number }[]> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('analytics_events')
+    .select('category')
+    .gte('occurred_at', since);
+
+  if (error) throw new AppError('CATEGORY_QUERY_FAILED', error.message, 500);
+
+  const counts = new Map<string, number>();
+  for (const row of (data ?? []) as { category: string }[]) {
+    counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries()).map(([category, events]) => ({
+    category: category as EventCategory,
+    events,
+  }));
 }
 
 /** Top active users in the last 24h. Joins the per-day MV with the user table. */

@@ -2,7 +2,9 @@ import 'server-only';
 import { scoped } from '../logger';
 import {
   getActiveUsers,
+  getCategoryBreakdown,
   getDashboardKpis,
+  getEventsTimeSeries,
   getPortalSummaries,
   getRecentSessions,
   type UserActivityRow,
@@ -57,8 +59,10 @@ export const fetchActiveUsers = (limit = 12): Promise<UserActivityRow[]> =>
 export const fetchRecentActivity = (limit = 20): Promise<RealtimeActivityItem[]> =>
   withMockFallback('activity', () => getRealtimeActivity(limit), () => mockRecentActivity(limit));
 
-/** Pure mocks (no live source yet — these aggregations come in Phase 6). */
-export const fetchEventsTimeSeries = async (): Promise<TimePoint[]> => mockEventsTimeSeries();
-export const fetchCategoryBreakdown = async (): Promise<
-  { category: EventCategory; events: number }[]
-> => mockCategoryBreakdown();
+/** Hourly event + user time series — real DB query, falls back to mock. */
+export const fetchEventsTimeSeries = (hours = 24): Promise<TimePoint[]> =>
+  withMockFallback('timeseries', () => getEventsTimeSeries(hours), () => mockEventsTimeSeries(hours));
+
+/** Category breakdown — real DB query, falls back to mock. */
+export const fetchCategoryBreakdown = (): Promise<{ category: EventCategory; events: number }[]> =>
+  withMockFallback('categories', getCategoryBreakdown, mockCategoryBreakdown);

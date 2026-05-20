@@ -50,6 +50,27 @@ export async function insertEventsBatch(
 }
 
 /**
+ * Upsert any user IDs from the batch into analytics_users so the FK on
+ * analytics_events.user_id is satisfied. Portals use their own Supabase auth;
+ * migration 0005 removed the FK that once required analytics_users.id to exist
+ * in auth.users, so any UUID is now valid.
+ */
+async function ensureUsersForBatch(events: TrackEventInput[]): Promise<void> {
+  const userIds = [...new Set(events.map((e) => e.userId).filter((id): id is string => !!id))];
+  if (userIds.length === 0) return;
+
+  const rows = userIds.map((id) => ({ id }));
+  const { error } = await getSupabaseAdmin()
+    .from('analytics_users')
+    .upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+  // Non-fatal: if this fails (e.g. FK still in place before migration runs),
+  // we log and continue — insertEventsBatch will null out user_ids below.
+  if (error) {
+    console.warn('[analytics] ensureUsersForBatch failed — user_id will be omitted:', error.message);
+  }
+}
+
+/**
  * Upsert sessions referenced by an event batch. Only inserts brand-new
  * sessions; existing rows are touched by the per-event trigger.
  */
@@ -57,6 +78,9 @@ export async function ensureSessionsForBatch(
   events: TrackEventInput[],
   ctx: InsertContext = {},
 ): Promise<void> {
+  // Upsert users first so the FK on analytics_sessions.user_id is satisfied.
+  await ensureUsersForBatch(events);
+
   const sessions = new Map<string, { user_id: string | null; portal_id: string }>();
   for (const e of events) {
     if (e.sessionId) {
