@@ -2,12 +2,17 @@ export const ROUTES = {
   home: '/',
   dashboard: '/dashboard',
   users: '/dashboard/users',
-  portals: '/dashboard/portals',
-  realtime: '/dashboard/realtime',
+  applications: '/dashboard/portals',         // existing route, generic label
+  live: '/dashboard/realtime',                // existing route, generic label
   reports: '/dashboard/reports',
   workflows: '/dashboard/workflows',
   projects: '/dashboard/projects',
+  retention: '/dashboard/retention',
+  anomalies: '/dashboard/anomalies',
   login: '/login',
+  // Legacy aliases — kept for any external links/bookmarks
+  portals: '/dashboard/portals',
+  realtime: '/dashboard/realtime',
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

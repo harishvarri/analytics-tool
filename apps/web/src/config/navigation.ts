@@ -1,5 +1,15 @@
 import type { LucideIcon } from 'lucide-react';
-import { Activity, BarChart3, FolderKanban, GitBranch, LayoutDashboard, Network, Users } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  FolderKanban,
+  GitBranch,
+  LayoutDashboard,
+  Network,
+  Repeat2,
+  Users,
+} from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 
 export interface NavItem {
@@ -9,47 +19,92 @@ export interface NavItem {
   description?: string;
 }
 
-export const PRIMARY_NAV: readonly NavItem[] = [
+export interface NavSection {
+  label: string | null;       // null = unlabelled (top section)
+  items: readonly NavItem[];
+}
+
+/**
+ * Sidebar information architecture, modelled after enterprise analytics
+ * platforms (Datadog, Mixpanel, PostHog). Grouped by intent rather than data
+ * source so adding a new project/app does not require restructuring nav.
+ */
+export const NAV_SECTIONS: readonly NavSection[] = [
   {
-    label: 'Overview',
-    href: ROUTES.dashboard,
-    icon: LayoutDashboard,
-    description: 'High-level platform health and KPIs',
+    label: null,
+    items: [
+      {
+        label: 'Overview',
+        href: ROUTES.dashboard,
+        icon: LayoutDashboard,
+        description: 'Platform-wide KPIs and health',
+      },
+      {
+        label: 'Applications',
+        href: ROUTES.applications,
+        icon: Network,
+        description: 'Per-application usage and performance',
+      },
+    ],
   },
   {
-    label: 'Users',
-    href: ROUTES.users,
-    icon: Users,
-    description: 'User-level analytics and engagement',
-  },
-  {
-    label: 'Portals',
-    href: ROUTES.portals,
-    icon: Network,
-    description: 'Per-portal usage and performance',
-  },
-  {
-    label: 'Workflows',
-    href: ROUTES.workflows,
-    icon: GitBranch,
-    description: 'Cycle time, throughput, bottlenecks and aging tickets',
-  },
-  {
-    label: 'Projects',
-    href: ROUTES.projects,
-    icon: FolderKanban,
-    description: 'Project Health Index per project',
+    label: 'Intelligence',
+    items: [
+      {
+        label: 'Workflows',
+        href: ROUTES.workflows,
+        icon: GitBranch,
+        description: 'Cycle time, throughput, bottlenecks',
+      },
+      {
+        label: 'Projects',
+        href: ROUTES.projects,
+        icon: FolderKanban,
+        description: 'Project Health Index portfolio',
+      },
+      {
+        label: 'Retention',
+        href: ROUTES.retention,
+        icon: Repeat2,
+        description: 'Cohort retention and dormant users',
+      },
+      {
+        label: 'Anomalies',
+        href: ROUTES.anomalies,
+        icon: AlertTriangle,
+        description: 'Statistical alerts on metric deviations',
+      },
+    ],
   },
   {
     label: 'Realtime',
-    href: ROUTES.realtime,
-    icon: Activity,
-    description: 'Live activity feed across all portals',
+    items: [
+      {
+        label: 'Live Feed',
+        href: ROUTES.live,
+        icon: Activity,
+        description: 'Streaming event tail across all apps',
+      },
+      {
+        label: 'Users',
+        href: ROUTES.users,
+        icon: Users,
+        description: 'User-level activity and engagement',
+      },
+    ],
   },
   {
-    label: 'Reports',
-    href: ROUTES.reports,
-    icon: BarChart3,
-    description: 'Generated analytics reports',
+    label: 'Admin',
+    items: [
+      {
+        label: 'Reports',
+        href: ROUTES.reports,
+        icon: BarChart3,
+        description: 'Saved and scheduled reports',
+      },
+    ],
   },
 ] as const;
+
+/** Backwards-compatible flat list used by the mobile sheet menu. */
+export const PRIMARY_NAV: readonly NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);

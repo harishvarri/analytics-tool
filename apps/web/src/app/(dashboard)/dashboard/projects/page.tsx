@@ -98,8 +98,8 @@ export default async function ProjectsPage() {
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
             PHI is computed from <code className="rounded bg-muted px-1.5 py-0.5 text-[10px]">ticket.created</code>,{' '}
             <code className="rounded bg-muted px-1.5 py-0.5 text-[10px]">ticket.status_changed</code>, and{' '}
-            <code className="rounded bg-muted px-1.5 py-0.5 text-[10px]">bug.reported</code> events. Once
-            Sentinel users start creating and moving tickets, projects will appear here automatically.
+            <code className="rounded bg-muted px-1.5 py-0.5 text-[10px]">bug.reported</code> signals from any
+            connected application. Projects appear here automatically as activity flows in.
           </p>
         </div>
       )}

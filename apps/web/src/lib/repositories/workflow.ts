@@ -45,21 +45,55 @@ export interface AgingTicket {
 
 // ── Queries ─────────────────────────────────────────────────────────────────
 
+export interface WorkflowFilter {
+  appId?:     string;
+  projectId?: string;
+}
+
 /** Single-row scorecard for the KPI strip. */
-export async function getWorkflowKpis(): Promise<WorkflowKpis> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('v_workflow_kpis')
-    .select('*')
-    .limit(1)
-    .maybeSingle();
+export async function getWorkflowKpis(filter: WorkflowFilter = {}): Promise<WorkflowKpis> {
+  // The base v_workflow_kpis view ignores filters by design (it's a scorecard).
+  // When a filter is applied we compute from v_aging_tickets + v_ticket_transitions directly.
+  if (!filter.appId && !filter.projectId) {
+    const { data, error } = await getSupabaseAdmin()
+      .from('v_workflow_kpis')
+      .select('*')
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new AppError('WORKFLOW_KPIS_FAILED', error.message, 500);
+    return {
+      medianCycleHours: data?.median_cycle_hours ?? null,
+      throughput7d:     data?.throughput_7d     ?? 0,
+      wipTotal:         data?.wip_total         ?? 0,
+      agingCount:       data?.aging_count       ?? 0,
+    };
+  }
 
-  if (error) throw new AppError('WORKFLOW_KPIS_FAILED', error.message, 500);
+  // Filtered path: compute against v_aging_tickets + v_ticket_transitions.
+  const admin = getSupabaseAdmin();
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  let throughputQ = admin
+    .from('v_ticket_transitions')
+    .select('ticket_key', { count: 'exact', head: true })
+    .eq('to_status', 'Done')
+    .gte('occurred_at', sevenDaysAgo);
+  if (filter.appId)     throughputQ = throughputQ.eq('portal_id', filter.appId);
+  if (filter.projectId) throughputQ = throughputQ.eq('project_id', filter.projectId);
+
+  let agingQ = admin.from('v_aging_tickets').select('is_aging, project_id');
+  if (filter.projectId) agingQ = agingQ.eq('project_id', filter.projectId);
+
+  const [throughputRes, agingRes] = await Promise.all([throughputQ, agingQ]);
+  if (throughputRes.error) throw new AppError('WORKFLOW_KPIS_FAILED', throughputRes.error.message, 500);
+  if (agingRes.error)      throw new AppError('WORKFLOW_KPIS_FAILED', agingRes.error.message, 500);
+
+  const agingRows = (agingRes.data ?? []) as { is_aging: boolean }[];
   return {
-    medianCycleHours: data?.median_cycle_hours ?? null,
-    throughput7d:     data?.throughput_7d     ?? 0,
-    wipTotal:         data?.wip_total         ?? 0,
-    agingCount:       data?.aging_count       ?? 0,
+    medianCycleHours: null,                                    // omitted under filter
+    throughput7d:     throughputRes.count ?? 0,
+    wipTotal:         agingRows.length,
+    agingCount:       agingRows.filter((r) => r.is_aging).length,
   };
 }
 
@@ -109,11 +143,10 @@ export async function getThroughputWeekly(): Promise<ThroughputPoint[]> {
  * Currently-open tickets ranked by how long they've been in their stage,
  * with bottleneck flag set when dwell exceeds the historical p75 for that stage.
  */
-export async function getAgingTickets(limit = 20): Promise<AgingTicket[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('v_aging_tickets')
-    .select('*')
-    .limit(limit);
+export async function getAgingTickets(limit = 20, filter: WorkflowFilter = {}): Promise<AgingTicket[]> {
+  let q = getSupabaseAdmin().from('v_aging_tickets').select('*').limit(limit);
+  if (filter.projectId) q = q.eq('project_id', filter.projectId);
+  const { data, error } = await q;
 
   if (error) throw new AppError('AGING_TICKETS_FAILED', error.message, 500);
 
@@ -138,10 +171,10 @@ export async function getAgingTickets(limit = 20): Promise<AgingTicket[]> {
  * (i.e., where work is statistically stuck). Counted from v_aging_tickets.
  */
 export interface BottleneckRow { status: string; agingCount: number; totalInStage: number; }
-export async function getBottlenecks(): Promise<BottleneckRow[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('v_aging_tickets')
-    .select('status, is_aging');
+export async function getBottlenecks(filter: WorkflowFilter = {}): Promise<BottleneckRow[]> {
+  let q = getSupabaseAdmin().from('v_aging_tickets').select('status, is_aging');
+  if (filter.projectId) q = q.eq('project_id', filter.projectId);
+  const { data, error } = await q;
 
   if (error) throw new AppError('BOTTLENECKS_FAILED', error.message, 500);
 

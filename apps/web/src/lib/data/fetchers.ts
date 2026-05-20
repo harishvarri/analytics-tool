@@ -20,6 +20,7 @@ import {
   type BottleneckRow,
   type CycleTimeRow,
   type ThroughputPoint,
+  type WorkflowFilter,
   type WorkflowKpis,
 } from '../repositories/workflow';
 import {
@@ -28,6 +29,26 @@ import {
   type PortfolioSummary,
   type ProjectHealth,
 } from '../repositories/projectHealth';
+import {
+  listApplications,
+  listProjects,
+  type ApplicationOption,
+  type ProjectOption,
+} from '../repositories/workspace';
+import {
+  getDormantUsers,
+  getRetentionCohorts,
+  getTopJourneys,
+  type DormantUser,
+  type JourneyEdge,
+  type RetentionCohort,
+} from '../repositories/retention';
+import {
+  getAnomalySignals,
+  getAnomalySummary,
+  type AnomalySignal,
+  type AnomalySummary,
+} from '../repositories/anomalies';
 import {
   mockActiveUsers,
   mockCategoryBreakdown,
@@ -92,8 +113,8 @@ export const fetchCategoryBreakdown = (): Promise<{ category: EventCategory; eve
 
 const emptyWorkflowKpis: WorkflowKpis = { medianCycleHours: null, throughput7d: 0, wipTotal: 0, agingCount: 0 };
 
-export const fetchWorkflowKpis = (): Promise<WorkflowKpis> =>
-  withMockFallback('workflow.kpis', getWorkflowKpis, () => emptyWorkflowKpis);
+export const fetchWorkflowKpis = (filter: WorkflowFilter = {}): Promise<WorkflowKpis> =>
+  withMockFallback('workflow.kpis', () => getWorkflowKpis(filter), () => emptyWorkflowKpis);
 
 export const fetchCycleTimeByStatus = (): Promise<CycleTimeRow[]> =>
   withMockFallback('workflow.cycle', getCycleTimeByStatus, () => []);
@@ -101,11 +122,11 @@ export const fetchCycleTimeByStatus = (): Promise<CycleTimeRow[]> =>
 export const fetchThroughputWeekly = (): Promise<ThroughputPoint[]> =>
   withMockFallback('workflow.throughput', getThroughputWeekly, () => []);
 
-export const fetchAgingTickets = (limit = 20): Promise<AgingTicket[]> =>
-  withMockFallback('workflow.aging', () => getAgingTickets(limit), () => []);
+export const fetchAgingTickets = (limit = 20, filter: WorkflowFilter = {}): Promise<AgingTicket[]> =>
+  withMockFallback('workflow.aging', () => getAgingTickets(limit, filter), () => []);
 
-export const fetchBottlenecks = (): Promise<BottleneckRow[]> =>
-  withMockFallback('workflow.bottlenecks', getBottlenecks, () => []);
+export const fetchBottlenecks = (filter: WorkflowFilter = {}): Promise<BottleneckRow[]> =>
+  withMockFallback('workflow.bottlenecks', () => getBottlenecks(filter), () => []);
 
 // ── Project Health Index (Module C) ─────────────────────────────────────────
 
@@ -116,3 +137,34 @@ export const fetchProjectHealthList = (): Promise<ProjectHealth[]> =>
 
 export const fetchPortfolioSummary = (): Promise<PortfolioSummary> =>
   withMockFallback('phi.summary', getPortfolioSummary, () => emptyPortfolio);
+
+// ── Workspace (applications + projects for the global filter) ───────────────
+
+export const fetchApplications = (): Promise<ApplicationOption[]> =>
+  withMockFallback('workspace.apps', listApplications, () => []);
+
+export const fetchProjects = (appId?: string): Promise<ProjectOption[]> =>
+  withMockFallback('workspace.projects', () => listProjects(appId), () => []);
+
+// ── Retention (Module D) ────────────────────────────────────────────────────
+
+export const fetchRetentionCohorts = (): Promise<RetentionCohort[]> =>
+  withMockFallback('retention.cohorts', getRetentionCohorts, () => []);
+
+export const fetchDormantUsers = (limit = 25): Promise<DormantUser[]> =>
+  withMockFallback('retention.dormant', () => getDormantUsers(limit), () => []);
+
+export const fetchTopJourneys = (limit = 12): Promise<JourneyEdge[]> =>
+  withMockFallback('retention.journeys', () => getTopJourneys(limit), () => []);
+
+// ── Anomaly Alerts (Module E) ───────────────────────────────────────────────
+
+const emptyAnomalySummary: AnomalySummary = {
+  critical: 0, warning: 0, totalActive: 0, topSeverity: null,
+};
+
+export const fetchAnomalySignals = (): Promise<AnomalySignal[]> =>
+  withMockFallback('anomalies.list', getAnomalySignals, () => []);
+
+export const fetchAnomalySummary = (): Promise<AnomalySummary> =>
+  withMockFallback('anomalies.summary', getAnomalySummary, () => emptyAnomalySummary);

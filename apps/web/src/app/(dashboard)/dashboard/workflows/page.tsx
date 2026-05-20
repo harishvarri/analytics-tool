@@ -16,6 +16,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+interface PageProps {
+  searchParams: Promise<{ app?: string; project?: string }>;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtHours(hours: number | null): string {
@@ -42,13 +46,19 @@ const SEVERITY_TONE: Record<string, string> = {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
-export default async function WorkflowsPage() {
+export default async function WorkflowsPage({ searchParams }: PageProps) {
+  const { app, project } = await searchParams;
+  const filter = {
+    ...(app     ? { appId: app }         : {}),
+    ...(project ? { projectId: project } : {}),
+  };
+
   const [kpis, cycle, throughput, aging, bottlenecks] = await Promise.all([
-    fetchWorkflowKpis(),
+    fetchWorkflowKpis(filter),
     fetchCycleTimeByStatus(),
     fetchThroughputWeekly(),
-    fetchAgingTickets(15),
-    fetchBottlenecks(),
+    fetchAgingTickets(15, filter),
+    fetchBottlenecks(filter),
   ]);
 
   // Order statuses canonically for charts/tables
@@ -117,11 +127,12 @@ export default async function WorkflowsPage() {
           <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted">
             <Clock className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="text-sm font-medium">No workflow data yet</div>
+          <div className="text-sm font-medium">No workflow data for the selected scope</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
             Workflow Intelligence is computed from{' '}
             <code className="rounded bg-muted px-1.5 py-0.5 text-[10px]">ticket.status_changed</code>{' '}
-            events. Once Sentinel users move a few tickets across statuses, this page will populate.
+            events emitted by any connected application. Once tickets move across statuses, the
+            charts, KPIs, and bottleneck panels will populate automatically.
           </p>
         </div>
       )}
