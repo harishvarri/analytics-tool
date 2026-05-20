@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Activity, BarChart3, LayoutDashboard, Network, Users } from 'lucide-react';
+import { Activity, BarChart3, GitBranch, LayoutDashboard, Network, Users } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 
 export interface NavItem {
@@ -27,6 +27,12 @@ export const PRIMARY_NAV: readonly NavItem[] = [
     href: ROUTES.portals,
     icon: Network,
     description: 'Per-portal usage and performance',
+  },
+  {
+    label: 'Workflows',
+    href: ROUTES.workflows,
+    icon: GitBranch,
+    description: 'Cycle time, throughput, bottlenecks and aging tickets',
   },
   {
     label: 'Realtime',

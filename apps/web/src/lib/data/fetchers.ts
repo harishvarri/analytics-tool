@@ -11,6 +11,18 @@ import {
 } from '../repositories/analytics';
 import { getRealtimeActivity } from '../repositories/events';
 import {
+  getAgingTickets,
+  getBottlenecks,
+  getCycleTimeByStatus,
+  getThroughputWeekly,
+  getWorkflowKpis,
+  type AgingTicket,
+  type BottleneckRow,
+  type CycleTimeRow,
+  type ThroughputPoint,
+  type WorkflowKpis,
+} from '../repositories/workflow';
+import {
   mockActiveUsers,
   mockCategoryBreakdown,
   mockDashboardKpis,
@@ -66,3 +78,25 @@ export const fetchEventsTimeSeries = (hours = 24): Promise<TimePoint[]> =>
 /** Category breakdown — real DB query, falls back to mock. */
 export const fetchCategoryBreakdown = (): Promise<{ category: EventCategory; events: number }[]> =>
   withMockFallback('categories', getCategoryBreakdown, mockCategoryBreakdown);
+
+// ── Workflow Intelligence (Module B) ────────────────────────────────────────
+//
+// These return empty defaults (not mock) when the DB is empty — workflow
+// dashboards should clearly show "no data yet" rather than fabricated numbers.
+
+const emptyWorkflowKpis: WorkflowKpis = { medianCycleHours: null, throughput7d: 0, wipTotal: 0, agingCount: 0 };
+
+export const fetchWorkflowKpis = (): Promise<WorkflowKpis> =>
+  withMockFallback('workflow.kpis', getWorkflowKpis, () => emptyWorkflowKpis);
+
+export const fetchCycleTimeByStatus = (): Promise<CycleTimeRow[]> =>
+  withMockFallback('workflow.cycle', getCycleTimeByStatus, () => []);
+
+export const fetchThroughputWeekly = (): Promise<ThroughputPoint[]> =>
+  withMockFallback('workflow.throughput', getThroughputWeekly, () => []);
+
+export const fetchAgingTickets = (limit = 20): Promise<AgingTicket[]> =>
+  withMockFallback('workflow.aging', () => getAgingTickets(limit), () => []);
+
+export const fetchBottlenecks = (): Promise<BottleneckRow[]> =>
+  withMockFallback('workflow.bottlenecks', getBottlenecks, () => []);
