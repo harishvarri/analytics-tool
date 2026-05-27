@@ -204,15 +204,10 @@ export default async function FeaturesPage() {
           actions={
             <ExportButton
               filename="feature-actions"
-              rows={actions}
-              columns={[
-                { header: 'Feature', accessor: (a) => a.feature },
-                { header: 'Action', accessor: (a) => a.action },
-                { header: 'Events', accessor: (a) => a.totalEvents },
-                { header: 'Users', accessor: (a) => a.uniqueUsers },
-                { header: 'Sessions', accessor: (a) => a.uniqueSessions },
-                { header: 'Last seen', accessor: (a) => a.lastSeen },
-              ]}
+              headers={['Feature', 'Action', 'Events', 'Users', 'Sessions', 'Last seen']}
+              rows={actions.map((a) => [
+                a.feature, a.action, a.totalEvents, a.uniqueUsers, a.uniqueSessions, a.lastSeen,
+              ])}
             />
           }
         >

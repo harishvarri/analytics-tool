@@ -5,28 +5,27 @@ import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 
 /**
- * Client-side CSV export. Takes already-serialized rows (plain objects) plus a
- * column spec, builds a CSV in the browser, and triggers a download — no
- * backend round-trip. Safe to drop into any server-rendered page because the
- * data is passed as plain props.
+ * Client-side CSV export.
+ *
+ * IMPORTANT: this is a Client Component, so every prop must be serializable —
+ * no functions may cross the Server → Client boundary. Callers therefore pass
+ * already-flattened data: a `headers` string array and a `rows` 2D array of
+ * primitive cells. The server component owns the row/column mapping.
  */
 
-export interface ExportColumn<T> {
-  /** Header text in the CSV */
-  header: string;
-  /** Cell accessor — returns a primitive */
-  accessor: (row: T) => string | number | boolean | null | undefined;
-}
+export type CsvCell = string | number | boolean | null | undefined;
 
-interface Props<T> {
-  rows: ReadonlyArray<T>;
-  columns: ReadonlyArray<ExportColumn<T>>;
+interface Props {
   /** File name without extension */
   filename: string;
+  /** Column headers */
+  headers: readonly string[];
+  /** Row data — each inner array is one row of primitive cells */
+  rows: ReadonlyArray<readonly CsvCell[]>;
   label?: string;
 }
 
-function escapeCell(v: string | number | boolean | null | undefined): string {
+function escapeCell(v: CsvCell): string {
   if (v === null || v === undefined) return '';
   const s = String(v);
   // Quote if the value contains comma, quote, or newline
@@ -34,14 +33,13 @@ function escapeCell(v: string | number | boolean | null | undefined): string {
   return s;
 }
 
-export function ExportButton<T>({ rows, columns, filename, label = 'Export CSV' }: Props<T>) {
+export function ExportButton({ filename, headers, rows, label = 'Export CSV' }: Props) {
   const handleExport = useCallback(() => {
-    const headerLine = columns.map((c) => escapeCell(c.header)).join(',');
-    const dataLines = rows.map((row) =>
-      columns.map((c) => escapeCell(c.accessor(row))).join(','),
-    );
+    const headerLine = headers.map(escapeCell).join(',');
+    const dataLines = rows.map((row) => row.map(escapeCell).join(','));
     const csv = [headerLine, ...dataLines].join('\r\n');
 
+    // Prepend a UTF-8 BOM so Excel detects encoding correctly.
     const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -51,7 +49,7 @@ export function ExportButton<T>({ rows, columns, filename, label = 'Export CSV' 
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [rows, columns, filename]);
+  }, [filename, headers, rows]);
 
   return (
     <Button

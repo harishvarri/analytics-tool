@@ -115,13 +115,8 @@ export default async function AudiencePage({ searchParams }: PageProps) {
           actions={
             <ExportButton
               filename="audience-timezones"
-              rows={byDimension.timezone}
-              columns={[
-                { header: 'Timezone', accessor: (r: AudienceRow) => r.value },
-                { header: 'Users', accessor: (r: AudienceRow) => r.users },
-                { header: 'Sessions', accessor: (r: AudienceRow) => r.sessions },
-                { header: 'Events', accessor: (r: AudienceRow) => r.events },
-              ]}
+              headers={['Timezone', 'Users', 'Sessions', 'Events']}
+              rows={byDimension.timezone.map((r) => [r.value, r.users, r.sessions, r.events])}
             />
           }
         >

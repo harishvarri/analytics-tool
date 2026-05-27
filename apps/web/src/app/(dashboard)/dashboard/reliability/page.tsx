@@ -195,18 +195,14 @@ export default async function ReliabilityPage() {
           actions={
             <ExportButton
               filename="error-groups"
-              rows={groups}
-              columns={[
-                { header: 'Sample message', accessor: (g) => g.sampleMessage },
-                { header: 'Error name', accessor: (g) => g.errorName },
-                { header: 'Types', accessor: (g) => g.errorTypes.join('|') },
-                { header: 'Occurrences 24h', accessor: (g) => g.occurrences24h },
-                { header: 'Occurrences total', accessor: (g) => g.totalOccurrences },
-                { header: 'Affected users', accessor: (g) => g.affectedUsers },
-                { header: 'Affected sessions', accessor: (g) => g.affectedSessions },
-                { header: 'First seen', accessor: (g) => g.firstSeen },
-                { header: 'Last seen', accessor: (g) => g.lastSeen },
+              headers={[
+                'Sample message', 'Error name', 'Types', 'Occurrences 24h', 'Occurrences total',
+                'Affected users', 'Affected sessions', 'First seen', 'Last seen',
               ]}
+              rows={groups.map((g) => [
+                g.sampleMessage, g.errorName, g.errorTypes.join('|'), g.occurrences24h,
+                g.totalOccurrences, g.affectedUsers, g.affectedSessions, g.firstSeen, g.lastSeen,
+              ])}
             />
           }
         >

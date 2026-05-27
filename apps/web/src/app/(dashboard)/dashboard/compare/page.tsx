@@ -4,7 +4,6 @@ import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchProjectComparison } from '@/lib/data/fetchers';
-import type { ProjectComparisonRow } from '@/lib/repositories/crossProject';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,18 +37,14 @@ export default async function ComparePage() {
         actions={
           <ExportButton
             filename="cross-project-comparison"
-            rows={rows}
-            columns={[
-              { header: 'Application', accessor: (r: ProjectComparisonRow) => r.portalName },
-              { header: 'Users 30d', accessor: (r) => r.users30d },
-              { header: 'Users 7d', accessor: (r) => r.users7d },
-              { header: 'Sessions 30d', accessor: (r) => r.sessions30d },
-              { header: 'Events 30d', accessor: (r) => r.events30d },
-              { header: 'Errors 30d', accessor: (r) => r.errors30d },
-              { header: 'Error rate %', accessor: (r) => r.errorRatePct },
-              { header: 'Features used', accessor: (r) => r.featuresUsed },
-              { header: 'Stickiness %', accessor: (r) => r.stickinessPct },
+            headers={[
+              'Application', 'Users 30d', 'Users 7d', 'Sessions 30d', 'Events 30d',
+              'Errors 30d', 'Error rate %', 'Features used', 'Stickiness %',
             ]}
+            rows={rows.map((r) => [
+              r.portalName, r.users30d, r.users7d, r.sessions30d, r.events30d,
+              r.errors30d, r.errorRatePct, r.featuresUsed, r.stickinessPct,
+            ])}
           />
         }
       />
