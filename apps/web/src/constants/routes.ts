@@ -11,6 +11,8 @@ export const ROUTES = {
   anomalies: '/dashboard/anomalies',
   features:  '/dashboard/features',
   reliability: '/dashboard/reliability',
+  audience:  '/dashboard/audience',
+  funnels:   '/dashboard/funnels',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks
   portals: '/dashboard/portals',

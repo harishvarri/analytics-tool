@@ -17,6 +17,7 @@ import { useCallback } from 'react';
 export interface AppFilters {
   app:     string | null;
   project: string | null;
+  range:   string | null;
 }
 
 export function useFilters() {
@@ -26,6 +27,7 @@ export function useFilters() {
 
   const app     = search.get('app');
   const project = search.get('project');
+  const range   = search.get('range');
 
   const setFilters = useCallback(
     (patch: Partial<AppFilters>) => {
@@ -44,5 +46,5 @@ export function useFilters() {
     [router, pathname, search],
   );
 
-  return { app, project, setFilters };
+  return { app, project, range, setFilters };
 }

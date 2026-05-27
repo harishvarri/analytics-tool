@@ -19,6 +19,7 @@ import { NAV_SECTIONS } from '@/config/navigation';
 import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
 import { WorkspaceFilter } from './WorkspaceFilter';
+import { RangePicker } from './RangePicker';
 import type { ApplicationOption, ProjectOption } from '@/lib/repositories/workspace';
 
 interface Props {
@@ -76,8 +77,11 @@ export function TopbarClient({ applications, projects }: Props) {
         </SheetContent>
       </Sheet>
 
-      {/* Workspace filter (Application + Project) */}
+      {/* Workspace filter (Application + Project) + date range */}
       <WorkspaceFilter applications={applications} projects={projects} />
+      <div className="hidden md:block">
+        <RangePicker />
+      </div>
 
       {/* Search */}
       <div className="hidden flex-1 items-center gap-2 md:flex">

@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { FeatureWeeklyChart } from '@/components/charts/FeatureWeeklyChart';
+import { ExportButton } from '@/components/shared/ExportButton';
 import {
   fetchFeatureActions,
   fetchFeaturePortfolioStats,
@@ -200,6 +201,20 @@ export default async function FeaturesPage() {
         <ChartCard
           title="Action breakdown"
           description="Individual event actions fired within each feature namespace (last 28 days)"
+          actions={
+            <ExportButton
+              filename="feature-actions"
+              rows={actions}
+              columns={[
+                { header: 'Feature', accessor: (a) => a.feature },
+                { header: 'Action', accessor: (a) => a.action },
+                { header: 'Events', accessor: (a) => a.totalEvents },
+                { header: 'Users', accessor: (a) => a.uniqueUsers },
+                { header: 'Sessions', accessor: (a) => a.uniqueSessions },
+                { header: 'Last seen', accessor: (a) => a.lastSeen },
+              ]}
+            />
+          }
         >
           <div className="space-y-6">
             {Array.from(actionsByFeature.entries()).map(([feat, acts]) => (

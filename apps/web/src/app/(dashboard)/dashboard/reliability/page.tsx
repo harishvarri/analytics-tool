@@ -5,6 +5,7 @@ import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { ErrorRateChart } from '@/components/charts/ErrorRateChart';
+import { ExportButton } from '@/components/shared/ExportButton';
 import {
   fetchErrorGroups,
   fetchErrorRateTrend,
@@ -191,6 +192,23 @@ export default async function ReliabilityPage() {
         <ChartCard
           title="Top error groups"
           description="Errors grouped by normalized fingerprint, ranked by 24h occurrences"
+          actions={
+            <ExportButton
+              filename="error-groups"
+              rows={groups}
+              columns={[
+                { header: 'Sample message', accessor: (g) => g.sampleMessage },
+                { header: 'Error name', accessor: (g) => g.errorName },
+                { header: 'Types', accessor: (g) => g.errorTypes.join('|') },
+                { header: 'Occurrences 24h', accessor: (g) => g.occurrences24h },
+                { header: 'Occurrences total', accessor: (g) => g.totalOccurrences },
+                { header: 'Affected users', accessor: (g) => g.affectedUsers },
+                { header: 'Affected sessions', accessor: (g) => g.affectedSessions },
+                { header: 'First seen', accessor: (g) => g.firstSeen },
+                { header: 'Last seen', accessor: (g) => g.lastSeen },
+              ]}
+            />
+          }
         >
           <div className="space-y-2">
             {groups.map((g) => (

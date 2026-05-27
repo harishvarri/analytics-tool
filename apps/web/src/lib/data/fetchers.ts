@@ -70,6 +70,12 @@ import {
   type ReliabilityKpis,
 } from '../repositories/reliability';
 import {
+  getAudienceBreakdown,
+  type AudienceBreakdown,
+} from '../repositories/audience';
+import { getFunnel, type FunnelResult } from '../repositories/funnels';
+import type { FunnelDef } from '@/config/funnels';
+import {
   mockActiveUsers,
   mockCategoryBreakdown,
   mockDashboardKpis,
@@ -229,3 +235,26 @@ export const fetchErrorRateTrend = (): Promise<ErrorRatePoint[]> =>
 
 export const fetchReliabilityKpis = (): Promise<ReliabilityKpis> =>
   withMockFallback('reliability.kpis', getReliabilityKpis, () => emptyReliabilityKpis);
+
+// ── Audience & Tech (Module H) ───────────────────────────────────────────────
+
+const emptyAudience: AudienceBreakdown = {
+  rows: [],
+  byDimension: { browser: [], os: [], device_type: [], language: [], timezone: [], region: [], screen: [] },
+  totalUsers: 0,
+};
+
+export const fetchAudienceBreakdown = (days = 30): Promise<AudienceBreakdown> =>
+  withMockFallback('audience', () => getAudienceBreakdown(days), () => emptyAudience);
+
+// ── Funnels (Module I) ───────────────────────────────────────────────────────
+
+export const fetchFunnel = (def: FunnelDef, days = 30): Promise<FunnelResult> =>
+  withMockFallback('funnel', () => getFunnel(def, days), () => ({
+    id: def.id, name: def.name, description: def.description,
+    steps: def.steps.map((s, i) => ({
+      index: i, event: s.event, label: s.label,
+      users: 0, conversionPct: 0, stepPct: 0, dropOff: 0,
+    })),
+    entered: 0, completed: 0, overallPct: 0, biggestDropIndex: null,
+  }));
