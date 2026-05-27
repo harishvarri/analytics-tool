@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Network,
   Repeat2,
+  ShieldCheck,
   Sparkles,
   Users,
 } from 'lucide-react';
@@ -80,6 +81,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.features,
         icon: Sparkles,
         description: 'Feature adoption rates, sparklines, and decay curves',
+      },
+      {
+        label: 'Reliability',
+        href: ROUTES.reliability,
+        icon: ShieldCheck,
+        description: 'Error groups, error rate, and SLO budget burn',
       },
     ],
   },

@@ -10,6 +10,7 @@ export const ROUTES = {
   retention: '/dashboard/retention',
   anomalies: '/dashboard/anomalies',
   features:  '/dashboard/features',
+  reliability: '/dashboard/reliability',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks
   portals: '/dashboard/portals',

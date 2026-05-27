@@ -62,6 +62,14 @@ import {
   type FeatureTrendPoint,
 } from '../repositories/features';
 import {
+  getErrorGroups,
+  getErrorRateTrend,
+  getReliabilityKpis,
+  type ErrorGroup,
+  type ErrorRatePoint,
+  type ReliabilityKpis,
+} from '../repositories/reliability';
+import {
   mockActiveUsers,
   mockCategoryBreakdown,
   mockDashboardKpis,
@@ -204,3 +212,20 @@ export const fetchFeatureDecay = (): Promise<FeatureDecayPoint[]> =>
 
 export const fetchFeaturePortfolioStats = (): Promise<FeaturePortfolioStats> =>
   withMockFallback('features.portfolio', getFeaturePortfolioStats, () => emptyPortfolioStats);
+
+// ── Reliability / SLO (Module G) ─────────────────────────────────────────────
+
+const emptyReliabilityKpis: ReliabilityKpis = {
+  totalSessions: 0, erroredSessions: 0, totalErrors24h: 0, errorGroups24h: 0,
+  affectedUsers24h: 0, newErrorGroups24h: 0, sloTargetPct: 99.5, errorFreePct: 100,
+  budgetBurnPct: 0,
+};
+
+export const fetchErrorGroups = (limit = 40): Promise<ErrorGroup[]> =>
+  withMockFallback('reliability.groups', () => getErrorGroups(limit), () => []);
+
+export const fetchErrorRateTrend = (): Promise<ErrorRatePoint[]> =>
+  withMockFallback('reliability.trend', getErrorRateTrend, () => []);
+
+export const fetchReliabilityKpis = (): Promise<ReliabilityKpis> =>
+  withMockFallback('reliability.kpis', getReliabilityKpis, () => emptyReliabilityKpis);
