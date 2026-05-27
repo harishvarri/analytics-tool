@@ -7,9 +7,12 @@ import {
   FolderKanban,
   GitBranch,
   LayoutDashboard,
+  Lightbulb,
   MonitorSmartphone,
   Network,
   Repeat2,
+  Route,
+  Rows3,
   ShieldCheck,
   Sparkles,
   Users,
@@ -49,11 +52,29 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         icon: Network,
         description: 'Per-application usage and performance',
       },
+      {
+        label: 'Cross-Project',
+        href: ROUTES.compare,
+        icon: Rows3,
+        description: 'Compare every application side by side',
+      },
     ],
   },
   {
     label: 'Intelligence',
     items: [
+      {
+        label: 'Smart Insights',
+        href: ROUTES.insights,
+        icon: Lightbulb,
+        description: 'Auto-generated week-over-week insights',
+      },
+      {
+        label: 'Journeys',
+        href: ROUTES.journeys,
+        icon: Route,
+        description: 'Customer journey flow (Sankey)',
+      },
       {
         label: 'Workflows',
         href: ROUTES.workflows,

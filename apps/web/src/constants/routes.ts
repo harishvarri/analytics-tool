@@ -13,6 +13,9 @@ export const ROUTES = {
   reliability: '/dashboard/reliability',
   audience:  '/dashboard/audience',
   funnels:   '/dashboard/funnels',
+  journeys:  '/dashboard/journeys',
+  compare:   '/dashboard/compare',
+  insights:  '/dashboard/insights',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks
   portals: '/dashboard/portals',

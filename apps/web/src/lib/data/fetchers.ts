@@ -75,6 +75,9 @@ import {
 } from '../repositories/audience';
 import { getFunnel, type FunnelResult } from '../repositories/funnels';
 import type { FunnelDef } from '@/config/funnels';
+import { getJourneyGraph, type JourneyGraph } from '../repositories/journeys';
+import { getProjectComparison, type ProjectComparisonRow } from '../repositories/crossProject';
+import { getInsights, type InsightsBundle } from '../repositories/insights';
 import {
   mockActiveUsers,
   mockCategoryBreakdown,
@@ -257,4 +260,22 @@ export const fetchFunnel = (def: FunnelDef, days = 30): Promise<FunnelResult> =>
       users: 0, conversionPct: 0, stepPct: 0, dropOff: 0,
     })),
     entered: 0, completed: 0, overallPct: 0, biggestDropIndex: null,
+  }));
+
+// ── Journey Flow (Module J) ──────────────────────────────────────────────────
+
+export const fetchJourneyGraph = (days = 30): Promise<JourneyGraph> =>
+  withMockFallback('journey', () => getJourneyGraph(days), () => ({ nodes: [], links: [], totalTransitions: 0 }));
+
+// ── Cross-Project Comparison (Module K) ──────────────────────────────────────
+
+export const fetchProjectComparison = (): Promise<ProjectComparisonRow[]> =>
+  withMockFallback('cross-project', getProjectComparison, () => []);
+
+// ── Smart Insights (Module L) ────────────────────────────────────────────────
+
+export const fetchInsights = (): Promise<InsightsBundle> =>
+  withMockFallback('insights', getInsights, () => ({
+    insights: [],
+    intelligence: { mostAdopted: null, fastestGrowing: null, leastUsed: null, churnRisk: null },
   }));
