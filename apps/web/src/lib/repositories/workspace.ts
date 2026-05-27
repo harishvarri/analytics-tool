@@ -21,16 +21,18 @@ export interface ProjectOption {
 
 /** Every registered application (portal). */
 export async function listApplications(): Promise<ApplicationOption[]> {
+  // Sourced from the dynamic analytics_projects registry (migration 0017) so
+  // projects onboarded via the admin flow appear automatically — no redeploy.
   const { data, error } = await getSupabaseAdmin()
-    .from('analytics_portals')
-    .select('id, name, is_active')
+    .from('analytics_projects')
+    .select('slug, name, tracking_enabled')
     .order('name', { ascending: true });
 
   if (error) throw new AppError('APPS_LIST_FAILED', error.message, 500);
 
-  return ((data ?? []) as { id: string; name: string; is_active: boolean }[])
-    .filter((r) => r.is_active !== false)
-    .map((r) => ({ id: r.id, name: r.name }));
+  return ((data ?? []) as { slug: string; name: string; tracking_enabled: boolean }[])
+    .filter((r) => r.tracking_enabled !== false)
+    .map((r) => ({ id: r.slug, name: r.name }));
 }
 
 /**

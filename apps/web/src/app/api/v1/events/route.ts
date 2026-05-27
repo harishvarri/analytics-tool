@@ -42,7 +42,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     capacity: RUNTIME.ingest.burstPerSecond,
     refillPerSec: RUNTIME.ingest.sustainedPerSecond,
   });
-  requireIngestKey(req);
+  await requireIngestKey(req);
 
   const { events } = await parseBody(req, trackEventBatchSchema, {
     maxBytes: RUNTIME.ingest.maxBodyBytes,

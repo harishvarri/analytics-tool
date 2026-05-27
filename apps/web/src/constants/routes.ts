@@ -16,6 +16,7 @@ export const ROUTES = {
   journeys:  '/dashboard/journeys',
   compare:   '/dashboard/compare',
   insights:  '/dashboard/insights',
+  manageProjects: '/dashboard/admin/projects',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks
   portals: '/dashboard/portals',

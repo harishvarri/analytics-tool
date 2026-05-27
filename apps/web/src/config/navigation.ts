@@ -13,6 +13,7 @@ import {
   Repeat2,
   Route,
   Rows3,
+  Settings2,
   ShieldCheck,
   Sparkles,
   Users,
@@ -145,6 +146,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   {
     label: 'Admin',
     items: [
+      {
+        label: 'Projects',
+        href: ROUTES.manageProjects,
+        icon: Settings2,
+        description: 'Onboard applications and manage API keys',
+      },
       {
         label: 'Reports',
         href: ROUTES.reports,

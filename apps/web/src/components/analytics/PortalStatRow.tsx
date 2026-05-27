@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PORTALS } from '@/config/portals';
+import { getPortalConfig } from '@/config/portals';
 import { PORTAL_COLOR } from '@/components/charts/ChartTheme';
 import type { PortalSummary } from '@/types/analytics';
 
@@ -11,7 +11,7 @@ interface PortalStatRowProps {
 const fmt = new Intl.NumberFormat('en-US');
 
 export function PortalStatRow({ summary }: PortalStatRowProps) {
-  const config = PORTALS[summary.portalId];
+  const config = getPortalConfig(summary.portalId);
   const color = PORTAL_COLOR[summary.portalId] ?? '';
   const errorRate = summary.events24h > 0 ? summary.errors24h / summary.events24h : 0;
 

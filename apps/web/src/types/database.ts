@@ -18,9 +18,11 @@ export type Json =
 
 // ---- Enums (mirror SQL CREATE TYPE) ----
 
-export type PortalIdEnum =
-  | 'sentinel'
-  | 'analytics';
+// Project identifiers are now dynamic slugs (see analytics_projects). The enum
+// label is grown at runtime via add_portal_value(); the TS type is therefore a
+// branded string rather than a closed union. 'sentinel' | 'analytics' remain
+// valid examples but any registered slug is allowed.
+export type PortalIdEnum = string;
 
 export type EventCategoryEnum =
   | 'auth'

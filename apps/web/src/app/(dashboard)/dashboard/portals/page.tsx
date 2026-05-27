@@ -4,7 +4,7 @@ import { PortalsBarChart } from '@/components/charts/PortalsBarChart';
 import { CHART_COLORS, PORTAL_COLOR } from '@/components/charts/ChartTheme';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { PortalStatRow } from '@/components/analytics/PortalStatRow';
-import { PORTALS } from '@/config/portals';
+import { getPortalConfig, PORTAL_LIST } from '@/config/portals';
 import { fetchPortalSummaries } from '@/lib/data/fetchers';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function PortalsAnalyticsPage() {
   const summaries = await fetchPortalSummaries();
   const chartData = summaries.map((s) => ({
-    name: PORTALS[s.portalId].name.replace(' Portal', ''),
+    name: getPortalConfig(s.portalId).name.replace(' Portal', ''),
     Events: s.events24h,
     Users: s.users24h,
   }));
@@ -52,7 +52,7 @@ export default async function PortalsAnalyticsPage() {
       <section className="rounded-md border p-4 text-xs text-muted-foreground">
         <div className="mb-2 font-semibold uppercase tracking-wide">Portal registry</div>
         <div className="flex flex-wrap gap-2">
-          {Object.values(PORTALS).map((p) => (
+          {PORTAL_LIST.map((p) => (
             <span
               key={p.id}
               className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"

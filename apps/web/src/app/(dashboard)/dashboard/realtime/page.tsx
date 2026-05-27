@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { PORTAL_COLOR } from '@/components/charts/ChartTheme';
-import { PORTALS } from '@/config/portals';
+import { getPortalConfig } from '@/config/portals';
 import { fetchPortalSummaries, fetchRecentActivity } from '@/lib/data/fetchers';
 import { RealtimeFeed } from '@/features/realtime-feed/components/RealtimeFeed';
 
@@ -28,7 +28,7 @@ export default async function RealtimePage() {
           <Card key={p.portalId}>
             <CardHeader className="flex flex-row items-center justify-between pb-1">
               <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {PORTALS[p.portalId].name.replace(' Portal', '')}
+                {getPortalConfig(p.portalId).name.replace(' Portal', '')}
               </CardTitle>
               <span
                 className="h-2 w-2 rounded-full"

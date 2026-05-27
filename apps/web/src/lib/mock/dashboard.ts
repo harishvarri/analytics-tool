@@ -195,5 +195,6 @@ function portalNameFor(id: PortalId): string {
   switch (id) {
     case 'sentinel': return 'Sentinel';
     case 'analytics': return 'Analytics Platform';
+    default: return String(id).charAt(0).toUpperCase() + String(id).slice(1);
   }
 }

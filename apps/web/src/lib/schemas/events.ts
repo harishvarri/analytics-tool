@@ -6,10 +6,16 @@ import { MAX_EVENT_BATCH_SIZE } from '@/constants/api';
  * both the API route and the SDK import from here.
  */
 
-export const portalIdSchema = z.enum([
-  'sentinel',
-  'analytics',
-]);
+/**
+ * Project identifier (slug). Dynamic — any registered project may send events,
+ * so this is a validated slug rather than a hardcoded enum. New projects are
+ * onboarded via the Add-Project admin flow (no code change required here).
+ */
+export const portalIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z][a-z0-9_-]*$/, 'Project slug must be lowercase alphanumeric (with - or _)');
 
 export const eventCategorySchema = z.enum([
   'auth',
