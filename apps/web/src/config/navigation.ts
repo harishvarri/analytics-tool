@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Network,
   Repeat2,
+  Sparkles,
   Users,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
@@ -73,6 +74,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.anomalies,
         icon: AlertTriangle,
         description: 'Statistical alerts on metric deviations',
+      },
+      {
+        label: 'Features',
+        href: ROUTES.features,
+        icon: Sparkles,
+        description: 'Feature adoption rates, sparklines, and decay curves',
       },
     ],
   },

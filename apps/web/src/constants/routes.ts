@@ -9,6 +9,7 @@ export const ROUTES = {
   projects: '/dashboard/projects',
   retention: '/dashboard/retention',
   anomalies: '/dashboard/anomalies',
+  features:  '/dashboard/features',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks
   portals: '/dashboard/portals',

@@ -40,9 +40,8 @@ export default async function RetentionPage() {
   ]);
 
   // Headline averages (across non-empty cohorts)
-  const avgD1  = avg(cohorts.filter((c) => c.cohortSize > 0).map((c) => c.d1Pct));
-  const avgD7  = avg(cohorts.filter((c) => c.cohortSize > 0).map((c) => c.d7Pct));
-  const avgD30 = avg(cohorts.filter((c) => c.cohortSize > 0).map((c) => c.d30Pct));
+  const avgD1 = avg(cohorts.filter((c) => c.cohortSize > 0).map((c) => c.d1Pct));
+  const avgD7 = avg(cohorts.filter((c) => c.cohortSize > 0).map((c) => c.d7Pct));
   const totalNew = cohorts.reduce((sum, c) => sum + c.cohortSize, 0);
   const hasData = cohorts.length > 0 || dormant.length > 0 || journeys.length > 0;
 

@@ -50,6 +50,18 @@ import {
   type AnomalySummary,
 } from '../repositories/anomalies';
 import {
+  getFeatureActions,
+  getFeatureDecay,
+  getFeaturePortfolioStats,
+  getFeatureSummaries,
+  getFeatureWeeklyTrend,
+  type FeatureAction,
+  type FeatureDecayPoint,
+  type FeaturePortfolioStats,
+  type FeatureSummary,
+  type FeatureTrendPoint,
+} from '../repositories/features';
+import {
   mockActiveUsers,
   mockCategoryBreakdown,
   mockDashboardKpis,
@@ -168,3 +180,27 @@ export const fetchAnomalySignals = (): Promise<AnomalySignal[]> =>
 
 export const fetchAnomalySummary = (): Promise<AnomalySummary> =>
   withMockFallback('anomalies.summary', getAnomalySummary, () => emptyAnomalySummary);
+
+// ── Feature Adoption (Module F) ──────────────────────────────────────────────
+
+const emptyPortfolioStats: FeaturePortfolioStats = {
+  activeFeatures: 0,
+  avgAdoptionPct: null,
+  topFeature:     null,
+  platformUsage7d: null,
+};
+
+export const fetchFeatureSummaries = (): Promise<FeatureSummary[]> =>
+  withMockFallback('features.summaries', getFeatureSummaries, () => []);
+
+export const fetchFeatureWeeklyTrend = (): Promise<FeatureTrendPoint[]> =>
+  withMockFallback('features.trend', getFeatureWeeklyTrend, () => []);
+
+export const fetchFeatureActions = (feature?: string): Promise<FeatureAction[]> =>
+  withMockFallback('features.actions', () => getFeatureActions(feature), () => []);
+
+export const fetchFeatureDecay = (): Promise<FeatureDecayPoint[]> =>
+  withMockFallback('features.decay', getFeatureDecay, () => []);
+
+export const fetchFeaturePortfolioStats = (): Promise<FeaturePortfolioStats> =>
+  withMockFallback('features.portfolio', getFeaturePortfolioStats, () => emptyPortfolioStats);
