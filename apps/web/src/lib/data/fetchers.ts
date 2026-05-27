@@ -79,6 +79,16 @@ import { getJourneyGraph, type JourneyGraph } from '../repositories/journeys';
 import { getProjectComparison, type ProjectComparisonRow } from '../repositories/crossProject';
 import { getInsights, type InsightsBundle } from '../repositories/insights';
 import {
+  getActiveUserCounts,
+  getPerformanceByRoute,
+  getPerformanceKpis,
+  getPerformanceTrend,
+  type ActiveUserCounts,
+  type PerfTrendPoint,
+  type PerformanceKpis,
+  type RoutePerformance,
+} from '../repositories/performance';
+import {
   mockActiveUsers,
   mockCategoryBreakdown,
   mockDashboardKpis,
@@ -279,3 +289,24 @@ export const fetchInsights = (): Promise<InsightsBundle> =>
     insights: [],
     intelligence: { mostAdopted: null, fastestGrowing: null, leastUsed: null, churnRisk: null },
   }));
+
+// ── Performance (Module #8) ──────────────────────────────────────────────────
+
+const emptyPerfKpis: PerformanceKpis = {
+  samples: 0, loadP50Ms: null, loadP75Ms: null, loadP95Ms: null,
+  ttfbP50Ms: null, domInteractiveP50Ms: null, avgEngagedSec: null,
+};
+
+export const fetchPerformanceKpis = (): Promise<PerformanceKpis> =>
+  withMockFallback('perf.kpis', getPerformanceKpis, () => emptyPerfKpis);
+
+export const fetchPerformanceByRoute = (limit = 20): Promise<RoutePerformance[]> =>
+  withMockFallback('perf.routes', () => getPerformanceByRoute(limit), () => []);
+
+export const fetchPerformanceTrend = (): Promise<PerfTrendPoint[]> =>
+  withMockFallback('perf.trend', getPerformanceTrend, () => []);
+
+// ── Active users (DAU/WAU/MAU) ───────────────────────────────────────────────
+
+export const fetchActiveUserCounts = (): Promise<ActiveUserCounts> =>
+  withMockFallback('active.counts', getActiveUserCounts, () => ({ dau: 0, wau: 0, mau: 0, stickinessPct: 0 }));

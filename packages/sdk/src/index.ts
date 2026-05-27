@@ -6,7 +6,8 @@
  *   import { AnalyticsProvider, useAnalytics } from '@ncpl/analytics-sdk/react';
  */
 
-export { AnalyticsClient, type AnalyticsClientOptions } from './core/client';
+export { AnalyticsClient, type AnalyticsClientOptions, type AutoTrackOptions } from './core/client';
+export { getDeviceContext, getNavigationTiming, type NavigationTimingMetrics } from './utils/context';
 export { EVENT_NAMES } from './events/names';
 export type {
   PortalId,

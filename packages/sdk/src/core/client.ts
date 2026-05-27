@@ -1,10 +1,25 @@
 import type { AnalyticsEventPayload, PortalId, TrackEventInput } from '../events/types';
 import { EVENT_NAMES } from '../events/names';
 import { createLogger, type Logger } from '../utils/logger';
+import { getDeviceContext, getNavigationTiming } from '../utils/context';
 import { detectStorage, type KVStorage } from './storage';
 import { SessionManager } from './session';
 import { HttpTransport } from './transport';
 import { EventQueue } from './queue';
+
+/**
+ * Auto-tracking toggles. `true` enables all; an object enables selectively.
+ * Defaults to ON in the browser so developers get page views, route changes,
+ * errors, device context, performance, and engagement with zero extra code.
+ */
+export interface AutoTrackOptions {
+  pageViews?: boolean;     // initial + SPA route-change page views
+  routeChanges?: boolean;  // history pushState/replaceState/popstate
+  errors?: boolean;        // window error + unhandledrejection
+  performance?: boolean;   // Navigation Timing on load
+  engagement?: boolean;    // visible time per page, flushed on hide
+  deviceContext?: boolean; // attach browser/os/device to every event
+}
 
 export interface AnalyticsClientOptions {
   /** Portal calling the SDK. Required — set once per portal. */
@@ -28,6 +43,11 @@ export interface AnalyticsClientOptions {
   defaults?: Record<string, unknown>;
   /** Called when a batch is permanently dropped after retries. */
   onDrop?: (events: AnalyticsEventPayload[], reason: string) => void;
+  /**
+   * Browser auto-tracking. Defaults to `true` (all signals) in the browser.
+   * Pass `false` to disable, or an object to enable selectively.
+   */
+  autoTrack?: boolean | AutoTrackOptions;
 }
 
 /**
@@ -43,8 +63,14 @@ export class AnalyticsClient {
   private readonly logger: Logger;
   private readonly session: SessionManager;
   private readonly queue: EventQueue | null;
-  private readonly defaults: Record<string, unknown>;
+  private defaults: Record<string, unknown>;
   private currentUserId: string | null = null;
+
+  // Auto-tracking state
+  private autoTrackInstalled = false;
+  private lastPath: string | null = null;
+  private pageEnteredAt = 0;
+  private cleanupFns: Array<() => void> = [];
 
   constructor(options: AnalyticsClientOptions) {
     this.options = options;
@@ -74,6 +100,12 @@ export class AnalyticsClient {
       ...(options.flushIntervalMs !== undefined ? { flushIntervalMs: options.flushIntervalMs } : {}),
       ...(options.onDrop !== undefined ? { onDrop: options.onDrop } : {}),
     });
+
+    // Auto-tracking defaults ON in the browser (the platform's "install SDK and
+    // everything is tracked" promise). Pass autoTrack:false to opt out.
+    if (typeof window !== 'undefined' && options.autoTrack !== false) {
+      this.enableAutoTracking(options.autoTrack === true || options.autoTrack === undefined ? {} : options.autoTrack);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -183,7 +215,146 @@ export class AnalyticsClient {
   }
 
   destroy(): void {
+    for (const fn of this.cleanupFns) fn();
+    this.cleanupFns = [];
+    this.autoTrackInstalled = false;
     this.queue?.destroy();
+  }
+
+  // -------------------------------------------------------------------------
+  // Auto-tracking (Step 4 — zero-config capture in the browser)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Wire up automatic browser capture: page views, SPA route changes, uncaught
+   * errors, Navigation-Timing performance, engagement time, and device context.
+   * Idempotent and SSR-safe. Called automatically by the constructor unless
+   * `autoTrack: false` was passed.
+   */
+  enableAutoTracking(opts: AutoTrackOptions = {}): void {
+    if (this.autoTrackInstalled) return;
+    if (typeof window === 'undefined' || !this.queue) return;
+    this.autoTrackInstalled = true;
+
+    const on = {
+      pageViews: opts.pageViews ?? true,
+      routeChanges: opts.routeChanges ?? true,
+      errors: opts.errors ?? true,
+      performance: opts.performance ?? true,
+      engagement: opts.engagement ?? true,
+      deviceContext: opts.deviceContext ?? true,
+    };
+
+    // 1. Device context → merged into the defaults of every event.
+    if (on.deviceContext) {
+      this.defaults = { ...this.defaults, ...getDeviceContext() };
+    }
+
+    const pathOf = (): string => {
+      try {
+        return window.location.pathname + window.location.search;
+      } catch {
+        return '/';
+      }
+    };
+
+    // 2. Initial page view + engagement clock.
+    this.lastPath = pathOf();
+    this.pageEnteredAt = Date.now();
+    if (on.pageViews) this.trackPageView(this.lastPath);
+
+    // 3. SPA route-change detection (history API + popstate).
+    if (on.routeChanges || on.pageViews) {
+      const handleRouteChange = () => {
+        const next = pathOf();
+        if (next === this.lastPath) return;
+        const from = this.lastPath ?? next;
+        if (on.engagement) this.flushEngagement(from);
+        if (on.routeChanges) this.trackNavigation(from, next);
+        if (on.pageViews) this.trackPageView(next);
+        this.lastPath = next;
+        this.pageEnteredAt = Date.now();
+      };
+
+      const origPush = window.history.pushState.bind(window.history);
+      const origReplace = window.history.replaceState.bind(window.history);
+      window.history.pushState = ((...args: Parameters<History['pushState']>) => {
+        const r = origPush(...args);
+        handleRouteChange();
+        return r;
+      }) as History['pushState'];
+      window.history.replaceState = ((...args: Parameters<History['replaceState']>) => {
+        const r = origReplace(...args);
+        handleRouteChange();
+        return r;
+      }) as History['replaceState'];
+      window.addEventListener('popstate', handleRouteChange);
+      this.cleanupFns.push(() => {
+        window.history.pushState = origPush;
+        window.history.replaceState = origReplace;
+        window.removeEventListener('popstate', handleRouteChange);
+      });
+    }
+
+    // 4. Uncaught errors + promise rejections.
+    if (on.errors) {
+      const onError = (e: ErrorEvent) =>
+        this.trackError(e.error instanceof Error ? e.error : e.message || 'window.error', {
+          type: 'window.error',
+          filename: e.filename,
+          line: e.lineno,
+        });
+      const onRejection = (e: PromiseRejectionEvent) => {
+        const reason = e.reason;
+        this.trackError(reason instanceof Error ? reason : String(reason), { type: 'unhandledrejection' });
+      };
+      window.addEventListener('error', onError);
+      window.addEventListener('unhandledrejection', onRejection);
+      this.cleanupFns.push(() => {
+        window.removeEventListener('error', onError);
+        window.removeEventListener('unhandledrejection', onRejection);
+      });
+    }
+
+    // 5. Performance (Navigation Timing) once the page has fully loaded.
+    if (on.performance) {
+      const capture = () => {
+        const m = getNavigationTiming();
+        if (m) this.track({ category: 'custom', name: EVENT_NAMES.performance.pageLoad, metadata: { route: this.lastPath, ...m } });
+      };
+      if (document.readyState === 'complete') {
+        setTimeout(capture, 0);
+      } else {
+        const onLoad = () => setTimeout(capture, 0);
+        window.addEventListener('load', onLoad, { once: true });
+        this.cleanupFns.push(() => window.removeEventListener('load', onLoad));
+      }
+    }
+
+    // 6. Engagement time — flush on hide / unload.
+    if (on.engagement) {
+      const onHide = () => {
+        if (document.visibilityState === 'hidden') this.flushEngagement(this.lastPath ?? pathOf());
+      };
+      window.addEventListener('visibilitychange', onHide);
+      window.addEventListener('pagehide', onHide);
+      this.cleanupFns.push(() => {
+        window.removeEventListener('visibilitychange', onHide);
+        window.removeEventListener('pagehide', onHide);
+      });
+    }
+  }
+
+  private flushEngagement(path: string): void {
+    if (!this.pageEnteredAt) return;
+    const engagedMs = Date.now() - this.pageEnteredAt;
+    this.pageEnteredAt = Date.now();
+    if (engagedMs < 1000) return; // ignore sub-second noise
+    this.track({
+      category: 'custom',
+      name: EVENT_NAMES.performance.engagement,
+      metadata: { route: path, engagedMs, engagedSec: Math.round(engagedMs / 1000) },
+    });
   }
 
   // -------------------------------------------------------------------------

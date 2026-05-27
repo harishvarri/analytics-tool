@@ -24,4 +24,8 @@ export const EVENT_NAMES = {
   error: {
     captured: 'error.captured',
   },
+  performance: {
+    pageLoad: 'performance.page_load',
+    engagement: 'performance.engagement',
+  },
 } as const;

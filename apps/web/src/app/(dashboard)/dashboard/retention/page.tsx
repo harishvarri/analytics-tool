@@ -4,6 +4,7 @@ import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import {
+  fetchActiveUserCounts,
   fetchDormantUsers,
   fetchRetentionCohorts,
   fetchTopJourneys,
@@ -33,10 +34,11 @@ function retentionTone(pct: number): string {
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default async function RetentionPage() {
-  const [cohorts, dormant, journeys] = await Promise.all([
+  const [cohorts, dormant, journeys, active] = await Promise.all([
     fetchRetentionCohorts(),
     fetchDormantUsers(20),
     fetchTopJourneys(12),
+    fetchActiveUserCounts(),
   ]);
 
   // Headline averages (across non-empty cohorts)
@@ -56,6 +58,18 @@ export default async function RetentionPage() {
           </Badge>
         }
       />
+
+      {/* Active-user counts (DAU / WAU / MAU) */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="DAU" value={active.dau.toLocaleString()} icon={UserPlus}
+          trend={{ direction: 'flat', label: 'Active in last 24h' }} />
+        <KpiCard label="WAU" value={active.wau.toLocaleString()} icon={UserPlus}
+          trend={{ direction: 'flat', label: 'Active in last 7d' }} />
+        <KpiCard label="MAU" value={active.mau.toLocaleString()} icon={UserPlus}
+          trend={{ direction: 'flat', label: 'Active in last 30d' }} />
+        <KpiCard label="Stickiness" value={`${active.stickinessPct}%`} icon={Repeat2}
+          trend={{ direction: 'flat', label: 'DAU / MAU ratio' }} />
+      </section>
 
       {/* KPI strip */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
