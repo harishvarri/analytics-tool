@@ -62,7 +62,7 @@ select
   e.fingerprint,
   -- A representative human-readable sample (most recent raw message)
   (array_agg(e.raw_message order by e.occurred_at desc))[1]   as sample_message,
-  (array_agg(e.error_type order by e.occurred_at desc))
+  array_agg(e.error_type order by e.occurred_at desc)
     filter (where e.error_type is not null)                   as error_types,
   (array_agg(e.error_name order by e.occurred_at desc))[1]    as error_name,
   count(*)                                                    as total_occurrences,
