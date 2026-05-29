@@ -69,17 +69,11 @@ import {
 } from '../repositories/performance';
 import {
   getAppUsers,
-  getCommandCenter,
-  getInactiveUsers,
-  getOrgDirectoryRollup,
-  getProjectAccessVsUsage,
+  getOrgPulse,
   getUserDetail,
   getUserProfileSummaries,
   type AppUserRow,
-  type CommandCenter,
-  type InactiveUser,
-  type OrgRollupRow,
-  type ProjectAccessUsage,
+  type OrgPulse,
   type UserDetail,
   type UserProfileSummary,
 } from '../repositories/operational';
@@ -262,19 +256,10 @@ export const fetchPerformanceTrend = (): Promise<PerfTrendPoint[]> =>
 export const fetchActiveUserCounts = (): Promise<ActiveUserCounts> =>
   withMockFallback('active.counts', getActiveUserCounts, () => ({ dau: 0, wau: 0, mau: 0, stickinessPct: 0 }));
 
-// ── Operational Intelligence (Command Center / People / Access) ──────────────
+// ── Operational Intelligence (per-app, event-driven) ─────────────────────────
 
-const emptyCommandCenter: CommandCenter = {
-  activeUsersToday: 0, sessionsToday: 0, eventsToday: 0, errorsToday: 0,
-  mostUsedProject: null, leastAdoptedProject: null, totalDirectoryUsers: 0,
-  inactiveUsersCount: 0, neverUsedAccessCount: 0,
-};
-
-export const fetchCommandCenter = (): Promise<CommandCenter> =>
-  withMockFallback('ops.command', getCommandCenter, () => emptyCommandCenter);
-
-export const fetchProjectAccessVsUsage = (): Promise<ProjectAccessUsage[]> =>
-  withMockFallback('ops.access', getProjectAccessVsUsage, () => []);
+export const fetchOrgPulse = (): Promise<OrgPulse> =>
+  withMockFallback('ops.pulse', getOrgPulse, () => ({ loginsToday: 0, appsActive: 0, appsTotal: 0 }));
 
 export const fetchUserProfileSummaries = (limit = 100): Promise<UserProfileSummary[]> =>
   withMockFallback('ops.people', () => getUserProfileSummaries(limit), () => []);
@@ -284,9 +269,3 @@ export const fetchAppUsers = (appSlug: string, limit = 100): Promise<AppUserRow[
 
 export const fetchUserDetail = (userId: string): Promise<UserDetail | null> =>
   withMockFallback('ops.userDetail', () => getUserDetail(userId), () => null);
-
-export const fetchInactiveUsers = (limit = 100): Promise<InactiveUser[]> =>
-  withMockFallback('ops.inactive', () => getInactiveUsers(limit), () => []);
-
-export const fetchOrgDirectoryRollup = (): Promise<OrgRollupRow[]> =>
-  withMockFallback('ops.rollup', getOrgDirectoryRollup, () => []);

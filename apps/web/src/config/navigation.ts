@@ -2,9 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   AlertTriangle,
-  Building2,
   Gauge,
-  KeyRound,
   LayoutDashboard,
   Lightbulb,
   MonitorSmartphone,
@@ -15,19 +13,15 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
-  UserX,
   Users,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
-import { FEATURES } from '@/config/features';
 
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
   description?: string;
-  /** Hidden unless the central-SSO directory integration is enabled. */
-  requiresDirectory?: boolean;
 }
 
 export interface NavSection {
@@ -36,22 +30,19 @@ export interface NavSection {
 }
 
 /**
- * Sidebar information architecture.
- *
- * Grouped by INTENT (what question you're answering) rather than by data
- * source, and deliberately kept generic so any application — web app, CRM,
- * training portal, admin tool — sees the same, meaningful set of views with no
- * code changes. Nothing here assumes a specific product's domain.
+ * Sidebar IA — an internal operational-intelligence command center. Grouped by
+ * the question each section answers, and fully event-driven: every view works
+ * per individual app from the events that app sends (no SSO/central directory).
  */
-const RAW_SECTIONS: readonly NavSection[] = [
+export const NAV_SECTIONS: readonly NavSection[] = [
   {
     label: null,
     items: [
       {
-        label: FEATURES.directory ? 'Command Center' : 'Overview',
+        label: 'Command Center',
         href: ROUTES.dashboard,
         icon: LayoutDashboard,
-        description: 'Platform-wide activity, usage, and health',
+        description: 'All apps at a glance — activity, logins, errors, and health',
       },
       {
         label: 'Live Feed',
@@ -62,7 +53,7 @@ const RAW_SECTIONS: readonly NavSection[] = [
     ],
   },
   {
-    label: 'Organization',
+    label: 'Applications',
     items: [
       {
         label: 'Applications',
@@ -75,13 +66,6 @@ const RAW_SECTIONS: readonly NavSection[] = [
         href: ROUTES.compare,
         icon: Rows3,
         description: 'Compare every application side by side',
-      },
-      {
-        label: 'Access vs Usage',
-        href: ROUTES.access,
-        icon: KeyRound,
-        description: 'Who can use each app vs who actually does',
-        requiresDirectory: true,
       },
       {
         label: 'Smart Insights',
@@ -118,23 +102,10 @@ const RAW_SECTIONS: readonly NavSection[] = [
     label: 'People',
     items: [
       {
-        label: 'Directory',
+        label: 'People',
         href: ROUTES.people,
-        icon: Building2,
-        description: 'Known users, the apps they use, and last activity',
-      },
-      {
-        label: 'Users',
-        href: ROUTES.users,
         icon: Users,
-        description: 'User-level activity and engagement',
-      },
-      {
-        label: 'Inactive Users',
-        href: ROUTES.inactive,
-        icon: UserX,
-        description: 'Have access but no recent activity',
-        requiresDirectory: true,
+        description: 'Who uses each app, and each person’s activity',
       },
       {
         label: 'Audience',
@@ -145,25 +116,25 @@ const RAW_SECTIONS: readonly NavSection[] = [
     ],
   },
   {
-    label: 'Operations',
+    label: 'Monitoring',
     items: [
       {
         label: 'Reliability',
         href: ROUTES.reliability,
         icon: ShieldCheck,
-        description: 'Error groups, error rate, SLO budget',
+        description: 'Errors, API failures, error rate, and health',
       },
       {
         label: 'Performance',
         href: ROUTES.performance,
         icon: Gauge,
-        description: 'Page load, TTFB, slow routes, engagement',
+        description: 'Page load, server response, slow routes',
       },
       {
         label: 'Anomalies',
         href: ROUTES.anomalies,
         icon: AlertTriangle,
-        description: 'Statistical alerts on metric deviations',
+        description: 'Automatic alerts when activity spikes or drops',
       },
     ],
   },
@@ -180,14 +151,5 @@ const RAW_SECTIONS: readonly NavSection[] = [
   },
 ] as const;
 
-/**
- * Visible nav: directory-dependent items are hidden until the SSO integration
- * is enabled (FEATURES.directory). Empty sections are dropped.
- */
-export const NAV_SECTIONS: readonly NavSection[] = RAW_SECTIONS.map((s) => ({
-  ...s,
-  items: s.items.filter((i) => FEATURES.directory || !i.requiresDirectory),
-})).filter((s) => s.items.length > 0);
-
-/** Backwards-compatible flat list used by the mobile sheet menu. */
+/** Flat list used by the mobile sheet menu. */
 export const PRIMARY_NAV: readonly NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);

@@ -58,23 +58,6 @@ export async function requireIngestKey(req: NextRequest): Promise<void> {
 }
 
 /**
- * Verifies the `x-ncpl-api-key` header on the directory-sync endpoint.
- *
- * The directory push is a privileged write to the people graph (it can
- * deactivate users), so it uses a DEDICATED secret (DIRECTORY_API_KEY) rather
- * than the broadly-distributed ingest key. Falls back to the global
- * INGEST_API_KEY only if no directory key is configured (dev convenience).
- */
-export function requireDirectoryKey(req: NextRequest): void {
-  const provided = req.headers.get('x-ncpl-api-key');
-  if (!provided) throw new AuthError('Missing x-ncpl-api-key header');
-
-  const expected = env.DIRECTORY_API_KEY ?? env.INGEST_API_KEY;
-  if (!expected) return; // dev soft-fail: no secret configured
-  if (!safeEqual(provided, expected)) throw new AuthError('Invalid directory key');
-}
-
-/**
  * Verifies the `x-cron-secret` (or `authorization: Bearer …`) header used to
  * gate admin maintenance endpoints. Vercel Cron stamps this automatically.
  */

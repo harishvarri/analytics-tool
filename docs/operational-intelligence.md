@@ -1,71 +1,55 @@
 # NCPL Command Center — Operational Intelligence
 
-This platform is an **internal operations/usage intelligence** layer across all NCPL
-products — not website/marketing analytics. It answers: who logged in, which products
-each person actually uses, who has access but never uses it, what's healthy.
+An **internal operations & monitoring** platform for all NCPL apps. For a CEO/ops
+view it answers, per app and across the org: who's active, who logged in, what's
+breaking (errors / API failures), and whether each app is healthy.
 
-It works for **both** application types:
-- **Central-SSO apps** — send events with the central `userId` (uuid). The SSO system
-  also pushes the user directory + per-user access (below).
-- **Independent apps** (own auth) — send events with the user's **email**
-  (`userEmail`); the platform links them to the directory by email.
+**Per-app and event-driven** — every app is tracked independently from the events it
+sends. There is **no central-SSO requirement**: each app identifies its own users on
+login. (You can consolidate to one login later without changing this platform.)
 
-## 1. Directory sync (central SSO → platform)
+## Onboard an app (2 steps)
 
-`POST https://ncpl-analytics-tool.vercel.app/api/v1/directory`
-Header: `x-ncpl-api-key: <DIRECTORY_API_KEY>`
+1. **Register it** in the dashboard → Admin → Projects (gives a slug + `ncpl_pk_…` key).
+2. **Add one script tag** to the app's `<head>`:
 
-```jsonc
-{
-  "mode": "full",              // "full" = authoritative snapshot (may deactivate); "delta" = upsert only
-  "users": [
-    {
-      "id": "0b1e…-uuid",       // central user uuid (= analytics_users.id)
-      "email": "harish@ncpl.com",
-      "name": "Harish",
-      "role": "member",
-      "department": "Recruitment",
-      "team": "EU",
-      "title": "Recruiter",
-      "status": "active",       // active | inactive | invited
-      "isInternal": true,       // employee vs candidate/external
-      "allowedProjects": ["nucleus", "galaxy", "atlas"]   // analytics_projects slugs
-    }
-  ]
-}
+```html
+<script defer
+  src="https://ncpl-analytics-tool.vercel.app/ncpl.js"
+  data-project="your-slug"
+  data-key="ncpl_pk_..."></script>
 ```
-- Idempotent. `full` mode soft-deactivates directory users absent from the snapshot
-  (never deletes; guarded by a coverage floor). `delta` never deactivates.
-- Unknown project slugs are skipped + reported (onboard the project first via Admin →
-  Projects). Call on login + nightly.
 
-## 2. Sending events
+That auto-captures page views, clicks, performance, and errors. The app then appears
+in the Command Center, Applications, Journeys, Features, Audience, Reliability, etc.
 
-Use the `ncpl.js` tag (auto-capture) or `POST /api/v1/events`.
+## Identify users on login (so names show instead of "Anonymous")
 
 ```js
-// Central SSO app — identify with the central uuid
-window.ncpl.identify('0b1e…-uuid');
+// LOGIN success
+window.ncpl.identify(user.id);                  // if the app has a user id (uuid)
+window.ncpl.identify(null, { email, name });    // or identify by email
+window.ncpl.track('auth.login', { role });
 
-// Independent app — identify by email (linked to the directory)
-window.ncpl.identify(null, { email: 'harish@ncpl.com', name: 'Harish' });
-
-// Custom domain events (optional) light up Features/Journeys
-window.ncpl.track('candidate.created');
+// LOGOUT
+window.ncpl.track('auth.logout');
 ```
 
-## 3. What you get
-- **Command Center** — org snapshot: active people today, most-used app, inactive
-  people, unused access.
-- **Access vs Usage** — per app: who's allowed vs who actually uses it, adoption %,
-  unused access (licence/permission cleanup).
-- **People Directory** — known users by department/team/role, apps used, last active.
-- **Inactive Users** — access granted but idle ≥30 days (or never active).
-- Plus the existing activity, retention, audience, reliability, performance views.
+Once identified, the person shows by name everywhere, and **People → click a user**
+gives their full profile: logins, sessions, time on apps, and a recent activity
+timeline.
 
-## Identity resolution rules
-- Event has `userId` (uuid) → used as-is; email/name enrich the user row only when blank
-  (directory values always win).
-- Event has `userEmail` only → resolved to the central user by email; a synthetic
-  user is minted (deterministic uuid) if none exists yet.
-- Neither → anonymous browser id; **excluded from all people/headcount views**.
+## What you get
+- **Command Center** — org pulse (active users, logins today, sessions, errors,
+  health) + a per-app **health board** (status, active users, errors, error rate).
+- **Applications / Cross-Project** — per-app usage and side-by-side comparison.
+- **People** — who uses each app (filter to one app in the top bar) + per-user profile.
+- **Behavior** — Journeys (page flow), Features (adoption), Retention (DAU/WAU/MAU).
+- **Monitoring** — Reliability (errors, API failures, error rate, health),
+  Performance (load times, slow pages), Anomalies (auto spike/drop alerts).
+- **Audience** — device / browser / OS / language / region.
+
+## Optional richer signals (apps emit these to populate more)
+- Named feature events → **Features**: `window.ncpl.track('candidate.created')` etc.
+- API failures → **Monitoring**: `window.ncpl.track('api.error', { route, status })`
+  (or send `error`-category events from the backend).

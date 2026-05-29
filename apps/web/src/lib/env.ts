@@ -20,9 +20,6 @@ const serverSchema = z.object({
   /** Secret required to invoke /api/v1/admin/* maintenance routes. */
   CRON_SECRET: z.string().min(16).optional(),
 
-  /** Dedicated secret the central SSO uses to push the user directory. */
-  DIRECTORY_API_KEY: z.string().min(16).optional(),
-
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
 });
 
