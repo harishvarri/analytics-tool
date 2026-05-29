@@ -42,10 +42,26 @@ function humanizeSegment(seg: string): string {
   return s.split(/\s+/).map(titleizeWord).join(' ');
 }
 
+/** Is a path segment an id (numeric / uuid / long hash) rather than a page name? */
+function isIdLike(seg: string): boolean {
+  return (
+    /^\d+$/.test(seg) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(seg) ||
+    /^[0-9a-f]{16,}$/i.test(seg)
+  );
+}
+
 /**
  * Friendly, app-related page name from a page_view event's metadata.
- * Prefers the first meaningful URL segment (so /tickets/123 → "Tickets"),
- * falls back to the document title.
+ *
+ * Builds the name from the URL so it matches the app's own pages, and keeps
+ * nested detail pages distinct:
+ *   /                      → "Home"
+ *   /sprint-board          → "Sprint Board"
+ *   /tickets               → "Tickets"
+ *   /tickets/123           → "Tickets › Detail"
+ *   /projects/abc/settings → "Projects › Settings"
+ * Falls back to the document title when no path is present.
  */
 function pageLabel(meta: Record<string, unknown> | null | undefined): string {
   const path = typeof meta?.path === 'string' ? (meta.path as string) : '';
@@ -55,10 +71,11 @@ function pageLabel(meta: Record<string, unknown> | null | undefined): string {
     const clean = path.split('?')[0]!.split('#')[0]!;
     const segs = clean.split('/').filter(Boolean);
     if (segs.length === 0) return 'Home';
-    return humanizeSegment(segs[0]!);
+    const parts = segs.map((s) => (isIdLike(s) ? 'Detail' : humanizeSegment(s)));
+    // Keep the label short and readable: section + at most one nested part.
+    return parts.slice(0, 2).join(' › ');
   }
   if (title) {
-    // Strip common " · App" / " | App" / " – App" suffixes.
     const first = title.split(/[·|–—]/)[0]!.trim();
     return first || 'Page';
   }

@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EventBadge } from './EventBadge';
 import { formatRelativeTime } from '@/lib/utils';
-import { friendlyEventName } from '@/lib/event-labels';
+import { friendlyEventName, eventDescription } from '@/lib/event-labels';
 import type { RealtimeActivityItem } from '@/types/analytics';
 
 interface ActivityFeedProps {
@@ -32,18 +32,16 @@ export function ActivityFeed({ items, empty = 'No activity in the last 5 minutes
                 {formatRelativeTime(item.occurredAt)}
               </span>
             </div>
-            <div className="mt-0.5 truncate text-xs text-muted-foreground">
+            <div className="mt-0.5 text-xs text-muted-foreground">
               <span className="font-medium text-foreground" title={item.eventName}>
                 {friendlyEventName(item.eventName)}
               </span>
               <span className="mx-1.5">·</span>
               <span>{item.portalName}</span>
-              {item.url ? (
-                <>
-                  <span className="mx-1.5">·</span>
-                  <span className="font-mono">{item.url}</span>
-                </>
-              ) : null}
+            </div>
+            {/* Plain-English note explaining what this means in the app flow */}
+            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground/80">
+              {eventDescription(item.eventName)}
             </div>
           </div>
         </li>
