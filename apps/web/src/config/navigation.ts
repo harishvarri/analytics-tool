@@ -1,14 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
-  AlertTriangle,
   Gauge,
   LayoutDashboard,
-  Lightbulb,
-  MonitorSmartphone,
   Network,
   Repeat2,
-  Route,
   Rows3,
   Settings2,
   ShieldCheck,
@@ -30,9 +26,12 @@ export interface NavSection {
 }
 
 /**
- * Sidebar IA — an internal operational-intelligence command center. Grouped by
- * the question each section answers, and fully event-driven: every view works
- * per individual app from the events that app sends (no SSO/central directory).
+ * Sidebar IA — a lean internal operational-intelligence command center, scoped
+ * to what an organisation actually needs to monitor its internal apps: activity,
+ * usage, people/logins, and health. Fully event-driven, per app, no SSO.
+ *
+ * (Audience / Smart Insights / Anomalies / Journeys were trimmed as non-essential
+ * marketing/advanced extras — their pages still exist and can be re-listed here.)
  */
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
@@ -67,34 +66,22 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         icon: Rows3,
         description: 'Compare every application side by side',
       },
-      {
-        label: 'Smart Insights',
-        href: ROUTES.insights,
-        icon: Lightbulb,
-        description: 'Auto-generated week-over-week insights',
-      },
     ],
   },
   {
-    label: 'Behavior',
+    label: 'Usage',
     items: [
-      {
-        label: 'Journeys',
-        href: ROUTES.journeys,
-        icon: Route,
-        description: 'The pages people move through, step by step',
-      },
       {
         label: 'Features',
         href: ROUTES.features,
         icon: Sparkles,
-        description: 'Feature adoption, stickiness, and decay',
+        description: 'Which features people actually use',
       },
       {
         label: 'Retention',
         href: ROUTES.retention,
         icon: Repeat2,
-        description: 'DAU/WAU/MAU, cohorts, and dormant users',
+        description: 'DAU/WAU/MAU, returning users, dormancy',
       },
     ],
   },
@@ -106,12 +93,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.people,
         icon: Users,
         description: 'Who uses each app, and each person’s activity',
-      },
-      {
-        label: 'Audience',
-        href: ROUTES.audience,
-        icon: MonitorSmartphone,
-        description: 'Device, browser, OS, language, region',
       },
     ],
   },
@@ -129,12 +110,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.performance,
         icon: Gauge,
         description: 'Page load, server response, slow routes',
-      },
-      {
-        label: 'Anomalies',
-        href: ROUTES.anomalies,
-        icon: AlertTriangle,
-        description: 'Automatic alerts when activity spikes or drops',
       },
     ],
   },
