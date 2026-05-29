@@ -6,8 +6,8 @@
   :root {
     color-scheme: light;
 
-    /* Soft, cool off-white canvas so white cards lift off the page */
-    --background: 210 40% 98%;
+    /* Clean neutral canvas so white cards lift off the page */
+    --background: 220 24% 97%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,26 +16,26 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Indigo brand primary — matches the chart palette for a cohesive product feel */
-    --primary: 238 75% 59%;
+    /* Crisp indigo brand primary — matches the chart palette */
+    --primary: 234 89% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
+    --secondary: 220 20% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 20% 96%;
+    --muted-foreground: 220 9% 46%;
 
     /* Subtle indigo-tinted accent for hovers/active states */
-    --accent: 226 70% 96%;
-    --accent-foreground: 238 70% 42%;
+    --accent: 226 64% 97%;
+    --accent-foreground: 234 80% 44%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 238 75% 59%;
+    --border: 220 16% 90%;
+    --input: 220 16% 90%;
+    --ring: 234 89% 60%;
 
     --radius: 0.625rem;
   }
