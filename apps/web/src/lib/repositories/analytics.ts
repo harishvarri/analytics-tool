@@ -5,7 +5,6 @@ import type {
   AnalyticsSessionRow,
   AnalyticsUserRow,
   PortalDailyRow,
-  UserDailyRow,
 } from '@/types/database';
 import type {
   DashboardKpis,
@@ -198,42 +197,65 @@ export async function getCategoryBreakdown(): Promise<{ category: EventCategory;
   }));
 }
 
-/** Top active users in the last 24h. Joins the per-day MV with the user table. */
+/**
+ * Top active users over the last 30 days.
+ *
+ * Reads LIVE from analytics_events (not a materialized view), so it never goes
+ * stale waiting on a cron refresh and reflects events the moment they arrive.
+ * Aggregates per user_id in JS over the most recent rows, then joins
+ * analytics_users for names.
+ */
 export async function getActiveUsers(limit = 50): Promise<UserActivityRow[]> {
   const admin = getSupabaseAdmin();
-  const today = new Date().toISOString().slice(0, 10);
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: dailyData, error } = await admin
-    .from('mv_user_daily')
-    .select('user_id, events')
-    .eq('day', today)
-    .order('events', { ascending: false })
-    .limit(limit);
+  const { data, error } = await admin
+    .from('analytics_events')
+    .select('user_id, occurred_at')
+    .gte('occurred_at', since)
+    .not('user_id', 'is', null)
+    .order('occurred_at', { ascending: false })
+    .limit(10000);
   if (error) throw new AppError('USERS_QUERY_FAILED', error.message, 500);
-  const daily = (dailyData ?? []) as Pick<UserDailyRow, 'user_id' | 'events'>[];
 
-  const ids = daily.map((d) => d.user_id);
-  if (ids.length === 0) return [];
+  const rows = (data ?? []) as { user_id: string; occurred_at: string }[];
+  if (rows.length === 0) return [];
 
-  const { data: usersData, error: usersErr } = await admin
+  // Aggregate per user: event count + most-recent activity.
+  const agg = new Map<string, { events: number; lastSeen: string }>();
+  for (const r of rows) {
+    const cur = agg.get(r.user_id);
+    if (cur) {
+      cur.events += 1;
+      if (r.occurred_at > cur.lastSeen) cur.lastSeen = r.occurred_at;
+    } else {
+      agg.set(r.user_id, { events: 1, lastSeen: r.occurred_at });
+    }
+  }
+
+  const top = Array.from(agg.entries())
+    .sort((a, b) => b[1].events - a[1].events)
+    .slice(0, limit);
+
+  const ids = top.map(([id]) => id);
+  const { data: usersData } = await admin
     .from('analytics_users')
     .select('id, email, display_name, last_seen_at')
     .in('id', ids);
-  if (usersErr) throw new AppError('USERS_QUERY_FAILED', usersErr.message, 500);
-  const users = (usersData ?? []) as Pick<
-    AnalyticsUserRow,
-    'id' | 'email' | 'display_name' | 'last_seen_at'
-  >[];
+  const lookup = new Map(
+    ((usersData ?? []) as Pick<AnalyticsUserRow, 'id' | 'email' | 'display_name' | 'last_seen_at'>[]).map(
+      (u) => [u.id, u],
+    ),
+  );
 
-  const lookup = new Map(users.map((u) => [u.id, u]));
-  return daily.map((d) => {
-    const u = lookup.get(d.user_id);
+  return top.map(([id, a]) => {
+    const u = lookup.get(id);
     return {
-      userId: d.user_id,
+      userId: id,
       email: u?.email ?? null,
       displayName: u?.display_name ?? null,
-      lastSeenAt: u?.last_seen_at ?? null,
-      events24h: d.events,
+      lastSeenAt: u?.last_seen_at ?? a.lastSeen,
+      events24h: a.events, // count over the 30-day window (field name kept for compatibility)
     };
   });
 }

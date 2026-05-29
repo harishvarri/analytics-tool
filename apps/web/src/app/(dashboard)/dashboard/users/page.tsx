@@ -1,8 +1,8 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/analytics/DataTable';
 import { PageHeader } from '@/components/analytics/PageHeader';
+import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchActiveUsers } from '@/lib/data/fetchers';
 import { formatRelativeTime } from '@/lib/utils';
 import type { UserActivityRow } from '@/lib/repositories/analytics';
@@ -30,7 +30,7 @@ const columns: Column<UserActivityRow>[] = [
   },
   {
     key: 'events',
-    header: 'Events 24h',
+    header: 'Events (30d)',
     align: 'right',
     render: (u) => <span className="font-mono">{fmt.format(u.events24h)}</span>,
   },
@@ -68,7 +68,18 @@ export default async function UsersAnalyticsPage() {
       <PageHeader
         title="Users"
         description="Who's using your apps, how often they come back, and what each person does."
-        actions={<Button variant="outline" size="sm">Export CSV</Button>}
+        actions={
+          <ExportButton
+            filename="users"
+            headers={['User', 'Email / ID', 'Events (30d)', 'Last seen']}
+            rows={users.map((u) => [
+              u.displayName ?? '—',
+              u.email ?? u.userId,
+              u.events24h,
+              u.lastSeenAt ?? '',
+            ])}
+          />
+        }
       />
       <DataTable
         columns={columns}
