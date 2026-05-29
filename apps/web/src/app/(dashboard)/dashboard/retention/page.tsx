@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
+import { friendlyEventName } from '@/lib/event-labels';
 import {
   fetchActiveUserCounts,
   fetchDormantUsers,
@@ -160,9 +161,9 @@ export default async function RetentionPage() {
                   className="flex items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-xs"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <code className="truncate rounded bg-muted px-1.5 py-0.5 text-[11px]">{j.fromEvent}</code>
+                    <span className="truncate font-medium" title={j.fromEvent}>{friendlyEventName(j.fromEvent)}</span>
                     <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <code className="truncate rounded bg-muted px-1.5 py-0.5 text-[11px]">{j.toEvent}</code>
+                    <span className="truncate font-medium" title={j.toEvent}>{friendlyEventName(j.toEvent)}</span>
                   </div>
                   <span className="shrink-0 font-semibold tabular-nums">{j.transitions}</span>
                 </div>

@@ -1,6 +1,7 @@
 import 'server-only';
 import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
+import { friendlyEventName } from '../event-labels';
 
 /**
  * Module J — Customer Journey Flow repository.
@@ -77,7 +78,7 @@ export async function getJourneyGraph(
     if (idx === undefined) {
       idx = nodes.length;
       nodeIndex.set(key, idx);
-      nodes.push({ name: event, step });
+      nodes.push({ name: friendlyEventName(event), step });
     }
     return idx;
   };

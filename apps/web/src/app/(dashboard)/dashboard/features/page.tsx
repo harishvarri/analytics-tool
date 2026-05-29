@@ -7,6 +7,7 @@ import { ChartCard } from '@/components/charts/ChartCard';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { FeatureWeeklyChart } from '@/components/charts/FeatureWeeklyChart';
 import { ExportButton } from '@/components/shared/ExportButton';
+import { friendlyEventName } from '@/lib/event-labels';
 import {
   fetchFeatureActions,
   fetchFeaturePortfolioStats,
@@ -243,7 +244,7 @@ export default async function FeaturesPage() {
                       {acts.map((a) => (
                         <tr key={a.action} className="border-t hover:bg-muted/30">
                           <td className="px-3 py-2">
-                            <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{a.action}</code>
+                            <span className="font-medium" title={a.action}>{friendlyEventName(a.action)}</span>
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums font-medium">{a.totalEvents.toLocaleString()}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{a.uniqueUsers}</td>
