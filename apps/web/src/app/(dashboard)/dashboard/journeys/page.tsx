@@ -80,10 +80,10 @@ export default async function JourneysPage({ searchParams }: PageProps) {
       <section className="rounded-md border p-4 text-xs text-muted-foreground">
         <div className="mb-2 font-semibold uppercase tracking-wide">How the flow is built</div>
         <ol className="ml-4 list-decimal space-y-1">
-          <li>Events within each session are ordered by time and numbered (step 1, 2, 3…).</li>
-          <li>We aggregate transitions between consecutive steps: <code className="rounded bg-muted px-1 text-[10px]">step N event → step N+1 event</code>.</li>
-          <li>The same event at different steps is a separate node, so the flow reads left-to-right with no loops.</li>
-          <li>Only the top paths per step are drawn to keep the diagram legible.</li>
+          <li>The pages each visitor opens in a session are ordered by time (step 1, 2, 3…).</li>
+          <li>Page names come from each page&apos;s address, so they match your app (e.g. /sprint-board → &quot;Sprint Board&quot;).</li>
+          <li>Repeated views of the same page are collapsed, and the same page at different steps is a separate column — so the flow reads left-to-right with no loops.</li>
+          <li>Only the most common paths per step are drawn to keep the diagram legible.</li>
         </ol>
       </section>
     </div>

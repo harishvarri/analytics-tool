@@ -2,7 +2,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   AlertTriangle,
-  Filter,
   Gauge,
   LayoutDashboard,
   Lightbulb,
@@ -83,16 +82,10 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: 'Behavior',
     items: [
       {
-        label: 'Funnels',
-        href: ROUTES.funnels,
-        icon: Filter,
-        description: 'Step-by-step conversion and drop-off',
-      },
-      {
         label: 'Journeys',
         href: ROUTES.journeys,
         icon: Route,
-        description: 'User flow paths (Sankey)',
+        description: 'The pages people move through, step by step',
       },
       {
         label: 'Features',

@@ -9,7 +9,6 @@ export const ROUTES = {
   features:  '/dashboard/features',
   reliability: '/dashboard/reliability',
   audience:  '/dashboard/audience',
-  funnels:   '/dashboard/funnels',
   journeys:  '/dashboard/journeys',
   compare:   '/dashboard/compare',
   insights:  '/dashboard/insights',
