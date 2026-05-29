@@ -19,12 +19,15 @@ import {
   Users,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
+import { FEATURES } from '@/config/features';
 
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
   description?: string;
+  /** Hidden unless the central-SSO directory integration is enabled. */
+  requiresDirectory?: boolean;
 }
 
 export interface NavSection {
@@ -40,15 +43,15 @@ export interface NavSection {
  * training portal, admin tool — sees the same, meaningful set of views with no
  * code changes. Nothing here assumes a specific product's domain.
  */
-export const NAV_SECTIONS: readonly NavSection[] = [
+const RAW_SECTIONS: readonly NavSection[] = [
   {
     label: null,
     items: [
       {
-        label: 'Command Center',
+        label: FEATURES.directory ? 'Command Center' : 'Overview',
         href: ROUTES.dashboard,
         icon: LayoutDashboard,
-        description: 'Org-wide snapshot: who is active, what is used, what is healthy',
+        description: 'Platform-wide activity, usage, and health',
       },
       {
         label: 'Live Feed',
@@ -78,6 +81,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.access,
         icon: KeyRound,
         description: 'Who can use each app vs who actually does',
+        requiresDirectory: true,
       },
       {
         label: 'Smart Insights',
@@ -118,6 +122,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.people,
         icon: Building2,
         description: 'Known users by department, role, and last activity',
+        requiresDirectory: true,
       },
       {
         label: 'Users',
@@ -130,6 +135,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.inactive,
         icon: UserX,
         description: 'Have access but no recent activity',
+        requiresDirectory: true,
       },
       {
         label: 'Audience',
@@ -174,6 +180,15 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     ],
   },
 ] as const;
+
+/**
+ * Visible nav: directory-dependent items are hidden until the SSO integration
+ * is enabled (FEATURES.directory). Empty sections are dropped.
+ */
+export const NAV_SECTIONS: readonly NavSection[] = RAW_SECTIONS.map((s) => ({
+  ...s,
+  items: s.items.filter((i) => FEATURES.directory || !i.requiresDirectory),
+})).filter((s) => s.items.length > 0);
 
 /** Backwards-compatible flat list used by the mobile sheet menu. */
 export const PRIMARY_NAV: readonly NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
