@@ -41,6 +41,10 @@ export const trackEventSchema = z
       .regex(/^[a-z0-9._-]+$/i, 'Event names must be dot.namespaced lowercase'),
     source: eventSourceSchema.optional(),
     userId: z.string().uuid().nullable().optional(),
+    // Independent apps (own auth, no central uuid) may identify by email instead.
+    // The platform resolves this to a central user_id; the uuid field stays a uuid.
+    userEmail: z.string().email().max(320).nullable().optional(),
+    userName: z.string().max(200).nullable().optional(),
     sessionId: z.string().uuid().nullable().optional(),
     url: z.string().url().max(2048).nullable().optional(),
     referrer: z.string().max(2048).nullable().optional(),

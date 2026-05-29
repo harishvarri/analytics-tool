@@ -119,9 +119,15 @@
     var DEVICE = deviceContext();
 
     // Anonymous-by-default: every browser counts as a distinct visitor (a stable
-    // UUID), so Users / Retention / DAU·WAU·MAU / Funnels populate even without a
-    // login. ncpl.identify('<real-user-uuid>') overrides it once a user signs in.
+    // UUID). ncpl.identify(...) attaches a real identity once a user signs in:
+    //   identify('<central-user-uuid>')        → central SSO apps
+    //   identify(null, { email, name })        → independent apps (linked by email)
     var userId = ANON_ID;
+    var identifiedEmail = null;
+    var identifiedName = null;
+    function isUuid(s) {
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    }
 
     // ---- event queue (batch + retry-safe unload flush) ---------------------
     var queue = [];
@@ -154,13 +160,17 @@
         category: category,
         name: name,
         source: 'web',
-        userId: userId,
+        // When identified by email (no uuid), send userId:null + userEmail so the
+        // platform resolves to the central directory user by email.
+        userId: identifiedEmail ? null : userId,
         sessionId: SESSION_ID,
         url: location.href,
         referrer: document.referrer || null,
         metadata: merge({}, DEVICE, { anonId: ANON_ID }, metadata || {}),
         occurredAt: new Date().toISOString()
       };
+      if (identifiedEmail) ev.userEmail = identifiedEmail;
+      if (identifiedName) ev.userName = identifiedName;
       queue.push(ev);
       if (DEBUG) console.log('[ncpl]', name, ev);
       if (queue.length >= MAX_BATCH) flush(false);
@@ -172,7 +182,13 @@
     window.ncpl.track = function (name, metadata) {
       if (typeof name === 'string' && name) enqueue('custom', name, metadata);
     };
-    window.ncpl.identify = function (id) { userId = id || null; };
+    window.ncpl.identify = function (id, traits) {
+      traits = traits || {};
+      if (typeof id === 'string' && isUuid(id)) userId = id;
+      else if (typeof id === 'string' && id.indexOf('@') > -1) identifiedEmail = id.toLowerCase();
+      if (traits.email) identifiedEmail = String(traits.email).toLowerCase();
+      if (traits.name) identifiedName = String(traits.name);
+    };
     window.ncpl.page = function () { trackPage(); };
 
     // ---- page views + SPA route changes ------------------------------------

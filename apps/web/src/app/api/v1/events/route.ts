@@ -10,6 +10,7 @@ import { trackEventBatchSchema } from '@/lib/schemas/events';
 import {
   ensureSessionsForBatch,
   insertEventsBatch,
+  resolveUserIds,
 } from '@/lib/repositories/events';
 import { RUNTIME } from '@/config/runtime';
 
@@ -52,8 +53,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const ipHash = ip === 'unknown' ? null : hashIp(ip);
   const userAgent = req.headers.get('user-agent');
 
-  await ensureSessionsForBatch(events, { ipHash, userAgent });
-  const { inserted } = await insertEventsBatch(events, { ipHash, userAgent });
+  // Resolve each event to a central user_id (uuid as-is / email-resolved / minted),
+  // ensuring the user rows exist before sessions + events reference them.
+  const resolved = await resolveUserIds(events);
+  await ensureSessionsForBatch(events, { ipHash, userAgent }, resolved);
+  const { inserted } = await insertEventsBatch(events, { ipHash, userAgent }, resolved);
 
   const res = ok({ inserted });
   Object.entries(CORS_HEADERS).forEach(([k, v]) => res.headers.set(k, v));

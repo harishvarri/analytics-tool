@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Users, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, Boxes, UserCheck, UserX, Users, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
@@ -10,6 +10,7 @@ import { DonutChart } from '@/components/charts/DonutChart';
 import { CATEGORY_COLOR, CHART_COLORS } from '@/components/charts/ChartTheme';
 import {
   fetchCategoryBreakdown,
+  fetchCommandCenter,
   fetchDashboardKpis,
   fetchEventsTimeSeries,
   fetchPortalSummaries,
@@ -45,12 +46,13 @@ function halfWindowTrend(values: number[]): Trend {
 }
 
 export default async function DashboardOverviewPage() {
-  const [kpis, timeSeries, breakdown, portals, activity] = await Promise.all([
+  const [kpis, timeSeries, breakdown, portals, activity, command] = await Promise.all([
     fetchDashboardKpis(),
     fetchEventsTimeSeries(),
     fetchCategoryBreakdown(),
     fetchPortalSummaries(),
     fetchRecentActivity(10),
+    fetchCommandCenter(),
   ]);
 
   const eventSpark = timeSeries.map((p) => ({ value: p.events }));
@@ -67,14 +69,44 @@ export default async function DashboardOverviewPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Overview"
-        description="A single view of everything happening across all your connected apps."
+        title="Command Center"
+        description="One screen: who is active, which apps are used, and what needs attention across the organization."
         actions={
           <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
             ● Live · last 24h
           </Badge>
         }
       />
+
+      {/* Organization snapshot (today) */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Active people today"
+          value={fmt.format(command.activeUsersToday)}
+          icon={UserCheck}
+          trend={{ direction: 'flat', label: `${fmt.format(command.sessionsToday)} sessions today` }}
+        />
+        <KpiCard
+          label="Most used app"
+          value={command.mostUsedProject ?? '—'}
+          icon={Boxes}
+          trend={{ direction: 'flat', label: 'By people who used it (30d)' }}
+        />
+        <KpiCard
+          label="Inactive people"
+          value={fmt.format(command.inactiveUsersCount)}
+          icon={UserX}
+          trend={{ direction: command.inactiveUsersCount > 0 ? 'up' : 'flat', label: 'Have access, idle ≥30d' }}
+          invertTrend
+        />
+        <KpiCard
+          label="Unused access"
+          value={fmt.format(command.neverUsedAccessCount)}
+          icon={AlertTriangle}
+          trend={{ direction: command.neverUsedAccessCount > 0 ? 'up' : 'flat', label: 'Access granted, never used' }}
+          invertTrend
+        />
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard

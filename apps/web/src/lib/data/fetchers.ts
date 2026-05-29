@@ -68,6 +68,18 @@ import {
   type RoutePerformance,
 } from '../repositories/performance';
 import {
+  getCommandCenter,
+  getInactiveUsers,
+  getOrgDirectoryRollup,
+  getProjectAccessVsUsage,
+  getUserProfileSummaries,
+  type CommandCenter,
+  type InactiveUser,
+  type OrgRollupRow,
+  type ProjectAccessUsage,
+  type UserProfileSummary,
+} from '../repositories/operational';
+import {
   mockActiveUsers,
   mockCategoryBreakdown,
   mockDashboardKpis,
@@ -245,3 +257,26 @@ export const fetchPerformanceTrend = (): Promise<PerfTrendPoint[]> =>
 
 export const fetchActiveUserCounts = (): Promise<ActiveUserCounts> =>
   withMockFallback('active.counts', getActiveUserCounts, () => ({ dau: 0, wau: 0, mau: 0, stickinessPct: 0 }));
+
+// ── Operational Intelligence (Command Center / People / Access) ──────────────
+
+const emptyCommandCenter: CommandCenter = {
+  activeUsersToday: 0, sessionsToday: 0, eventsToday: 0, errorsToday: 0,
+  mostUsedProject: null, leastAdoptedProject: null, totalDirectoryUsers: 0,
+  inactiveUsersCount: 0, neverUsedAccessCount: 0,
+};
+
+export const fetchCommandCenter = (): Promise<CommandCenter> =>
+  withMockFallback('ops.command', getCommandCenter, () => emptyCommandCenter);
+
+export const fetchProjectAccessVsUsage = (): Promise<ProjectAccessUsage[]> =>
+  withMockFallback('ops.access', getProjectAccessVsUsage, () => []);
+
+export const fetchUserProfileSummaries = (limit = 100): Promise<UserProfileSummary[]> =>
+  withMockFallback('ops.people', () => getUserProfileSummaries(limit), () => []);
+
+export const fetchInactiveUsers = (limit = 100): Promise<InactiveUser[]> =>
+  withMockFallback('ops.inactive', () => getInactiveUsers(limit), () => []);
+
+export const fetchOrgDirectoryRollup = (): Promise<OrgRollupRow[]> =>
+  withMockFallback('ops.rollup', getOrgDirectoryRollup, () => []);

@@ -13,6 +13,9 @@ export const ROUTES = {
   compare:   '/dashboard/compare',
   insights:  '/dashboard/insights',
   performance: '/dashboard/performance',
+  people:    '/dashboard/people',
+  access:    '/dashboard/access',
+  inactive:  '/dashboard/inactive',
   manageProjects: '/dashboard/admin/projects',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks

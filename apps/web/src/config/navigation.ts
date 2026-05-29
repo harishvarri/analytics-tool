@@ -2,7 +2,9 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   AlertTriangle,
+  Building2,
   Gauge,
+  KeyRound,
   LayoutDashboard,
   Lightbulb,
   MonitorSmartphone,
@@ -13,6 +15,7 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
+  UserX,
   Users,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
@@ -42,10 +45,10 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: null,
     items: [
       {
-        label: 'Overview',
+        label: 'Command Center',
         href: ROUTES.dashboard,
         icon: LayoutDashboard,
-        description: 'Platform-wide KPIs, trends, and health',
+        description: 'Org-wide snapshot: who is active, what is used, what is healthy',
       },
       {
         label: 'Live Feed',
@@ -69,6 +72,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.compare,
         icon: Rows3,
         description: 'Compare every application side by side',
+      },
+      {
+        label: 'Access vs Usage',
+        href: ROUTES.access,
+        icon: KeyRound,
+        description: 'Who can use each app vs who actually does',
       },
       {
         label: 'Smart Insights',
@@ -105,10 +114,22 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: 'People',
     items: [
       {
+        label: 'Directory',
+        href: ROUTES.people,
+        icon: Building2,
+        description: 'Known users by department, role, and last activity',
+      },
+      {
         label: 'Users',
         href: ROUTES.users,
         icon: Users,
         description: 'User-level activity and engagement',
+      },
+      {
+        label: 'Inactive Users',
+        href: ROUTES.inactive,
+        icon: UserX,
+        description: 'Have access but no recent activity',
       },
       {
         label: 'Audience',
