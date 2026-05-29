@@ -19,6 +19,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Verification builds set NEXT_DIST_DIR=.next-verify so they never clobber a
+  // running `next dev` server's `.next` cache (which corrupts it and serves
+  // unstyled HTML). Production/Vercel builds leave it unset → default `.next`.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   outputFileTracingRoot: path.join(__dirname, '../..'),
   async headers() {
     return [
