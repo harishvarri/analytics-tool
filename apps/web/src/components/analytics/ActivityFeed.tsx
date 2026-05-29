@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EventBadge } from './EventBadge';
 import { formatRelativeTime } from '@/lib/utils';
+import { friendlyEventName } from '@/lib/event-labels';
 import type { RealtimeActivityItem } from '@/types/analytics';
 
 interface ActivityFeedProps {
@@ -32,7 +33,9 @@ export function ActivityFeed({ items, empty = 'No activity in the last 5 minutes
               </span>
             </div>
             <div className="mt-0.5 truncate text-xs text-muted-foreground">
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">{item.eventName}</code>
+              <span className="font-medium text-foreground" title={item.eventName}>
+                {friendlyEventName(item.eventName)}
+              </span>
               <span className="mx-1.5">·</span>
               <span>{item.portalName}</span>
               {item.url ? (

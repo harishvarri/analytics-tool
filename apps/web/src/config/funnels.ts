@@ -25,41 +25,35 @@ export interface FunnelDef {
   steps:       FunnelStep[];
 }
 
+/**
+ * Generic, app-agnostic funnels that work out-of-the-box with the auto-capture
+ * script (ncpl.js) — no per-app event wiring needed. Each step references an
+ * event that ncpl.js emits automatically for ANY website.
+ *
+ * To measure a product-specific flow (e.g. checkout), add a funnel here whose
+ * steps reference your own `window.ncpl.track(...)` event names.
+ */
 export const FUNNELS: readonly FunnelDef[] = [
   {
-    id:   'activation',
-    name: 'User Activation',
-    description: 'From sign-in to first meaningful action on a ticket.',
-    app:  'sentinel',
+    id: 'engagement',
+    name: 'Visitor Engagement',
+    description: 'How far visitors get: from landing, to interacting, to completing a form.',
+    app: 'all',
     steps: [
-      { event: 'auth.login',           label: 'Signed in' },
-      { event: 'dashboard.viewed',     label: 'Viewed dashboard' },
-      { event: 'board.viewed',         label: 'Opened a board' },
-      { event: 'ticket.viewed',        label: 'Opened a ticket' },
-      { event: 'ticket.status_changed', label: 'Moved a ticket' },
+      { event: 'navigation.page_view',   label: 'Visited the app' },
+      { event: 'interaction.click',      label: 'Clicked something' },
+      { event: 'interaction.form_submit', label: 'Submitted a form' },
     ],
   },
   {
-    id:   'ticket-workflow',
-    name: 'Ticket Workflow',
-    description: 'How users progress a ticket from view to comment to status change.',
-    app:  'sentinel',
+    id: 'exploration',
+    name: 'Exploration',
+    description: 'Do visitors go beyond the first page and take an action?',
+    app: 'all',
     steps: [
-      { event: 'ticket.viewed',         label: 'Viewed ticket' },
-      { event: 'ticket.comment_added',  label: 'Added a comment' },
-      { event: 'ticket.assigned',       label: 'Assigned it' },
-      { event: 'ticket.status_changed', label: 'Changed status' },
-    ],
-  },
-  {
-    id:   'qa-cycle',
-    name: 'QA Verification',
-    description: 'From opening a ticket to completing QA review.',
-    app:  'sentinel',
-    steps: [
-      { event: 'board.viewed',      label: 'Opened board' },
-      { event: 'ticket.viewed',     label: 'Opened ticket' },
-      { event: 'qa.ticket_reviewed', label: 'Reviewed in QA' },
+      { event: 'navigation.page_view',    label: 'Landed on a page' },
+      { event: 'navigation.route_change', label: 'Explored another page' },
+      { event: 'interaction.click',       label: 'Took an action' },
     ],
   },
 ] as const;

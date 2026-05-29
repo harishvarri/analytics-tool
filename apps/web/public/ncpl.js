@@ -118,7 +118,10 @@
     }
     var DEVICE = deviceContext();
 
-    var userId = null; // becomes a UUID only if the app calls ncpl.identify()
+    // Anonymous-by-default: every browser counts as a distinct visitor (a stable
+    // UUID), so Users / Retention / DAU·WAU·MAU / Funnels populate even without a
+    // login. ncpl.identify('<real-user-uuid>') overrides it once a user signs in.
+    var userId = ANON_ID;
 
     // ---- event queue (batch + retry-safe unload flush) ---------------------
     var queue = [];

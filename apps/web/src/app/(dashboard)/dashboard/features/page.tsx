@@ -157,12 +157,13 @@ export default async function FeaturesPage() {
           <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted">
             <Layers className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="text-sm font-medium">No feature events captured yet</div>
+          <div className="text-sm font-medium">No named features tracked yet</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Feature events are <code className="rounded bg-muted px-1 text-[10px]">analyticsTrack()</code>{' '}
-            calls from connected portals with a namespaced event name (e.g.{' '}
-            <code className="rounded bg-muted px-1 text-[10px]">board.ticket_moved</code>).
-            Auth, navigation, and session events are excluded and shown on their respective pages.
+            This page shows which <strong>named features</strong> people use. The auto-capture
+            script records page views and clicks automatically, but to see specific features here
+            an app sends a named event, e.g.{' '}
+            <code className="rounded bg-muted px-1 text-[10px]">window.ncpl.track(&apos;invoice.created&apos;)</code>.
+            The word before the dot (&quot;invoice&quot;) becomes the feature shown here.
           </p>
         </div>
       )}
