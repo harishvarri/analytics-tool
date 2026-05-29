@@ -73,12 +73,14 @@ import {
   getInactiveUsers,
   getOrgDirectoryRollup,
   getProjectAccessVsUsage,
+  getUserDetail,
   getUserProfileSummaries,
   type AppUserRow,
   type CommandCenter,
   type InactiveUser,
   type OrgRollupRow,
   type ProjectAccessUsage,
+  type UserDetail,
   type UserProfileSummary,
 } from '../repositories/operational';
 import {
@@ -279,6 +281,9 @@ export const fetchUserProfileSummaries = (limit = 100): Promise<UserProfileSumma
 
 export const fetchAppUsers = (appSlug: string, limit = 100): Promise<AppUserRow[]> =>
   withMockFallback('ops.appUsers', () => getAppUsers(appSlug, limit), () => []);
+
+export const fetchUserDetail = (userId: string): Promise<UserDetail | null> =>
+  withMockFallback('ops.userDetail', () => getUserDetail(userId), () => null);
 
 export const fetchInactiveUsers = (limit = 100): Promise<InactiveUser[]> =>
   withMockFallback('ops.inactive', () => getInactiveUsers(limit), () => []);

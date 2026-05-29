@@ -133,6 +133,100 @@ export async function getAppUsers(appSlug: string, limit = 100): Promise<AppUser
   }));
 }
 
+export interface UserDetail {
+  userId:              string;
+  email:               string | null;
+  displayName:         string | null;
+  department:          string | null;
+  team:                string | null;
+  title:               string | null;
+  status:              string;
+  isInternal:          boolean;
+  firstSeenAt:         string | null;
+  lastActiveAt:        string | null;
+  totalEvents:         number;
+  totalSessions:       number;
+  totalSessionMinutes: number;
+  logins:              number;
+  apps:                { projectSlug: string; events: number; sessions: number; firstSeen: string | null; lastActive: string | null }[];
+  recent:              { name: string; category: string; portalId: string; occurredAt: string }[];
+}
+
+/**
+ * Full activity profile for ONE user — the per-person monitoring view: identity,
+ * apps used, sessions + time, login count, and a recent login→logout→activity
+ * timeline. Works per-app from each app's identified events (no SSO required).
+ */
+export async function getUserDetail(userId: string): Promise<UserDetail | null> {
+  const admin = getSupabaseAdmin();
+
+  const { data: u } = await admin
+    .from('analytics_users')
+    .select('id, email, display_name, department, team, title, status, is_internal')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!u) return null;
+  const user = u as Record<string, unknown>;
+
+  const [{ data: appRows }, { data: sessRows }, { data: evRows }] = await Promise.all([
+    admin.from('v_user_app_profile').select('*').eq('user_id', userId),
+    admin.from('analytics_sessions').select('started_at, last_seen_at, ended_at').eq('user_id', userId).limit(2000),
+    admin
+      .from('analytics_events')
+      .select('name, category, portal_id, occurred_at')
+      .eq('user_id', userId)
+      .order('occurred_at', { ascending: false })
+      .limit(50),
+  ]);
+
+  const apps = ((appRows ?? []) as Record<string, unknown>[]).map((r) => ({
+    projectSlug: String(r.project_slug),
+    events:      n(r.total_events),
+    sessions:    n(r.total_sessions),
+    firstSeen:   (r.first_seen_at as string | null) ?? null,
+    lastActive:  (r.last_active_at as string | null) ?? null,
+  }));
+
+  const sessions = (sessRows ?? []) as { started_at: string; last_seen_at: string; ended_at: string | null }[];
+  let totalMs = 0;
+  for (const s of sessions) {
+    const start = new Date(s.started_at).getTime();
+    const end = new Date(s.ended_at ?? s.last_seen_at).getTime();
+    if (end > start) totalMs += end - start;
+  }
+
+  const recent = ((evRows ?? []) as Record<string, unknown>[]).map((r) => ({
+    name:       String(r.name),
+    category:   String(r.category),
+    portalId:   String(r.portal_id),
+    occurredAt: String(r.occurred_at),
+  }));
+  const logins = recent.filter((e) => e.name === 'auth.login').length;
+
+  const totalEvents = apps.reduce((s, a) => s + a.events, 0);
+  const lastActive = apps.reduce<string | null>((m, a) => (a.lastActive && (!m || a.lastActive > m) ? a.lastActive : m), null);
+  const firstSeen = apps.reduce<string | null>((m, a) => (a.firstSeen && (!m || a.firstSeen < m) ? a.firstSeen : m), null);
+
+  return {
+    userId,
+    email:               (user.email as string | null) ?? null,
+    displayName:         (user.display_name as string | null) ?? null,
+    department:          (user.department as string | null) ?? null,
+    team:                (user.team as string | null) ?? null,
+    title:               (user.title as string | null) ?? null,
+    status:              String(user.status ?? 'active'),
+    isInternal:          Boolean(user.is_internal),
+    firstSeenAt:         firstSeen,
+    lastActiveAt:        lastActive,
+    totalEvents,
+    totalSessions:       sessions.length,
+    totalSessionMinutes: Math.round(totalMs / 60000),
+    logins,
+    apps,
+    recent,
+  };
+}
+
 export async function getUserProfileSummaries(limit = 100): Promise<UserProfileSummary[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('v_user_profile_summary')

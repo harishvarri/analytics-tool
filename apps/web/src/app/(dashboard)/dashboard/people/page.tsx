@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Building2, UserCheck, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { KpiCard } from '@/components/analytics/KpiCard';
@@ -86,8 +87,10 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
                 {users.map((u) => (
                   <tr key={u.userId} className="border-b last:border-b-0 hover:bg-muted/40">
                     <td className="px-2 py-2">
-                      <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Anonymous')}</div>
-                      <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                      <Link href={`/dashboard/people/${u.userId}`} className="hover:underline">
+                        <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Anonymous')}</div>
+                        <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                      </Link>
                     </td>
                     <td className="px-2 py-2 text-muted-foreground">{u.department ?? '—'}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{u.totalEvents.toLocaleString()}</td>
@@ -191,8 +194,10 @@ async function CrossAppDirectory() {
                 {users.map((u) => (
                   <tr key={u.userId} className="border-b last:border-b-0 hover:bg-muted/40">
                     <td className="px-2 py-2">
-                      <div className="font-medium">{u.displayName ?? '—'}</div>
-                      <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                      <Link href={`/dashboard/people/${u.userId}`} className="hover:underline">
+                        <div className="font-medium">{u.displayName ?? '—'}</div>
+                        <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                      </Link>
                     </td>
                     <td className="px-2 py-2 text-muted-foreground">
                       {u.department ?? '—'}{u.team ? ` · ${u.team}` : ''}
