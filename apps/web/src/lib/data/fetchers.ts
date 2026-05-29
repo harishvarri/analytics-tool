@@ -11,25 +11,6 @@ import {
 } from '../repositories/analytics';
 import { getRealtimeActivity } from '../repositories/events';
 import {
-  getAgingTickets,
-  getBottlenecks,
-  getCycleTimeByStatus,
-  getThroughputWeekly,
-  getWorkflowKpis,
-  type AgingTicket,
-  type BottleneckRow,
-  type CycleTimeRow,
-  type ThroughputPoint,
-  type WorkflowFilter,
-  type WorkflowKpis,
-} from '../repositories/workflow';
-import {
-  getPortfolioSummary,
-  getProjectHealthList,
-  type PortfolioSummary,
-  type ProjectHealth,
-} from '../repositories/projectHealth';
-import {
   listApplications,
   listProjects,
   type ApplicationOption,
@@ -144,38 +125,6 @@ export const fetchEventsTimeSeries = (hours = 24): Promise<TimePoint[]> =>
 /** Category breakdown — real DB query, falls back to mock. */
 export const fetchCategoryBreakdown = (): Promise<{ category: EventCategory; events: number }[]> =>
   withMockFallback('categories', getCategoryBreakdown, mockCategoryBreakdown);
-
-// ── Workflow Intelligence (Module B) ────────────────────────────────────────
-//
-// These return empty defaults (not mock) when the DB is empty — workflow
-// dashboards should clearly show "no data yet" rather than fabricated numbers.
-
-const emptyWorkflowKpis: WorkflowKpis = { medianCycleHours: null, throughput7d: 0, wipTotal: 0, agingCount: 0 };
-
-export const fetchWorkflowKpis = (filter: WorkflowFilter = {}): Promise<WorkflowKpis> =>
-  withMockFallback('workflow.kpis', () => getWorkflowKpis(filter), () => emptyWorkflowKpis);
-
-export const fetchCycleTimeByStatus = (): Promise<CycleTimeRow[]> =>
-  withMockFallback('workflow.cycle', getCycleTimeByStatus, () => []);
-
-export const fetchThroughputWeekly = (): Promise<ThroughputPoint[]> =>
-  withMockFallback('workflow.throughput', getThroughputWeekly, () => []);
-
-export const fetchAgingTickets = (limit = 20, filter: WorkflowFilter = {}): Promise<AgingTicket[]> =>
-  withMockFallback('workflow.aging', () => getAgingTickets(limit, filter), () => []);
-
-export const fetchBottlenecks = (filter: WorkflowFilter = {}): Promise<BottleneckRow[]> =>
-  withMockFallback('workflow.bottlenecks', () => getBottlenecks(filter), () => []);
-
-// ── Project Health Index (Module C) ─────────────────────────────────────────
-
-const emptyPortfolio: PortfolioSummary = { healthy: 0, atRisk: 0, critical: 0, total: 0, avgPhi: null };
-
-export const fetchProjectHealthList = (): Promise<ProjectHealth[]> =>
-  withMockFallback('phi.list', getProjectHealthList, () => []);
-
-export const fetchPortfolioSummary = (): Promise<PortfolioSummary> =>
-  withMockFallback('phi.summary', getPortfolioSummary, () => emptyPortfolio);
 
 // ── Workspace (applications + projects for the global filter) ───────────────
 

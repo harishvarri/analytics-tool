@@ -2,15 +2,12 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
   Filter,
-  FolderKanban,
-  GitBranch,
+  Gauge,
   LayoutDashboard,
   Lightbulb,
   MonitorSmartphone,
   Network,
-  Gauge,
   Repeat2,
   Route,
   Rows3,
@@ -29,14 +26,17 @@ export interface NavItem {
 }
 
 export interface NavSection {
-  label: string | null;       // null = unlabelled (top section)
+  label: string | null; // null = unlabelled (top section)
   items: readonly NavItem[];
 }
 
 /**
- * Sidebar information architecture, modelled after enterprise analytics
- * platforms (Datadog, Mixpanel, PostHog). Grouped by intent rather than data
- * source so adding a new project/app does not require restructuring nav.
+ * Sidebar information architecture.
+ *
+ * Grouped by INTENT (what question you're answering) rather than by data
+ * source, and deliberately kept generic so any application — web app, CRM,
+ * training portal, admin tool — sees the same, meaningful set of views with no
+ * code changes. Nothing here assumes a specific product's domain.
  */
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
@@ -46,8 +46,19 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: 'Overview',
         href: ROUTES.dashboard,
         icon: LayoutDashboard,
-        description: 'Platform-wide KPIs and health',
+        description: 'Platform-wide KPIs, trends, and health',
       },
+      {
+        label: 'Live Feed',
+        href: ROUTES.live,
+        icon: Activity,
+        description: 'Streaming event tail across all apps',
+      },
+    ],
+  },
+  {
+    label: 'Organization',
+    items: [
       {
         label: 'Applications',
         href: ROUTES.applications,
@@ -60,93 +71,80 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         icon: Rows3,
         description: 'Compare every application side by side',
       },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
       {
         label: 'Smart Insights',
         href: ROUTES.insights,
         icon: Lightbulb,
         description: 'Auto-generated week-over-week insights',
       },
+    ],
+  },
+  {
+    label: 'Behavior',
+    items: [
+      {
+        label: 'Funnels',
+        href: ROUTES.funnels,
+        icon: Filter,
+        description: 'Step-by-step conversion and drop-off',
+      },
       {
         label: 'Journeys',
         href: ROUTES.journeys,
         icon: Route,
-        description: 'Customer journey flow (Sankey)',
+        description: 'User flow paths (Sankey)',
       },
       {
-        label: 'Workflows',
-        href: ROUTES.workflows,
-        icon: GitBranch,
-        description: 'Cycle time, throughput, bottlenecks',
-      },
-      {
-        label: 'Projects',
-        href: ROUTES.projects,
-        icon: FolderKanban,
-        description: 'Project Health Index portfolio',
+        label: 'Features',
+        href: ROUTES.features,
+        icon: Sparkles,
+        description: 'Feature adoption, stickiness, and decay',
       },
       {
         label: 'Retention',
         href: ROUTES.retention,
         icon: Repeat2,
-        description: 'Cohort retention and dormant users',
+        description: 'DAU/WAU/MAU, cohorts, and dormant users',
+      },
+    ],
+  },
+  {
+    label: 'People',
+    items: [
+      {
+        label: 'Users',
+        href: ROUTES.users,
+        icon: Users,
+        description: 'User-level activity and engagement',
+      },
+      {
+        label: 'Audience',
+        href: ROUTES.audience,
+        icon: MonitorSmartphone,
+        description: 'Device, browser, OS, language, region',
+      },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      {
+        label: 'Reliability',
+        href: ROUTES.reliability,
+        icon: ShieldCheck,
+        description: 'Error groups, error rate, SLO budget',
+      },
+      {
+        label: 'Performance',
+        href: ROUTES.performance,
+        icon: Gauge,
+        description: 'Page load, TTFB, slow routes, engagement',
       },
       {
         label: 'Anomalies',
         href: ROUTES.anomalies,
         icon: AlertTriangle,
         description: 'Statistical alerts on metric deviations',
-      },
-      {
-        label: 'Features',
-        href: ROUTES.features,
-        icon: Sparkles,
-        description: 'Feature adoption rates, sparklines, and decay curves',
-      },
-      {
-        label: 'Funnels',
-        href: ROUTES.funnels,
-        icon: Filter,
-        description: 'Step-by-step conversion and drop-off analysis',
-      },
-      {
-        label: 'Audience',
-        href: ROUTES.audience,
-        icon: MonitorSmartphone,
-        description: 'Device, browser, OS, language, and region breakdowns',
-      },
-      {
-        label: 'Reliability',
-        href: ROUTES.reliability,
-        icon: ShieldCheck,
-        description: 'Error groups, error rate, and SLO budget burn',
-      },
-      {
-        label: 'Performance',
-        href: ROUTES.performance,
-        icon: Gauge,
-        description: 'Page load, TTFB, slow routes, and engagement',
-      },
-    ],
-  },
-  {
-    label: 'Realtime',
-    items: [
-      {
-        label: 'Live Feed',
-        href: ROUTES.live,
-        icon: Activity,
-        description: 'Streaming event tail across all apps',
-      },
-      {
-        label: 'Users',
-        href: ROUTES.users,
-        icon: Users,
-        description: 'User-level activity and engagement',
       },
     ],
   },
@@ -158,12 +156,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.manageProjects,
         icon: Settings2,
         description: 'Onboard applications and manage API keys',
-      },
-      {
-        label: 'Reports',
-        href: ROUTES.reports,
-        icon: BarChart3,
-        description: 'Saved and scheduled reports',
       },
     ],
   },

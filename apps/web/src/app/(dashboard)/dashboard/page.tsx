@@ -1,6 +1,5 @@
 import { Activity, AlertTriangle, Users, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ActivityFeed } from '@/components/analytics/ActivityFeed';
@@ -22,6 +21,29 @@ export const dynamic = 'force-dynamic';
 const fmt = new Intl.NumberFormat('en-US');
 const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
 
+type Trend = { direction: 'up' | 'down' | 'flat'; label: string };
+
+/**
+ * Honest, derived trend: compares the second half of the 24h window to the
+ * first half. No fabricated "vs yesterday" numbers — everything is computed
+ * from the data actually on screen.
+ */
+function halfWindowTrend(values: number[]): Trend {
+  if (values.length < 4) return { direction: 'flat', label: 'rolling 24h' };
+  const mid = Math.floor(values.length / 2);
+  const first = values.slice(0, mid).reduce((a, b) => a + b, 0);
+  const second = values.slice(mid).reduce((a, b) => a + b, 0);
+  if (first === 0) {
+    return second > 0
+      ? { direction: 'up', label: 'new activity this window' }
+      : { direction: 'flat', label: 'no activity yet' };
+  }
+  const change = ((second - first) / first) * 100;
+  const dir: Trend['direction'] = change > 1 ? 'up' : change < -1 ? 'down' : 'flat';
+  const sign = change > 0 ? '+' : '';
+  return { direction: dir, label: `${sign}${change.toFixed(1)}% vs first 12h` };
+}
+
 export default async function DashboardOverviewPage() {
   const [kpis, timeSeries, breakdown, portals, activity] = await Promise.all([
     fetchDashboardKpis(),
@@ -35,18 +57,22 @@ export default async function DashboardOverviewPage() {
   const userSpark = timeSeries.map((p) => ({ value: p.users }));
   const totalCategoryEvents = breakdown.reduce((sum, b) => sum + b.events, 0);
 
+  const usersTrend = halfWindowTrend(timeSeries.map((p) => p.users));
+  const eventsTrend = halfWindowTrend(timeSeries.map((p) => p.events));
+  const errorTrend: Trend =
+    kpis.errorRate <= 0.01
+      ? { direction: 'flat', label: 'within healthy range' }
+      : { direction: 'up', label: 'above 1% threshold' };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Overview"
-        description="Centralized analytics across every internal NCPL portal."
+        description="Centralized analytics across every connected application."
         actions={
-          <>
-            <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-              ● Live · last 24h
-            </Badge>
-            <Button variant="outline" size="sm">Export</Button>
-          </>
+          <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+            ● Live · last 24h
+          </Badge>
         }
       />
 
@@ -55,7 +81,7 @@ export default async function DashboardOverviewPage() {
           label="Active Users"
           value={fmt.format(kpis.activeUsers)}
           icon={Users}
-          trend={{ direction: 'up', label: '+8.4% vs yesterday' }}
+          trend={usersTrend}
           sparkline={userSpark}
           sparklineColor={CHART_COLORS.primary as string}
         />
@@ -63,15 +89,13 @@ export default async function DashboardOverviewPage() {
           label="Sessions (24h)"
           value={fmt.format(kpis.totalSessions)}
           icon={Zap}
-          trend={{ direction: 'up', label: '+3.1%' }}
-          sparkline={userSpark}
-          sparklineColor={CHART_COLORS.sky}
+          trend={{ direction: 'flat', label: 'rolling 24h total' }}
         />
         <KpiCard
           label="Events (24h)"
           value={fmt.format(kpis.totalEvents)}
           icon={Activity}
-          trend={{ direction: 'up', label: '+12.7%' }}
+          trend={eventsTrend}
           sparkline={eventSpark}
           sparklineColor={CHART_COLORS.emerald}
         />
@@ -79,9 +103,7 @@ export default async function DashboardOverviewPage() {
           label="Error Rate"
           value={pct(kpis.errorRate)}
           icon={AlertTriangle}
-          trend={{ direction: 'down', label: '-0.04 pts' }}
-          sparkline={eventSpark.map((p) => ({ value: Math.max(2, Math.round(p.value * kpis.errorRate)) }))}
-          sparklineColor={CHART_COLORS.rose}
+          trend={errorTrend}
           invertTrend
         />
       </section>
@@ -89,7 +111,7 @@ export default async function DashboardOverviewPage() {
       <section className="grid gap-4 xl:grid-cols-3">
         <ChartCard
           title="Events & users — last 24h"
-          description="Hourly rollup across every portal"
+          description="Hourly rollup across every application"
           className="xl:col-span-2"
           actions={<Badge variant="outline">24h</Badge>}
         >
@@ -124,14 +146,19 @@ export default async function DashboardOverviewPage() {
       <section className="grid gap-4 xl:grid-cols-3">
         <div className="space-y-3 xl:col-span-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Portals
+            Applications
           </h2>
-          {portals.map((p) => (
-            <PortalStatRow key={p.portalId} summary={p} />
-          ))}
+          {portals.length > 0 ? (
+            portals.map((p) => <PortalStatRow key={p.portalId} summary={p} />)
+          ) : (
+            <div className="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+              No applications are sending events yet. Onboard one from{' '}
+              <span className="font-medium text-foreground">Admin → Projects</span>.
+            </div>
+          )}
         </div>
 
-        <ChartCard title="Live activity" description="Most recent events (mocked when DB empty)">
+        <ChartCard title="Live activity" description="Most recent events across all apps">
           <ActivityFeed items={activity} />
         </ChartCard>
       </section>

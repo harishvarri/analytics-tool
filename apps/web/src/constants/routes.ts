@@ -4,9 +4,6 @@ export const ROUTES = {
   users: '/dashboard/users',
   applications: '/dashboard/portals',         // existing route, generic label
   live: '/dashboard/realtime',                // existing route, generic label
-  reports: '/dashboard/reports',
-  workflows: '/dashboard/workflows',
-  projects: '/dashboard/projects',
   retention: '/dashboard/retention',
   anomalies: '/dashboard/anomalies',
   features:  '/dashboard/features',
