@@ -68,11 +68,13 @@ import {
   type RoutePerformance,
 } from '../repositories/performance';
 import {
+  getAppUsers,
   getCommandCenter,
   getInactiveUsers,
   getOrgDirectoryRollup,
   getProjectAccessVsUsage,
   getUserProfileSummaries,
+  type AppUserRow,
   type CommandCenter,
   type InactiveUser,
   type OrgRollupRow,
@@ -274,6 +276,9 @@ export const fetchProjectAccessVsUsage = (): Promise<ProjectAccessUsage[]> =>
 
 export const fetchUserProfileSummaries = (limit = 100): Promise<UserProfileSummary[]> =>
   withMockFallback('ops.people', () => getUserProfileSummaries(limit), () => []);
+
+export const fetchAppUsers = (appSlug: string, limit = 100): Promise<AppUserRow[]> =>
+  withMockFallback('ops.appUsers', () => getAppUsers(appSlug, limit), () => []);
 
 export const fetchInactiveUsers = (limit = 100): Promise<InactiveUser[]> =>
   withMockFallback('ops.inactive', () => getInactiveUsers(limit), () => []);

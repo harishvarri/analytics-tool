@@ -96,6 +96,43 @@ export async function getProjectAccessVsUsage(): Promise<ProjectAccessUsage[]> {
   }));
 }
 
+export interface AppUserRow {
+  userId:        string;
+  email:         string | null;
+  displayName:   string | null;
+  department:    string | null;
+  team:          string | null;
+  firstSeenAt:   string | null;
+  lastActiveAt:  string | null;
+  totalEvents:   number;
+  totalSessions: number;
+}
+
+/**
+ * Identified users active in ONE app (per-project people view). Works without
+ * the central directory — driven by each app identifying its own users on login.
+ */
+export async function getAppUsers(appSlug: string, limit = 100): Promise<AppUserRow[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('v_user_app_profile')
+    .select('*')
+    .eq('project_slug', appSlug)
+    .order('last_active_at', { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error) throw new AppError('APP_USERS_FAILED', error.message, 500);
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    userId:        String(r.user_id),
+    email:         (r.email as string | null) ?? null,
+    displayName:   (r.display_name as string | null) ?? null,
+    department:    (r.department as string | null) ?? null,
+    team:          (r.team as string | null) ?? null,
+    firstSeenAt:   (r.first_seen_at as string | null) ?? null,
+    lastActiveAt:  (r.last_active_at as string | null) ?? null,
+    totalEvents:   n(r.total_events),
+    totalSessions: n(r.total_sessions),
+  }));
+}
+
 export async function getUserProfileSummaries(limit = 100): Promise<UserProfileSummary[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('v_user_profile_summary')

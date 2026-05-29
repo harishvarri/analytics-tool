@@ -121,8 +121,7 @@ const RAW_SECTIONS: readonly NavSection[] = [
         label: 'Directory',
         href: ROUTES.people,
         icon: Building2,
-        description: 'Known users by department, role, and last activity',
-        requiresDirectory: true,
+        description: 'Known users, the apps they use, and last activity',
       },
       {
         label: 'Users',
