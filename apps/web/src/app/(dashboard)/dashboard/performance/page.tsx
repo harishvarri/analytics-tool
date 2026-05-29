@@ -46,7 +46,7 @@ export default async function PerformancePage() {
     <div className="space-y-6">
       <PageHeader
         title="Performance"
-        description="Page load, TTFB, and engagement from auto-tracked Navigation Timing — percentiles over the last 7 days."
+        description="How fast your pages load for real visitors, and which pages are slowest (last 7 days)."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● {kpis.samples.toLocaleString()} samples
@@ -55,13 +55,13 @@ export default async function PerformancePage() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Median load (p50)" value={fmtMs(kpis.loadP50Ms)} icon={Gauge}
+        <KpiCard label="Typical load time" value={fmtMs(kpis.loadP50Ms)} icon={Gauge}
           trend={{ direction: 'flat', label: 'Half of loads faster than this' }} />
-        <KpiCard label="p95 load" value={fmtMs(kpis.loadP95Ms)} icon={Timer}
+        <KpiCard label="Slowest 5% of loads" value={fmtMs(kpis.loadP95Ms)} icon={Timer}
           trend={{ direction: kpis.loadP95Ms && kpis.loadP95Ms > 2500 ? 'up' : 'flat', label: 'Worst-case tail' }} invertTrend />
-        <KpiCard label="Median TTFB" value={fmtMs(kpis.ttfbP50Ms)} icon={Zap}
+        <KpiCard label="Server response time" value={fmtMs(kpis.ttfbP50Ms)} icon={Zap}
           trend={{ direction: 'flat', label: 'Time to first byte' }} />
-        <KpiCard label="Avg engagement" value={kpis.avgEngagedSec !== null ? `${kpis.avgEngagedSec}s` : '—'} icon={Activity}
+        <KpiCard label="Avg time on page" value={kpis.avgEngagedSec !== null ? `${kpis.avgEngagedSec}s` : '—'} icon={Activity}
           trend={{ direction: 'flat', label: 'Time on page per view' }} />
       </section>
 
@@ -80,7 +80,7 @@ export default async function PerformancePage() {
       )}
 
       {chartData.length > 0 && (
-        <ChartCard title="Median page load — last 14 days" description="Daily p50 load time (lower is better)">
+        <ChartCard title="Typical page-load time — last 14 days" description="The middle (median) load time each day. Lower is better.">
           <PerfTrendChart data={chartData} xKey="day"
             series={[{ dataKey: 'load', label: 'p50 load', color: CHART_COLORS.primary }]} height={240} />
         </ChartCard>
@@ -88,8 +88,8 @@ export default async function PerformancePage() {
 
       {routes.length > 0 && (
         <ChartCard
-          title="Slowest routes"
-          description="Ranked by median load time (last 7 days)"
+          title="Slowest pages"
+          description="The pages that take longest to load (last 7 days)"
           actions={
             <ExportButton
               filename="performance-routes"

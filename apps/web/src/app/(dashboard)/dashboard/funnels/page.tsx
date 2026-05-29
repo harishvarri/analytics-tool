@@ -34,8 +34,8 @@ export default async function FunnelsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Funnel Analytics"
-        description="Ordered, first-touch conversion through a defined sequence of events."
+        title="Funnels"
+        description="Of everyone who starts a journey, how many reach each step — and where they drop off."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● {rangeLabel(range)}

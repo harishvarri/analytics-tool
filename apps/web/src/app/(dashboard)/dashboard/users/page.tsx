@@ -66,8 +66,8 @@ export default async function UsersAnalyticsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="User Analytics"
-        description="Engagement, retention, and per-user activity across all portals."
+        title="Users"
+        description="Who's using your apps, how often they come back, and what each person does."
         actions={<Button variant="outline" size="sm">Export CSV</Button>}
       />
       <DataTable

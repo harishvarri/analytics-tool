@@ -33,8 +33,8 @@ export default async function AnomaliesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Anomaly Alerts"
-        description="Statistical detection — z-score over a 7-day hourly baseline (|z| ≥ 2 flagged)."
+        title="Unusual Activity"
+        description="Automatic alerts when activity suddenly spikes or drops compared to what's normal."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● 2σ rule, no AI
@@ -55,7 +55,7 @@ export default async function AnomaliesPage() {
           invertTrend
         />
         <KpiCard
-          label="Critical (|z| ≥ 3)"
+          label="Critical alerts"
           value={String(summary.critical)}
           icon={ShieldAlert}
           trend={{
@@ -65,7 +65,7 @@ export default async function AnomaliesPage() {
           invertTrend
         />
         <KpiCard
-          label="Warning (|z| ≥ 2)"
+          label="Warnings"
           value={String(summary.warning)}
           icon={AlertTriangle}
           trend={{

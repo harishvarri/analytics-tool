@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { PortalsBarChart } from '@/components/charts/PortalsBarChart';
 import { CHART_COLORS, PORTAL_COLOR } from '@/components/charts/ChartTheme';
@@ -20,14 +19,13 @@ export default async function PortalsAnalyticsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Portals"
-        description="Per-portal usage, performance, and error rates."
-        actions={<Button variant="outline" size="sm">Configure portals</Button>}
+        title="Applications"
+        description="Usage, activity, and errors for each connected app."
       />
 
       <ChartCard
-        title="Events & users by portal — last 24h"
-        description="Compare engagement across every connected portal"
+        title="Activity by application — last 24h"
+        description="How busy each connected app has been"
       >
         <PortalsBarChart
           data={chartData}

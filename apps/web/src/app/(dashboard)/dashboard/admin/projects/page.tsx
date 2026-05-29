@@ -31,7 +31,7 @@ export default async function ManageProjectsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Projects"
-        description="Onboard any application in seconds — no redeploy. Registering a project generates its key and SDK snippet."
+        description="Add a new app to start tracking it. You'll get a tracking snippet to paste in — no redeploy needed."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             {projects.length} registered
@@ -42,8 +42,8 @@ export default async function ManageProjectsPage() {
       <AddProjectForm />
 
       <ChartCard
-        title="Registered projects"
-        description="Every application allowed to send analytics events to the platform"
+        title="Your apps"
+        description="Every app set up to send data to this dashboard"
       >
         {loadError ? (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-xs text-amber-600 dark:text-amber-400">

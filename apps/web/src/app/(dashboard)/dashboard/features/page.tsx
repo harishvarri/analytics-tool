@@ -116,7 +116,7 @@ export default async function FeaturesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Feature Adoption"
-        description="Track which features users actually engage with across all connected applications."
+        description="Which features people actually use — and which ones they ignore."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● 28-day window
@@ -185,8 +185,8 @@ export default async function FeaturesPage() {
       {/* Weekly trend chart ─────────────────────────────────────────────────── */}
       {chartData.length > 0 && (
         <ChartCard
-          title="Weekly active users per feature"
-          description="Stacked bars — each feature's weekly active user count over the last 12 weeks."
+          title="How many people use each feature each week"
+          description="Each colour is a feature; the height shows how many people used it that week (last 12 weeks)."
         >
           <FeatureWeeklyChart
             data={chartData}
@@ -200,8 +200,8 @@ export default async function FeaturesPage() {
       {/* Action breakdown ───────────────────────────────────────────────────── */}
       {actions.length > 0 && (
         <ChartCard
-          title="Action breakdown"
-          description="Individual event actions fired within each feature namespace (last 28 days)"
+          title="What people did in each feature"
+          description="The specific actions taken inside each feature (last 28 days)"
           actions={
             <ExportButton
               filename="feature-actions"

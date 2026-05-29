@@ -32,8 +32,8 @@ export default async function ComparePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Cross-Project Comparison"
-        description="Organization intelligence — compare every connected application side by side (last 30 days)."
+        title="Compare Applications"
+        description="All your apps side by side — how many people use them, how engaged they are, and how many errors they hit (last 30 days)."
         actions={
           <ExportButton
             filename="cross-project-comparison"
@@ -88,8 +88,8 @@ export default async function ComparePage() {
       {/* Comparison table */}
       {hasData && (
         <ChartCard
-          title="Application scorecard"
-          description="Users, engagement, reliability, and feature breadth per app"
+          title="How each app is doing"
+          description="People, activity, errors, and features used — for every app"
         >
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

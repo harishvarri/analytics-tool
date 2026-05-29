@@ -68,7 +68,7 @@ export default async function DashboardOverviewPage() {
     <div className="space-y-6">
       <PageHeader
         title="Overview"
-        description="Centralized analytics across every connected application."
+        description="A single view of everything happening across all your connected apps."
         actions={
           <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
             ● Live · last 24h
@@ -110,8 +110,8 @@ export default async function DashboardOverviewPage() {
 
       <section className="grid gap-4 xl:grid-cols-3">
         <ChartCard
-          title="Events & users — last 24h"
-          description="Hourly rollup across every application"
+          title="Activity over the last 24 hours"
+          description="How much happened and how many people were active, hour by hour"
           className="xl:col-span-2"
           actions={<Badge variant="outline">24h</Badge>}
         >
@@ -126,7 +126,7 @@ export default async function DashboardOverviewPage() {
           />
         </ChartCard>
 
-        <ChartCard title="Event categories" description="Share of all events (24h)">
+        <ChartCard title="What kinds of activity" description="Breakdown of activity by type (last 24h)">
           <DonutChart
             data={breakdown.map((b) => {
               const color = CATEGORY_COLOR[b.category];
@@ -158,7 +158,7 @@ export default async function DashboardOverviewPage() {
           )}
         </div>
 
-        <ChartCard title="Live activity" description="Most recent events across all apps">
+        <ChartCard title="Latest activity" description="The most recent things people did">
           <ActivityFeed items={activity} />
         </ChartCard>
       </section>

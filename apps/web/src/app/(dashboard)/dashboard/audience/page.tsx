@@ -38,8 +38,8 @@ export default async function AudiencePage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Audience & Technology"
-        description="Device, browser, OS, language, and region breakdowns from session context."
+        title="Audience"
+        description="Who your visitors are — the devices, browsers, languages, and places they come from."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● {rangeLabel(range)}
@@ -110,8 +110,8 @@ export default async function AudiencePage({ searchParams }: PageProps) {
       {/* Detailed timezone table with export */}
       {hasData && byDimension.timezone.length > 0 && (
         <ChartCard
-          title="Timezone distribution"
-          description="IANA timezones reported by clients — a privacy-safe geo signal (no IP geolocation)."
+          title="Where visitors are (by timezone)"
+          description="Based on each visitor's device timezone — a privacy-safe location signal (we never use IP addresses)."
           actions={
             <ExportButton
               filename="audience-timezones"

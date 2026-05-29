@@ -56,8 +56,8 @@ export default async function ReliabilityPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reliability & SLO"
-        description="Error groups, error-rate trend, and SLO budget burn across all connected applications."
+        title="Reliability"
+        description="How often things break — errors grouped together, the error trend, and whether you're staying within your reliability target."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● SLO target {kpis.sloTargetPct}%
@@ -190,8 +190,8 @@ export default async function ReliabilityPage() {
       {/* Top error groups */}
       {groups.length > 0 && (
         <ChartCard
-          title="Top error groups"
-          description="Errors grouped by normalized fingerprint, ranked by 24h occurrences"
+          title="Most common errors"
+          description="Similar errors grouped together, most frequent first (last 24 hours)"
           actions={
             <ExportButton
               filename="error-groups"

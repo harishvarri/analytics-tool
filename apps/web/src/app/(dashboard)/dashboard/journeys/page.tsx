@@ -24,8 +24,8 @@ export default async function JourneysPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Customer Journey Flow"
-        description="How users move through the product, step by step — paths, branches, and drop-offs."
+        title="User Journeys"
+        description="The paths people take through your app — where they go next, and where they drop off."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● {rangeLabel(range)}
@@ -69,8 +69,8 @@ export default async function JourneysPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <ChartCard
-          title="Path flow (first 5 steps)"
-          description="Each column is a step in the session; band thickness = number of users taking that path."
+          title="Most common paths (first 5 steps)"
+          description="Each column is one step in a visit. Thicker bands mean more people took that path."
         >
           <JourneySankey nodes={graph.nodes} links={graph.links} height={460} />
         </ChartCard>

@@ -50,8 +50,8 @@ export default async function RetentionPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Retention & Behavior"
-        description="Weekly cohort retention curves, dormant users, and top user journey transitions."
+        title="Retention"
+        description="Do people come back? Returning-visitor rates over time, plus who has gone quiet."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             ● 8-week cohort window
@@ -116,8 +116,8 @@ export default async function RetentionPage() {
       {/* Cohort table */}
       {cohorts.length > 0 && (
         <ChartCard
-          title="Weekly cohort retention"
-          description="Rows are signup weeks. Columns show the % of that cohort still active on D1 / D7 / D30."
+          title="Do new visitors come back?"
+          description="Each row is a group who first visited that week. Columns show the % who returned 1 day, 7 days, and 30 days later."
         >
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -149,8 +149,8 @@ export default async function RetentionPage() {
       {/* Two-column: Top journeys + Dormant users */}
       <section className="grid gap-4 xl:grid-cols-2">
         <ChartCard
-          title="Top user journeys"
-          description="Most frequent event-to-event transitions across all sessions (last 7d)"
+          title="Most common next steps"
+          description="The actions people most often take one right after another (last 7 days)"
         >
           {journeys.length > 0 ? (
             <div className="space-y-2">
@@ -174,8 +174,8 @@ export default async function RetentionPage() {
         </ChartCard>
 
         <ChartCard
-          title="Dormant users"
-          description="Authenticated users silent for ≥ 14 days (but active in the prior 60)"
+          title="Visitors who went quiet"
+          description="People who were active recently but haven't come back in 14+ days"
         >
           {dormant.length > 0 ? (
             <div className="overflow-x-auto">

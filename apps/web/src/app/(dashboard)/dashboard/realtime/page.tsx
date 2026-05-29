@@ -19,8 +19,8 @@ export default async function RealtimePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Realtime Activity"
-        description="Live event stream from every connected portal."
+        title="Live Feed"
+        description="A live stream of what people are doing right now, across every app."
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
