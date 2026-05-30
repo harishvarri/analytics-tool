@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { BarChart3 } from 'lucide-react';
 import { NAV_SECTIONS } from '@/config/navigation';
 import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
@@ -29,9 +28,14 @@ export function Sidebar() {
 
   return (
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r bg-card md:flex">
-      <div className="flex h-16 items-center gap-2 border-b px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <BarChart3 className="h-4 w-4" />
+      <div className="flex h-16 items-center gap-2.5 border-b px-5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 32 32" fill="none">
+            <rect x="3" y="18" width="4.5" height="10" rx="1.5" fill="white" opacity="0.65"/>
+            <rect x="10" y="11" width="4.5" height="17" rx="1.5" fill="white"/>
+            <rect x="17" y="5" width="4.5" height="23" rx="1.5" fill="white"/>
+            <rect x="24" y="9" width="4.5" height="19" rx="1.5" fill="white" opacity="0.75"/>
+          </svg>
         </div>
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold">{siteConfig.shortName}</span>

@@ -100,8 +100,24 @@ export function TopbarClient({ applications, projects }: Props) {
           ● Live
         </Badge>
         <ThemeToggle />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden text-xs text-muted-foreground md:inline-flex"
+          onClick={async () => {
+            const { createBrowserClient } = await import('@supabase/ssr');
+            const sb = createBrowserClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            );
+            await sb.auth.signOut();
+            window.location.href = '/login';
+          }}
+        >
+          Sign out
+        </Button>
         <Avatar className="h-9 w-9">
-          <AvatarFallback>NC</AvatarFallback>
+          <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-semibold">NC</AvatarFallback>
         </Avatar>
       </div>
     </header>
