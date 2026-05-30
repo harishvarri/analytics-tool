@@ -9,13 +9,16 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * POST /api/v1/admin/refresh-aggregates
+ * GET /api/v1/admin/refresh-aggregates  (BUG-005 fix: Vercel Cron sends GET)
+ * POST kept for manual triggers / backwards compatibility.
  * Refreshes every materialized view (concurrently, via the SQL function).
- * Schedule via Vercel Cron — see vercel.json.
  */
-export const POST = withApiHandler(async (req: NextRequest) => {
+async function handler(req: NextRequest) {
   requireCronSecret(req);
   const { error } = await getSupabaseAdmin().rpc('refresh_analytics_aggregates');
   if (error) throw new AppError('AGGREGATE_REFRESH_FAILED', error.message, 500);
   return ok({ refreshed: true });
-});
+}
+
+export const GET  = withApiHandler(handler);
+export const POST = withApiHandler(handler);

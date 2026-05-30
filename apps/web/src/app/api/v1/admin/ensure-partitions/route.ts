@@ -15,7 +15,8 @@ export const runtime = 'nodejs';
  * and the next N (RUNTIME.partitions.leadMonths). Idempotent — existing
  * partitions are skipped. Schedule monthly via Vercel Cron.
  */
-export const POST = withApiHandler(async (req: NextRequest) => {
+// BUG-005 fix: Vercel Cron sends GET; export both so cron works and manual POST still works.
+async function handler(req: NextRequest) {
   requireCronSecret(req);
   const admin = getSupabaseAdmin();
   const ensured: string[] = [];
@@ -28,4 +29,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     ensured.push(iso);
   }
   return ok({ ensured });
-});
+}
+
+export const GET  = withApiHandler(handler);
+export const POST = withApiHandler(handler);

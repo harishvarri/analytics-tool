@@ -38,8 +38,14 @@ export async function requireIngestKey(req: NextRequest): Promise<void> {
   // Fast path: global shared secret (no DB round-trip).
   if (env.INGEST_API_KEY && safeEqual(provided, env.INGEST_API_KEY)) return;
 
-  // Dev soft-fail: no global key configured — accept any present key.
-  if (!env.INGEST_API_KEY) return;
+  // BUG-007 fix: in production a missing INGEST_API_KEY is a misconfiguration,
+  // not a "accept everything" situation. Soft-fail only in development.
+  if (!env.INGEST_API_KEY) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new AuthError('INGEST_API_KEY is not configured on this server');
+    }
+    return; // dev: accept any key so local testing works
+  }
 
   // Per-project key lookup. Only reached when the global key didn't match.
   try {

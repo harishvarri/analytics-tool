@@ -6,7 +6,8 @@ import type { Database } from '@/types/database';
 
 /**
  * Refresh the Supabase auth session on every request and propagate cookies.
- * Called from `apps/web/src/middleware.ts`. Phase 1 does not gate any routes.
+ * Also gates /dashboard/* routes: unauthenticated visitors are redirected to
+ * /login (BUG-001 fix — dashboard was publicly readable without auth).
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   let response = NextResponse.next({ request });
@@ -31,6 +32,17 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     },
   );
 
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Gate /dashboard and /dashboard/* — redirect unauthenticated visitors to /login.
+  const path = request.nextUrl.pathname;
+  const isDashboard = path === '/dashboard' || path.startsWith('/dashboard/');
+  if (isDashboard && !user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.searchParams.set('redirect', path);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return response;
 }
