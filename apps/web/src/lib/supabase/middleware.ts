@@ -36,9 +36,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   const path = request.nextUrl.pathname;
 
-  // Auth gating is intentionally disabled until Supabase auth users are
-  // configured on this deployment. Re-enable by removing this early return.
-  // (BUG-001 fix is implemented but bypassed here for open access.)
+  // Auth gating disabled — bypass login, direct dashboard access.
+  // Redirect /login to /dashboard so the login page is hidden entirely.
+  if (path === '/login') {
+    const dashUrl = request.nextUrl.clone();
+    dashUrl.pathname = '/dashboard';
+    return NextResponse.redirect(dashUrl);
+  }
 
   return response;
 }
