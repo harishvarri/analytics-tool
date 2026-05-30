@@ -42,3 +42,4 @@ supabase/.temp
 # Misc
 .cache/
 .turbo/
+.qa-output*
