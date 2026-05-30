@@ -114,33 +114,32 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
     throw new AppError('PROJECT_EXISTS', `A project with slug "${slug}" already exists.`, 409);
   }
 
-  // 1. Grow the enum (separate transaction via RPC).
+  // 1. Grow the enum (must be a separate transaction — Postgres limitation).
   const { error: enumErr } = await admin.rpc('add_portal_value', { p_slug: slug });
   if (enumErr) throw new AppError('PROJECT_ENUM_FAILED', enumErr.message, 500);
 
-  // 2. Mirror into analytics_portals so existing views/joins recognise it.
-  const { error: portalErr } = await admin
-    .from('analytics_portals')
-    .upsert({ id: slug, name: input.name, description: input.description ?? null, color: 'slate' }, { onConflict: 'id' });
-  if (portalErr) throw new AppError('PROJECT_PORTAL_FAILED', portalErr.message, 500);
-
-  // 3. Insert the rich registry row with a generated key.
+  // 2+3. BUG-024 fix: run analytics_portals upsert + analytics_projects insert
+  //   in a single atomic SQL function so a failure in step 3 doesn't orphan
+  //   the portals row (and a retry is safe via ON CONFLICT DO NOTHING).
   const apiKey = generateApiKey();
+  const { error: atomicErr } = await admin.rpc('create_project_atomic', {
+    p_slug:         slug,
+    p_name:         input.name,
+    p_description:  input.description ?? null,
+    p_repo_url:     input.repoUrl ?? null,
+    p_vercel_url:   input.vercelUrl ?? null,
+    p_environment:  input.environment,
+    p_project_type: input.projectType,
+    p_team_owner:   input.teamOwner ?? null,
+    p_tracking:     input.trackingEnabled,
+    p_api_key:      apiKey,
+  });
+  if (atomicErr) throw new AppError('PROJECT_CREATE_FAILED', atomicErr.message, 500);
+
   const { data, error } = await admin
     .from('analytics_projects')
-    .insert({
-      slug,
-      name:             input.name,
-      description:      input.description ?? null,
-      repo_url:         input.repoUrl ?? null,
-      vercel_url:       input.vercelUrl ?? null,
-      environment:      input.environment,
-      project_type:     input.projectType,
-      team_owner:       input.teamOwner ?? null,
-      tracking_enabled: input.trackingEnabled,
-      api_key:          apiKey,
-    })
     .select('*')
+    .eq('slug', slug)
     .single();
 
   if (error) throw new AppError('PROJECT_CREATE_FAILED', error.message, 500);

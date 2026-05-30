@@ -100,7 +100,9 @@ export function requireCronSecret(req: NextRequest): void {
 
 /**
  * Requires the caller to be an authenticated analytics admin (role in
- * {'admin','owner'} on analytics_users). Used by every dashboard read API.
+ * {'admin','owner'} on analytics_users). Used by mutating actions.
+ *
+ * BUG-022: viewers (role='viewer') are explicitly excluded from admin actions.
  */
 export async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await getSupabaseServer();
@@ -110,6 +112,26 @@ export async function requireAdmin(): Promise<{ userId: string }> {
 
   const { data, error } = await supabase.rpc('is_analytics_admin');
   if (error) throw new ForbiddenError('Failed to verify admin role');
-  if (!data) throw new ForbiddenError();
+  if (!data) throw new ForbiddenError('Admin role required for this action');
   return { userId };
+}
+
+/**
+ * Returns the current user's role (member/admin/owner/viewer) from the DB.
+ * Used by pages to adapt their UI (e.g. hide admin controls for viewers).
+ */
+export async function getCurrentUserRole(): Promise<string | null> {
+  try {
+    const supabase = await getSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await getSupabaseAdmin()
+      .from('analytics_users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    return (data as { role: string } | null)?.role ?? 'member';
+  } catch {
+    return null;
+  }
 }

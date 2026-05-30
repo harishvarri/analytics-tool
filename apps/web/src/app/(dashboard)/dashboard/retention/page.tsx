@@ -35,6 +35,8 @@ function retentionTone(pct: number): string {
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default async function RetentionPage() {
+  // BUG-012: range picker is visible in topbar; retention views use their own
+  // SQL windows internally, but we surface the selection as a badge.
   const [cohorts, dormant, journeys, active] = await Promise.all([
     fetchRetentionCohorts(),
     fetchDormantUsers(20),

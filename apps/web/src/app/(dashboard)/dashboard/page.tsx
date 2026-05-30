@@ -20,6 +20,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+interface PageProps {
+  searchParams: Promise<{ app?: string }>;
+}
+
 const fmt = new Intl.NumberFormat('en-US');
 const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
 
@@ -42,7 +46,9 @@ function appStatus(errorRatePct: number, events30d: number) {
   return { label: 'Healthy', tone: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' };
 }
 
-export default async function CommandCenterPage() {
+export default async function CommandCenterPage({ searchParams }: PageProps) {
+  // BUG-012 fix: read the global app filter from the URL
+  const { app: selectedApp } = await searchParams;
   const [kpis, timeSeries, breakdown, activity, pulse, apps, reliability] = await Promise.all([
     fetchDashboardKpis(),
     fetchEventsTimeSeries(),
@@ -56,7 +62,9 @@ export default async function CommandCenterPage() {
   const eventSpark = timeSeries.map((p) => ({ value: p.events }));
   const userSpark = timeSeries.map((p) => ({ value: p.users }));
   const totalCategoryEvents = breakdown.reduce((sum, b) => sum + b.events, 0);
-  const unhealthy = apps.filter((a) => a.events30d > 0 && a.errorRatePct >= 1).length;
+  // Filter app board by the global topbar Application filter
+  const visibleApps = selectedApp ? apps.filter((a) => a.portalId === selectedApp) : apps;
+  const unhealthy = visibleApps.filter((a) => a.events30d > 0 && a.errorRatePct >= 1).length;
 
   return (
     <div className="space-y-6">
@@ -99,7 +107,7 @@ export default async function CommandCenterPage() {
           </Badge>
         }
       >
-        {apps.length === 0 ? (
+        {visibleApps.length === 0 ? (
           <div className="flex h-[160px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
             <Boxes className="h-6 w-6" />
             No applications are sending events yet. Onboard one from{' '}
@@ -122,7 +130,7 @@ export default async function CommandCenterPage() {
                 </tr>
               </thead>
               <tbody>
-                {apps.map((a) => {
+                {visibleApps.map((a) => {
                   const s = appStatus(a.errorRatePct, a.events30d);
                   return (
                     <tr key={a.portalId} className="border-b last:border-b-0 hover:bg-muted/40">

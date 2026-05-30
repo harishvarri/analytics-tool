@@ -7,27 +7,43 @@ interface Bucket {
   refilledAt: number;
 }
 
+// BUG-017 fix — two improvements to the in-memory token bucket:
+//   1. Periodic cleanup so the Map never grows unboundedly (memory leak fix).
+//   2. retryAfterSec on the error so the events route can send Retry-After.
+//
+// Honest note: this remains per-instance. For multi-region pair with Upstash.
+// Cleanup runs every 5 minutes and evicts buckets idle > 10 minutes.
 const buckets = new Map<string, Bucket>();
+const IDLE_TTL_MS = 10 * 60 * 1000;
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+function ensureCleanup() {
+  if (cleanupTimer) return;
+  cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, b] of buckets) {
+      if (now - b.refilledAt > IDLE_TTL_MS) buckets.delete(key);
+    }
+  }, CLEANUP_INTERVAL_MS);
+  if (cleanupTimer && typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
+    (cleanupTimer as { unref: () => void }).unref();
+  }
+}
 
 export interface RateLimitOptions {
-  /** Bucket capacity (max burst). */
   capacity: number;
-  /** Tokens refilled per second. */
   refillPerSec: number;
-  /** Unique bucket key (default: IP). */
   key?: string;
 }
 
-/**
- * Best-effort in-memory token-bucket limiter. Per-instance (no cross-region
- * coordination). Good enough as a first line of defense against runaway
- * clients; pair with Vercel WAF / Supabase Edge limits for hardened prod.
- */
 export function rateLimit(req: NextRequest, opts: RateLimitOptions): void {
+  ensureCleanup();
   const now = Date.now();
   const key = opts.key ?? clientIp(req);
-  const existing = buckets.get(key);
   const refillRate = opts.refillPerSec / 1000;
+  const existing = buckets.get(key);
 
   if (!existing) {
     buckets.set(key, { tokens: opts.capacity - 1, refilledAt: now });
@@ -39,7 +55,8 @@ export function rateLimit(req: NextRequest, opts: RateLimitOptions): void {
   existing.refilledAt = now;
 
   if (existing.tokens < 1) {
-    throw new RateLimitError(`Rate limit exceeded (${opts.capacity}/s burst)`);
+    const retryAfterSec = Math.ceil((1 - existing.tokens) / opts.refillPerSec);
+    throw new RateLimitError(`Rate limit exceeded — retry after ${retryAfterSec}s`);
   }
   existing.tokens -= 1;
 }

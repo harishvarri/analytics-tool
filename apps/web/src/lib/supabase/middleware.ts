@@ -34,14 +34,32 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Gate /dashboard and /dashboard/* — redirect unauthenticated visitors to /login.
   const path = request.nextUrl.pathname;
   const isDashboard = path === '/dashboard' || path.startsWith('/dashboard/');
+
+  // Gate /dashboard/* — unauthenticated visitors redirect to /login.
   if (isDashboard && !user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set('redirect', path);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // BUG-022: viewer role cannot access admin pages — redirect to overview.
+  // We check the role from the Supabase anon client (safe — no service role here).
+  const isAdminPage = path.startsWith('/dashboard/admin');
+  if (isDashboard && isAdminPage && user) {
+    const { data: roleData } = await supabase
+      .from('analytics_users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    const role = (roleData as { role?: string } | null)?.role ?? 'member';
+    if (role === 'viewer') {
+      const homeUrl = request.nextUrl.clone();
+      homeUrl.pathname = '/dashboard';
+      return NextResponse.redirect(homeUrl);
+    }
   }
 
   return response;

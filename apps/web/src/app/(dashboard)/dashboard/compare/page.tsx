@@ -19,8 +19,15 @@ function stickyTone(pct: number): string {
   return 'text-muted-foreground';
 }
 
-export default async function ComparePage() {
-  const rows = await fetchProjectComparison();
+interface PageProps {
+  searchParams: Promise<{ app?: string }>;
+}
+
+export default async function ComparePage({ searchParams }: PageProps) {
+  const { app: selectedApp } = await searchParams;
+  const allRows = await fetchProjectComparison();
+  // BUG-012: filter by the topbar app selection when set
+  const rows = selectedApp ? allRows.filter((r) => r.portalId === selectedApp) : allRows;
   const active = rows.filter((r) => r.events30d > 0);
 
   const totalUsers = rows.reduce((s, r) => s + r.users30d, 0);

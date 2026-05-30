@@ -8,8 +8,15 @@ import { fetchPortalSummaries } from '@/lib/data/fetchers';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PortalsAnalyticsPage() {
-  const summaries = await fetchPortalSummaries();
+interface PageProps {
+  searchParams: Promise<{ app?: string }>;
+}
+
+export default async function PortalsAnalyticsPage({ searchParams }: PageProps) {
+  const { app: selectedApp } = await searchParams;
+  const allSummaries = await fetchPortalSummaries();
+  // BUG-012: scope to selected app when filter is active
+  const summaries = selectedApp ? allSummaries.filter((s) => s.portalId === selectedApp) : allSummaries;
   const chartData = summaries.map((s) => ({
     name: getPortalConfig(s.portalId).name.replace(' Portal', ''),
     Events: s.events24h,
