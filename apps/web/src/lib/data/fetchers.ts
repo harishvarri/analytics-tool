@@ -98,15 +98,21 @@ import type {
 const log = scoped('data');
 
 /**
- * Try the live repository; fall back to mock data if it throws (e.g. no
- * Supabase project connected, network down, RLS denial). Means the dashboard
- * always renders — important for demos and dev without a backend.
+ * Try the live repository; fall back to mock data if it throws.
+ *
+ * BUG-003 fix: in production, a fallback means the DB is unreachable — the
+ * dashboard must NOT silently show stale/fake data as if live. We expose a
+ * global flag so pages can show a visible warning banner.
  */
+export let isUsingMockData = false;
+
 async function withMockFallback<T>(label: string, live: () => Promise<T>, mock: () => T): Promise<T> {
   try {
-    return await live();
+    const result = await live();
+    return result;
   } catch (err) {
-    log.debug({ label, err: err instanceof Error ? err.message : String(err) }, 'falling back to mock data');
+    log.warn({ label, err: err instanceof Error ? err.message : String(err) }, '[data] falling back to mock — DB unreachable?');
+    isUsingMockData = true;
     return mock();
   }
 }

@@ -6,7 +6,7 @@ import { parseBody } from '@/lib/api/validate';
 import { requireIngestKey } from '@/lib/api/auth';
 import { clientIp, rateLimit } from '@/lib/api/rate-limit';
 import { hashIp } from '@/lib/api/hash';
-import { trackEventBatchSchema } from '@/lib/schemas/events';
+import { trackEventBatchSchema, trackEventSchema } from '@/lib/schemas/events';
 import {
   ensureSessionsForBatch,
   insertEventsBatch,
@@ -24,42 +24,74 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 };
 
-/** Handle CORS preflight — browsers send this before the real POST. */
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
 /**
  * POST /api/v1/events
- * Bulk event ingestion. Called by every portal SDK.
  *
- *  - Auth: `x-ncpl-api-key` shared secret
- *  - Rate limit: 100 req/s burst per IP
- *  - Body:   { "events": TrackEventInput[] }
- *  - Result: { ok: true, data: { inserted: N } }
+ * BUG-006 fix: requireIngestKey now returns the authorized project slug.
+ *   - global key → null (any portalId allowed, same behaviour as before)
+ *   - per-project key → "sentinel-project" (portalId must match)
+ *
+ * BUG-008 fix: events with a client-supplied id use upsert (ignoreDuplicates)
+ *   so retries are safe and never error with 500.
+ *
+ * BUG-009 fix: validate events individually; return partial results instead of
+ *   rejecting the whole batch for one bad event.
  */
 export const POST = withApiHandler(async (req: NextRequest) => {
   rateLimit(req, {
     capacity: RUNTIME.ingest.burstPerSecond,
     refillPerSec: RUNTIME.ingest.sustainedPerSecond,
   });
-  await requireIngestKey(req);
 
-  const { events } = await parseBody(req, trackEventBatchSchema, {
+  // BUG-006: get the authorized project slug (null = global key, any portalId ok)
+  const authorizedSlug = await requireIngestKey(req);
+
+  const { events: rawEvents } = await parseBody(req, trackEventBatchSchema, {
     maxBytes: RUNTIME.ingest.maxBodyBytes,
   });
+
+  // BUG-009: validate each event individually — accept valid ones, skip invalid.
+  const valid = [];
+  const invalid = [];
+  for (const e of rawEvents) {
+    const parsed = trackEventSchema.safeParse(e);
+    if (!parsed.success) {
+      invalid.push({ event: e, error: parsed.error.flatten().fieldErrors });
+      continue;
+    }
+    // BUG-006: per-project key — enforce portalId matches the key's project.
+    if (authorizedSlug && parsed.data.portalId !== authorizedSlug) {
+      invalid.push({ event: e, error: { portalId: [`key is authorized for "${authorizedSlug}" only`] } });
+      continue;
+    }
+    valid.push(parsed.data);
+  }
+
+  if (valid.length === 0) {
+    const res = NextResponse.json(
+      { ok: false, error: { code: 'ALL_EVENTS_INVALID', message: 'No valid events in batch', details: invalid } },
+      { status: 400 },
+    );
+    Object.entries(CORS_HEADERS).forEach(([k, v]) => res.headers.set(k, v));
+    return res;
+  }
 
   const ip = clientIp(req);
   const ipHash = ip === 'unknown' ? null : hashIp(ip);
   const userAgent = req.headers.get('user-agent');
 
-  // Resolve each event to a central user_id (uuid as-is / email-resolved / minted),
-  // ensuring the user rows exist before sessions + events reference them.
-  const resolved = await resolveUserIds(events);
-  await ensureSessionsForBatch(events, { ipHash, userAgent }, resolved);
-  const { inserted } = await insertEventsBatch(events, { ipHash, userAgent }, resolved);
+  const resolved = await resolveUserIds(valid);
+  await ensureSessionsForBatch(valid, { ipHash, userAgent }, resolved);
+  const { inserted } = await insertEventsBatch(valid, { ipHash, userAgent }, resolved);
 
-  const res = ok({ inserted });
+  const responseData: Record<string, unknown> = { inserted };
+  if (invalid.length > 0) responseData['skipped'] = invalid.length;
+
+  const res = ok(responseData);
   Object.entries(CORS_HEADERS).forEach(([k, v]) => res.headers.set(k, v));
   return res;
 });

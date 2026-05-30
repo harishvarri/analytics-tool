@@ -31,23 +31,12 @@ function safeEqual(a: string, b: string): boolean {
  *
  * Throws AuthError if missing or unrecognized.
  */
-export async function requireIngestKey(req: NextRequest): Promise<void> {
-  const provided = req.headers.get('x-ncpl-api-key');
-  if (!provided) throw new AuthError('Missing x-ncpl-api-key header');
-
-  // Fast path: global shared secret (no DB round-trip).
-  if (env.INGEST_API_KEY && safeEqual(provided, env.INGEST_API_KEY)) return;
-
-  // BUG-007 fix: in production a missing INGEST_API_KEY is a misconfiguration,
-  // not a "accept everything" situation. Soft-fail only in development.
-  if (!env.INGEST_API_KEY) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new AuthError('INGEST_API_KEY is not configured on this server');
-    }
-    return; // dev: accept any key so local testing works
-  }
-
-  // Per-project key lookup. Only reached when the global key didn't match.
+/**
+ * Returns the project slug this key is authorized for (null = global key, any project allowed).
+ * BUG-006 fix: callers use this to validate the event.portalId matches the key's project.
+ */
+export async function resolveIngestKeyProject(provided: string): Promise<string | null> {
+  if (env.INGEST_API_KEY && safeEqual(provided, env.INGEST_API_KEY)) return null; // global = any project
   try {
     const { data } = await getSupabaseAdmin()
       .from('analytics_projects')
@@ -55,9 +44,38 @@ export async function requireIngestKey(req: NextRequest): Promise<void> {
       .eq('api_key', provided)
       .eq('tracking_enabled', true)
       .maybeSingle();
-    if (data) return;
+    return (data as { slug: string } | null)?.slug ?? null;
   } catch {
-    // DB unreachable — fall through to reject (global key already failed).
+    return null;
+  }
+}
+
+export async function requireIngestKey(req: NextRequest): Promise<string | null> {
+  const provided = req.headers.get('x-ncpl-api-key');
+  if (!provided) throw new AuthError('Missing x-ncpl-api-key header');
+
+  // Fast path: global shared secret — any portalId allowed (no DB round-trip).
+  if (env.INGEST_API_KEY && safeEqual(provided, env.INGEST_API_KEY)) return null;
+
+  // BUG-007 fix: missing key in production = misconfiguration, not open access.
+  if (!env.INGEST_API_KEY) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new AuthError('INGEST_API_KEY is not configured on this server');
+    }
+    return null; // dev: accept any key so local testing works
+  }
+
+  // Per-project key lookup. Returns the slug so the caller can enforce portalId.
+  try {
+    const { data } = await getSupabaseAdmin()
+      .from('analytics_projects')
+      .select('slug')
+      .eq('api_key', provided)
+      .eq('tracking_enabled', true)
+      .maybeSingle();
+    if (data) return (data as { slug: string }).slug; // BUG-006: return slug for portalId check
+  } catch {
+    // DB unreachable — fall through to reject.
   }
 
   throw new AuthError('Invalid x-ncpl-api-key');

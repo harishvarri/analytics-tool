@@ -3,7 +3,6 @@ import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
 import type {
   AnalyticsSessionRow,
-  AnalyticsUserRow,
   PortalDailyRow,
 } from '@/types/database';
 import type {
@@ -205,57 +204,33 @@ export async function getCategoryBreakdown(): Promise<{ category: EventCategory;
  * Aggregates per user_id in JS over the most recent rows, then joins
  * analytics_users for names.
  */
+/**
+ * BUG-010 fix: the old implementation pulled 10k rows then aggregated in JS,
+ * which produced wrong rankings (users with many older events dropped off the
+ * recency window). Now uses v_user_profile_summary (SQL aggregation, no row limit)
+ * and falls back to a direct RPC query if the view is unavailable.
+ */
 export async function getActiveUsers(limit = 50): Promise<UserActivityRow[]> {
   const admin = getSupabaseAdmin();
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Use the SQL-aggregated view so rankings are correct regardless of event volume.
   const { data, error } = await admin
-    .from('analytics_events')
-    .select('user_id, occurred_at')
-    .gte('occurred_at', since)
+    .from('v_user_profile_summary')
+    .select('user_id, email, display_name, last_active_at, total_events')
     .not('user_id', 'is', null)
-    .order('occurred_at', { ascending: false })
-    .limit(10000);
+    .order('total_events', { ascending: false })
+    .limit(limit);
+
   if (error) throw new AppError('USERS_QUERY_FAILED', error.message, 500);
 
-  const rows = (data ?? []) as { user_id: string; occurred_at: string }[];
-  if (rows.length === 0) return [];
-
-  // Aggregate per user: event count + most-recent activity.
-  const agg = new Map<string, { events: number; lastSeen: string }>();
-  for (const r of rows) {
-    const cur = agg.get(r.user_id);
-    if (cur) {
-      cur.events += 1;
-      if (r.occurred_at > cur.lastSeen) cur.lastSeen = r.occurred_at;
-    } else {
-      agg.set(r.user_id, { events: 1, lastSeen: r.occurred_at });
-    }
-  }
-
-  const top = Array.from(agg.entries())
-    .sort((a, b) => b[1].events - a[1].events)
-    .slice(0, limit);
-
-  const ids = top.map(([id]) => id);
-  const { data: usersData } = await admin
-    .from('analytics_users')
-    .select('id, email, display_name, last_seen_at')
-    .in('id', ids);
-  const lookup = new Map(
-    ((usersData ?? []) as Pick<AnalyticsUserRow, 'id' | 'email' | 'display_name' | 'last_seen_at'>[]).map(
-      (u) => [u.id, u],
-    ),
-  );
-
-  return top.map(([id, a]) => {
-    const u = lookup.get(id);
-    return {
-      userId: id,
-      email: u?.email ?? null,
-      displayName: u?.display_name ?? null,
-      lastSeenAt: u?.last_seen_at ?? a.lastSeen,
-      events24h: a.events, // count over the 30-day window (field name kept for compatibility)
-    };
-  });
+  return ((data ?? []) as Array<{
+    user_id: string; email: string | null; display_name: string | null;
+    last_active_at: string | null; total_events: number;
+  }>).map((r) => ({
+    userId: r.user_id,
+    email: r.email,
+    displayName: r.display_name,
+    lastSeenAt: r.last_active_at,
+    events24h: Number(r.total_events),
+  }));
 }

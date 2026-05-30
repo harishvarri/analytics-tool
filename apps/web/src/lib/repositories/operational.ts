@@ -21,17 +21,18 @@ export async function getOrgPulse(): Promise<OrgPulse> {
   const admin = getSupabaseAdmin();
   const since = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`;
 
-  const [loginsRes, activeRes, totalRes] = await Promise.all([
+  // BUG-021 fix: appsActive was computed in JS over a 10k pull; use SQL COUNT(DISTINCT)
+  const [loginsRes, totalRes] = await Promise.all([
     admin.from('analytics_events').select('id', { count: 'exact', head: true })
       .eq('name', 'auth.login').gte('occurred_at', since),
-    admin.from('analytics_events').select('portal_id').gte('occurred_at', since).limit(10000),
     admin.from('analytics_projects').select('slug', { count: 'exact', head: true }),
   ]);
 
   if (loginsRes.error) throw new AppError('ORG_PULSE_FAILED', loginsRes.error.message, 500);
-  const appsActive = new Set(
-    ((activeRes.data ?? []) as { portal_id: string }[]).map((r) => r.portal_id),
-  ).size;
+
+  // Count distinct portals that had any event today via RPC (SQL-level DISTINCT).
+  const { data: activeData } = await admin.rpc('count_active_portals_today', { p_since: since });
+  const appsActive = Number(activeData ?? 0);
 
   return {
     loginsToday: loginsRes.count ?? 0,

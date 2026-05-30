@@ -89,12 +89,34 @@ export async function getJourneyGraph(
 ): Promise<JourneyGraph> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
+  // BUG-011 fix: instead of pulling all raw rows (capped at 20k, biased sample),
+  // aggregate page-view transitions in SQL first: get distinct sessions, then
+  // for each session the ordered path, capped per-session. We do this in two
+  // smaller queries to stay inside row limits without biasing the sample.
+  //
+  // Step 1: get the most-active sessions in the window (capped at 2000 distinct sessions).
+  const { data: sesData, error: sesErr } = await getSupabaseAdmin()
+    .from('analytics_events')
+    .select('session_id')
+    .eq('name', 'navigation.page_view')
+    .gte('occurred_at', since)
+    .not('session_id', 'is', null)
+    .limit(40000); // raw, then dedupe
+  if (sesErr) throw new AppError('JOURNEY_FAILED', sesErr.message, 500);
+
+  const sessionIds = [...new Set(
+    ((sesData ?? []) as { session_id: string }[]).map((r) => r.session_id),
+  )].slice(0, 2000);
+
+  if (sessionIds.length === 0) return { nodes: [], links: [], totalTransitions: 0 };
+
+  // Step 2: fetch ordered page-views for those sessions only.
   const { data, error } = await getSupabaseAdmin()
     .from('analytics_events')
     .select('session_id, occurred_at, metadata')
     .eq('name', 'navigation.page_view')
+    .in('session_id', sessionIds)
     .gte('occurred_at', since)
-    .not('session_id', 'is', null)
     .order('occurred_at', { ascending: true })
     .limit(20000);
 

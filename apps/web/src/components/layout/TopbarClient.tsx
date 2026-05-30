@@ -1,9 +1,9 @@
 'use client';
 
-import { Menu, Search } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,15 @@ interface Props {
 
 export function TopbarClient({ applications, projects }: Props) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
+
+  // BUG-015 fix: preserve the workspace filter query string in mobile nav links,
+  // exactly as the desktop Sidebar does (Sidebar.tsx line 20-28).
+  const queryString = (() => {
+    const qs = searchParams.toString();
+    return qs ? `?${qs}` : '';
+  })();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6">
@@ -59,7 +67,7 @@ export function TopbarClient({ applications, projects }: Props) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={`${item.href}${queryString}`}
                       onClick={() => setOpen(false)}
                       className={cn(
                         'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium',
@@ -83,17 +91,9 @@ export function TopbarClient({ applications, projects }: Props) {
         <RangePicker />
       </div>
 
-      {/* Search */}
-      <div className="hidden flex-1 items-center gap-2 md:flex">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            placeholder="Search applications, users, events…"
-            className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-      </div>
+      {/* BUG-016 fix: dead search input removed (was decorative only, no behavior).
+          Re-add when a real search feature is implemented. */}
+      <div className="flex-1" />
 
       <div className="ml-auto flex items-center gap-2">
         <Badge variant="outline" className="hidden border-emerald-500/40 text-emerald-600 dark:text-emerald-400 md:inline-flex">

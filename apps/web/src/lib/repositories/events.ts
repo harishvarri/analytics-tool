@@ -147,9 +147,11 @@ export async function insertEventsBatch(
     occurred_at: e.occurredAt ?? new Date().toISOString(),
   }));
 
+  // BUG-008 fix: use upsert so retries with the same client-supplied id are
+  // idempotent rather than throwing a PK violation 500.
   const { error, count } = await getSupabaseAdmin()
     .from('analytics_events')
-    .insert(rows, { count: 'exact' });
+    .upsert(rows, { onConflict: 'id,occurred_at', ignoreDuplicates: true, count: 'exact' });
 
   if (error) {
     throw new AppError('INGEST_FAILED', `Event insert failed: ${error.message}`, 500);

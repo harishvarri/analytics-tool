@@ -1,0 +1,104 @@
+{
+  "summary": "Fill missing dimensions (functional/regression) + verify Critical/High bugs",
+  "agentCount": 15,
+  "logs": [
+    "parallel[0] failed: agent({schema}): subagent completed without calling StructuredOutput (after 2 in-conversation nudges)",
+    "parallel[1] failed: agent({schema}): subagent completed without calling StructuredOutput (after 2 in-conversation nudges)"
+  ],
+  "result": {
+    "dims": [],
+    "verified": [
+      {
+        "title": "Dashboard silently shows fabricated mock data while displaying a permanent Live badge",
+        "verdict": {
+          "isReal": true,
+          "reason": "Verified against the cited files. In C:\\Users\\haris\\Downloads\\ncpl-analytics-tool\\apps\\web\\src\\lib\\data\\fetchers.ts lines 105-112, withMockFallback wraps every live repository call in a try/catch that swallows ANY error (network failure, missing Supabase config, RLS denial, schema mismatch, timeout) at log.debug level and returns the mock generator. Lines 114-131 confirm the four cited fetchers (fetchDashboardKpis→mockDashboardKpis, fetchEventsTimeSeries→mockEventsTimeSeries, fetchPortalSummaries→mockPortalSummaries, fetchRecentActivity→mockRecentActivity) use this fallback. In C:\\Users\\haris\\Downloads\\ncpl-analytics-tool\\apps\\web\\src\\app\\(dashboard)\\dashboard\\page.tsx lines 66-70, the PageHeader renders a hardcoded \"● Live\" Badge with no conditional — it is not tied to any data-source state. The page consumes fetchDashboardKpis, fetchEventsTimeSeries, fetchRecentActivity, fetchOrgPulse, fetchProjectComparison, fetchReliabilityKpis (lines 46-54), all of which can silently substitute mock/empty fallbacks. Therefore the dashboard can display fabricated mock KPIs, timeseries, and activity while still showing a permanent \"Live\" badge, with no UI signal that the live query failed. The bug is real and user-visible; the only mitigating factor is the debug log, which end users never see."
+        }
+      },
+      {
+        "title": "Global topbar filters (app/project/range) ignored by Command Center and most pages",
+        "verdict": {
+          "isReal": true,
+          "reason": "Verified. `apps/web/src/hooks/useFilters.ts` stores app/project/range as URL search params (its own JSDoc says \"server components can read the same value via searchParams\"), and the topbar widgets (`components/layout/RangePicker.tsx`, `components/layout/WorkspaceFilter.tsx`) push to that URL state. But the Command Center page at `apps/web/src/app/(dashboard)/dashboard/page.tsx` (line 45) declares `export default async function CommandCenterPage()` with no props, never awaits or reads `searchParams`, and invokes every fetcher (`fetchDashboardKpis()`, `fetchEventsTimeSeries()`, `fetchCategoryBreakdown()`, `fetchRecentActivity(10)`, `fetchOrgPulse()`, `fetchProjectComparison()`, `fetchReliabilityKpis()`) with zero filter arguments. A grep for `searchParams` across `apps/web/src/app/(dashboard)/dashboard/**` returns only 3 pages — journeys (reads only `range`), people (reads only `app`), audience (reads only `range`) — and none read all three. The remaining dashboard pages (anomalies, performance, reliability, insights, compare, portals, realtime, users, features, retention) take no props and call fetchers with no filters (verified for anomalies/performance/reliability/insights). Net effect: changing the global topbar app/project/range updates the URL but does not actually filter the data on Command Center or the majority of pages."
+        }
+      },
+      {
+        "title": "Idempotency contract broken: event id uses plain INSERT, duplicate id retries return 500",
+        "verdict": {
+          "isReal": true,
+          "reason": "Confirmed at apps/web/src/lib/repositories/events.ts:132-156. insertEventsBatch maps each event to a row that includes the client-supplied id when provided (line 133: `...(e.id !== undefined ? { id: e.id } : {})`) and persists with `.insert(rows, { count: 'exact' })` — a plain INSERT, not an upsert. trackEventSchema at apps/web/src/lib/schemas/events.ts:34 advertises the field as \"client-supplied for idempotent retries\" (`id: z.string().uuid().optional()`), so callers are explicitly invited to retry with the same id. A duplicate id will hit the analytics_events PK, Supabase will return an error, and the catch at lines 154-156 wraps it as `AppError('INGEST_FAILED', ..., 500)` — the entire batch fails with a 500 instead of being a no-op. The contract is broken: the adjacent ensureSessionsForBatch (lines 186-188) correctly uses `.upsert(rows, { onConflict: 'id', ignoreDuplicates: true })`, which is the fix events also need (or an ON CONFLICT DO NOTHING via upsert with onConflict: 'id'). Bug is real and the 500 status (vs. a 4xx or silent dedupe) makes it worse — clients with at-least-once retry logic will see false failures."
+        }
+      },
+      {
+        "title": "Batch ingestion is all-or-nothing: one invalid event rejects the whole batch with 400",
+        "verdict": {
+          "isReal": true,
+          "reason": "Verified in apps/web/src/app/api/v1/events/route.ts (line 48): the POST handler calls parseBody(req, trackEventBatchSchema, ...). In apps/web/src/lib/api/validate.ts (lines 27-30), parseBody runs schema.safeParse(raw) once on the whole payload and throws ValidationError on any failure. The batch schema in apps/web/src/lib/schemas/events.ts (lines 57-61) is z.object({ events: z.array(trackEventSchema).min(1).max(MAX_EVENT_BATCH_SIZE) }).strict(); Zod arrays fail the entire parse if any single element fails its item schema. Combined with .strict() on trackEventSchema (line 54), even one unknown key or one malformed field (bad email, non-UUID userId, bad URL, wrong event-name regex) on a single event causes safeParse to return success:false, parseBody to throw, and the handler to return 400 — dropping every other valid event in the batch. There is no per-item safeParse loop, no partition into accepted/rejected, no insertEventsBatch call when validation fails (line 60 is unreachable on partial-invalid input). The bug description is accurate: ingestion is all-or-nothing."
+        }
+      },
+      {
+        "title": "Auth dev soft-fail accepts ANY api key when INGEST_API_KEY is unset",
+        "verdict": {
+          "isReal": true,
+          "reason": "Confirmed at apps/web/src/lib/api/auth.ts:34-58. requireIngestKey only checks the header is present (line 36), then on line 42 returns unconditionally when env.INGEST_API_KEY is falsy: `if (!env.INGEST_API_KEY) return;` — accepting ANY non-empty x-ncpl-api-key value. INGEST_API_KEY is .optional() in apps/web/src/lib/env.ts:16, so it can legitimately be unset in production. There is no NODE_ENV === 'development' gate around the soft-fail despite the comment calling it \"Dev soft-fail\", meaning a prod deploy missing INGEST_API_KEY would still authenticate. The per-project DB key path on lines 45-55 is bypassed entirely because the early return on line 42 short-circuits before reaching it. Note: in the fast path on line 39, if INGEST_API_KEY is set but the provided header is wrong, it falls through to the DB lookup rather than the soft-fail — the soft-fail only triggers when the env var is unset, exactly as alleged. Risk is open ingestion (event injection) whenever INGEST_API_KEY is absent from the environment."
+        }
+      },
+      {
+        "title": "Vercel Cron handlers exported as POST but Vercel Cron calls GET — MV refresh / partition maintenance never runs",
+        "verdict": {
+          "isReal": true,
+          "reason": "Verified against the repo. vercel.json (lines 8-15) schedules two cron jobs: /api/v1/admin/refresh-aggregates (every 5 min) and /api/v1/admin/ensure-partitions (monthly). Both route files only export POST handlers: apps/web/src/app/api/v1/admin/refresh-aggregates/route.ts line 16 (`export const POST = withApiHandler(...)`) and apps/web/src/app/api/v1/admin/ensure-partitions/route.ts line 18 (same pattern). Neither file exports GET. Vercel Cron invokes scheduled paths with HTTP GET, so Next.js will respond 405 Method Not Allowed and the Supabase RPCs refresh_analytics_aggregates and ensure_events_partition never run. Note: the report's stated path prefix (/api/cron/*) is wrong — actual paths are under /api/v1/admin/ — but the underlying defect (POST-only handler vs GET cron trigger) is real. Fix: add `export const GET = POST;` to both route files (the Authorization: Bearer header that Vercel Cron sends is already accepted by requireCronSecret per apps/web/src/lib/api/auth.ts line 64)."
+        }
+      },
+      {
+        "title": "getActiveUsers returns WRONG top-users ranking due to 10000-row LIMIT applied before JS aggregation",
+        "verdict": {
+          "isReal": true,
+          "reason": "Verified in apps/web/src/lib/repositories/analytics.ts lines 208-261. getActiveUsers queries analytics_events with .order('occurred_at', desc).limit(10000) BEFORE any aggregation (lines 212-218), then counts events per user_id in JS (lines 225-234) and ranks by that count (lines 236-238). When total 30-day events exceed 10,000, older events are dropped at the SQL layer, so the per-user \"events\" tally is only a count of that user's events within the 10,000 most-recent rows — not their true 30-day total. This biases ranking toward users active in the most recent slice of the window: a user with many events earlier in the 30 days can be undercounted or omitted entirely, while a user with fewer total but more recent events outranks them. The docstring (lines 200-207) describes this as 30-day top active users, but the implementation does not deliver correct 30-day totals once daily event volume exceeds ~333/day. Aggregation should happen in SQL (GROUP BY user_id with COUNT) or be paginated, not capped by a recency-ordered LIMIT before counting."
+        }
+      },
+      {
+        "title": "getJourneyGraph pulls up to 20000 raw page_view rows and builds Sankey in JS — truncates at scale",
+        "verdict": {
+          "isReal": true,
+          "reason": "Confirmed in apps/web/src/lib/repositories/journeys.ts lines 92-99: getJourneyGraph queries analytics_events filtered to name='navigation.page_view' over the last `days` (default 30), selects session_id/occurred_at/metadata, orders by occurred_at ascending, and applies .limit(20000). All session sequencing, transition counting, and top-N per step happens in JS afterward (lines 105-139). Once a tenant exceeds 20k page_view events in the window, rows are silently dropped, and because the order is ASC the most recent events are the ones truncated — sessions late in the window get partial sequences and the resulting Sankey is incomplete with no warning. The bug is slightly worse than the title states: the 20k limit is on raw page_view rows, not sessions, so the effective unique-session ceiling is far below 20k (typically ~2k-4k sessions at 5-10 views each). No server-side aggregation or pagination is used."
+        }
+      },
+      {
+        "title": "Dashboard pages are completely unauthenticated — anyone can read all analytics and PII",
+        "verdict": {
+          "isReal": true,
+          "reason": "Verified by reading the cited files. The middleware at apps/web/src/middleware.ts only calls updateSession (which in apps/web/src/lib/supabase/middleware.ts merely calls supabase.auth.getUser() to refresh cookies and ALWAYS returns NextResponse.next(request)) — there is no redirect/gate. The comment on line 9 of lib/supabase/middleware.ts even states \"Phase 1 does not gate any routes.\" The dashboard segment layout at apps/web/src/app/(dashboard)/layout.tsx is a plain <Shell> wrapper with no auth check, and a grep across the entire (dashboard) tree for redirect()/auth.getUser/auth.getSession returned zero matches. The dashboard page apps/web/src/app/(dashboard)/dashboard/page.tsx loads data via lib/data/fetchers.ts, which delegates to repositories (analytics.ts, operational.ts, retention.ts, anomalies.ts, features.ts, reliability.ts, audience.ts, journeys.ts, crossProject.ts, insights.ts, performance.ts, events.ts, projects.ts, workspace.ts) — all 14 of which import getSupabaseAdmin from lib/supabase/admin.ts. That admin client (admin.ts lines 16-23) is constructed with SUPABASE_SERVICE_ROLE_KEY, which bypasses RLS by design (comment on line 9 explicitly says \"Bypasses RLS\"). Combined: an unauthenticated GET to /dashboard hits no gate, renders server components that query analytics_events / analytics_sessions / users etc. via the service role, and returns the full org-wide data (KPIs, recent activity feed, per-app health table, user lists). The bug is real and high-severity. Key file:line evidence — apps/web/src/middleware.ts:4-6; apps/web/src/lib/supabase/middleware.ts:9,11-12,34-35; apps/web/src/app/(dashboard)/layout.tsx:4-6; apps/web/src/lib/supabase/admin.ts:9,16-22; apps/web/src/lib/repositories/analytics.ts:2,20."
+        }
+      },
+      {
+        "title": "Unauthenticated server action createProjectAction creates projects and mints ingest keys",
+        "verdict": {
+          "isReal": true,
+          "reason": "Verified against source. apps/web/src/app/(dashboard)/dashboard/admin/projects/actions.ts createProjectAction (lines 39-87) performs no authentication or authorization — it never calls requireAdmin() (which exists in apps/web/src/lib/api/auth.ts lines 81-91 and is used by API routes). The reachable surface is also unprotected: apps/web/src/app/(dashboard)/layout.tsx is a bare Shell wrapper with no auth gate; apps/web/src/app/(dashboard)/dashboard/admin/projects/page.tsx has no auth check; and apps/web/src/middleware.ts only invokes updateSession in apps/web/src/lib/supabase/middleware.ts, which the comment explicitly notes \"Phase 1 does not gate any routes\" — it refreshes cookies without redirecting. Because Next.js Server Actions are reachable as POST endpoints, any unauthenticated client able to discover the action ID (trivial — the form is rendered on a public page) can invoke createProjectAction. The action delegates to createProject in apps/web/src/lib/repositories/projects.ts (lines 104-148), which uses the service-role client (getSupabaseAdmin) — bypassing RLS — and mints a fresh ingest api_key via generateApiKey() at line 128. That key is honored by requireIngestKey (auth.ts lines 45-52), so the attacker can both create projects and authenticate ingestion against them. Confirmed real, high severity."
+        }
+      },
+      {
+        "title": "Ingest key does not bind to portalId — any valid key can spoof events for any project",
+        "verdict": {
+          "isReal": true,
+          "reason": "Confirmed in apps/web/src/lib/api/auth.ts (lines 34-58): requireIngestKey returns Promise<void>. The per-project lookup selects analytics_projects where api_key matches and tracking_enabled=true, but only checks `if (data) return;` — it never returns the matched project's slug nor compares it to anything. In apps/web/src/app/api/v1/events/route.ts (line 46), the handler calls `await requireIngestKey(req)` and then processes events whose `portalId` is taken straight from the request body (validated by trackEventSchema in apps/web/src/lib/schemas/events.ts line 35, which only checks slug format). There is no enforcement that the authenticated project equals each event's portalId, so a valid key for projectA can submit events with `portalId: \"projectB\"` and they will be inserted attributed to projectB. The global INGEST_API_KEY fast-path and the dev soft-fail branch (line 42, accepts any key when INGEST_API_KEY is unset) further broaden the spoofing surface."
+        }
+      },
+      {
+        "title": "RLS self-update policy permits privilege escalation to owner/admin",
+        "verdict": {
+          "isReal": true,
+          "reason": "Confirmed in supabase/migrations/0002_core_schema.sql line 259: `create policy \"users: self can update\" on public.analytics_users for update using (id = auth.uid()) with check (id = auth.uid());`. The USING and WITH CHECK clauses only restrict which ROW the caller can touch — they impose no column-level restriction. The `role` column (line 52: `role text not null default 'member'`) is a plain text column with allowed values member/admin/owner and no CHECK constraint, no BEFORE UPDATE trigger guarding it, and no separate column-level GRANT revocation visible across migrations 0001-0020 (grep for `role` shows no protective logic). A member authenticated via PostgREST/supabase-js can therefore issue `update analytics_users set role='owner' where id = auth.uid()` and it will pass RLS. After the update, `is_analytics_admin()` (lines 248-254) returns true because it merely checks `u.role in ('admin','owner')` for `auth.uid()`, which then unlocks the admin-gated SELECT policies on analytics_users (line 258), analytics_sessions (line 266), analytics_events (line 267), and shared analytics_reports (line 271). This is a textbook RLS privilege-escalation: the fix is to either (a) revoke UPDATE on the role column from the authenticated role and only allow it via service_role, (b) add a WITH CHECK clause like `role = (select role from analytics_users where id = auth.uid())` (referencing the existing row via a SECURITY DEFINER helper or trigger), or (c) add a BEFORE UPDATE trigger that resets NEW.role := OLD.role when current_setting('request.jwt.claims') is not the service role."
+        }
+      },
+      {
+        "title": "Sparkline gradient id contains hsl() string — fill via url(#…) is invalid and breaks",
+        "verdict": {
+          "isReal": true,
+          "reason": "Confirmed by reading apps/web/src/components/charts/Sparkline.tsx (lines 17 and 27) and apps/web/src/components/charts/ChartTheme.ts (lines 6-12). CHART_COLORS values are strings like 'hsl(217 91% 60%)'. The Sparkline component interpolates the raw color directly into both the gradient id and the url() reference: id={`sparkGrad-${color}`} produces id=\"sparkGrad-hsl(217 91% 60%)\" and fill={`url(#sparkGrad-${color})`} produces fill=\"url(#sparkGrad-hsl(217 91% 60%))\". SVG/CSS url(#…) parsing terminates at the first ')' and spaces/parens are not valid unescaped id characters or FuncIRI fragments, so the gradient reference does not resolve and the area fill silently fails (stroke still renders, but the fill gradient does not). Additionally, in apps/web/src/components/analytics/KpiCard.tsx (lines 54-60) Sparkline is used inside KpiCard with an optional sparklineColor; when multiple KpiCards on the same page omit the color (e.g. the features dashboard at apps/web/src/app/(dashboard)/dashboard/features/page.tsx), they all generate the same DOM id 'sparkGrad-hsl(217 91% 60%)', producing duplicate ids in the document. Both halves of the claim hold."
+        }
+      }
+    ]
+  }
+}

@@ -20,3 +20,9 @@ create policy "users: self can update non-role columns"
 -- BUG-006 note: ingest key → portalId binding is enforced in application code
 -- (lib/api/auth.ts requireIngestKey now validates key matches the event's project).
 -- The check is additive so existing portals continue to work.
+
+-- BUG-021 fix: SQL-level count of distinct portals active today (replaces JS Set over 10k rows).
+create or replace function public.count_active_portals_today(p_since timestamptz)
+returns bigint language sql stable as $$
+  select count(distinct portal_id) from public.analytics_events where occurred_at >= p_since;
+$$;
