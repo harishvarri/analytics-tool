@@ -180,14 +180,14 @@ const emptyPortfolioStats: FeaturePortfolioStats = {
   platformUsage7d: null,
 };
 
-export const fetchFeatureSummaries = (): Promise<FeatureSummary[]> =>
-  withMockFallback('features.summaries', getFeatureSummaries, () => []);
+export const fetchFeatureSummaries = (appId?: string): Promise<FeatureSummary[]> =>
+  withMockFallback('features.summaries', () => getFeatureSummaries(appId), () => []);
 
-export const fetchFeatureWeeklyTrend = (): Promise<FeatureTrendPoint[]> =>
-  withMockFallback('features.trend', getFeatureWeeklyTrend, () => []);
+export const fetchFeatureWeeklyTrend = (_appId?: string): Promise<FeatureTrendPoint[]> =>
+  withMockFallback('features.trend', () => getFeatureWeeklyTrend(), () => []);
 
-export const fetchFeatureActions = (feature?: string): Promise<FeatureAction[]> =>
-  withMockFallback('features.actions', () => getFeatureActions(feature), () => []);
+export const fetchFeatureActions = (feature?: string, appId?: string): Promise<FeatureAction[]> =>
+  withMockFallback('features.actions', () => getFeatureActions(feature, appId), () => []);
 
 export const fetchFeatureDecay = (): Promise<FeatureDecayPoint[]> =>
   withMockFallback('features.decay', getFeatureDecay, () => []);

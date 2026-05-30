@@ -18,6 +18,10 @@ import type { FeatureDecayPoint, FeatureSummary } from '@/lib/repositories/featu
 
 export const dynamic = 'force-dynamic';
 
+interface PageProps {
+  searchParams: Promise<{ app?: string }>;
+}
+
 // ── Palette — one colour per feature namespace ────────────────────────────────
 const FEATURE_COLORS: Record<string, string> = {
   board:     '#6366f1',  // indigo
@@ -78,11 +82,12 @@ function buildWeeklyChartData(
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function FeaturesPage() {
+export default async function FeaturesPage({ searchParams }: PageProps) {
+  const { app: appId } = await searchParams;
   const [summaries, trend, actions, stats] = await Promise.all([
-    fetchFeatureSummaries(),
-    fetchFeatureWeeklyTrend(),
-    fetchFeatureActions(),
+    fetchFeatureSummaries(appId),
+    fetchFeatureWeeklyTrend(appId),
+    fetchFeatureActions(undefined, appId),
     fetchFeaturePortfolioStats(),
   ]);
 

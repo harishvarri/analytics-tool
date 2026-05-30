@@ -63,11 +63,49 @@ export interface FeatureDecayPoint {
 
 // ── Queries ──────────────────────────────────────────────────────────────────
 
-export async function getFeatureSummaries(): Promise<FeatureSummary[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('v_feature_summary')
-    .select('*');
+export async function getFeatureSummaries(appId?: string): Promise<FeatureSummary[]> {
+  const admin = getSupabaseAdmin();
 
+  // When an app filter is active, query analytics_events directly (filtered by
+  // portal_id) instead of the cross-app view, so the filter actually works.
+  if (appId) {
+    const since28 = new Date(Date.now() - 28 * 86400000).toISOString();
+    const since7  = new Date(Date.now() -  7 * 86400000).toISOString();
+    const { data, error } = await admin
+      .from('analytics_events')
+      .select('name, occurred_at, user_id')
+      .eq('portal_id', appId)
+      .eq('category', 'custom')
+      .not('name', 'like', 'session.%')
+      .not('name', 'like', 'auth.%')
+      .not('name', 'like', 'navigation.%')
+      .gte('occurred_at', since28);
+    if (error) throw new AppError('FEATURE_SUMMARY_FAILED', error.message, 500);
+
+    const rows = (data ?? []) as { name: string; occurred_at: string; user_id: string | null }[];
+    const byFeature = new Map<string, { events28d: number; events7d: number; users28d: Set<string>; users7d: Set<string>; firstSeen: string }>();
+    for (const r of rows) {
+      const feat = r.name.split('.')[0] ?? r.name;
+      const cur = byFeature.get(feat) ?? { events28d: 0, events7d: 0, users28d: new Set(), users7d: new Set(), firstSeen: r.occurred_at };
+      cur.events28d++;
+      if (r.occurred_at >= since7) cur.events7d++;
+      if (r.user_id) { cur.users28d.add(r.user_id); if (r.occurred_at >= since7) cur.users7d.add(r.user_id); }
+      if (r.occurred_at < cur.firstSeen) cur.firstSeen = r.occurred_at;
+      byFeature.set(feat, cur);
+    }
+    const totalUsers = new Set(rows.filter((r) => r.user_id).map((r) => r.user_id!)).size || 1;
+    return Array.from(byFeature.entries())
+      .map(([feature, v]) => ({
+        feature, firstSeen: v.firstSeen.slice(0, 10),
+        totalEvents: v.events28d, totalUsers: v.users28d.size,
+        users7d: v.users7d.size, users28d: v.users28d.size,
+        events7d: v.events7d, events28d: v.events28d, appCount: 1,
+        adoptionPct28d: Math.round((v.users28d.size / totalUsers) * 1000) / 10,
+      }))
+      .sort((a, b) => b.users28d - a.users28d);
+  }
+
+  const { data, error } = await admin.from('v_feature_summary').select('*');
   if (error) throw new AppError('FEATURE_SUMMARY_FAILED', error.message, 500);
 
   return ((data ?? []) as Array<{
@@ -88,7 +126,7 @@ export async function getFeatureSummaries(): Promise<FeatureSummary[]> {
   }));
 }
 
-export async function getFeatureWeeklyTrend(): Promise<FeatureTrendPoint[]> {
+export async function getFeatureWeeklyTrend(_appId?: string): Promise<FeatureTrendPoint[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('v_feature_weekly_trend')
     .select('*');
@@ -105,7 +143,7 @@ export async function getFeatureWeeklyTrend(): Promise<FeatureTrendPoint[]> {
   }));
 }
 
-export async function getFeatureActions(feature?: string): Promise<FeatureAction[]> {
+export async function getFeatureActions(feature?: string, _appId?: string): Promise<FeatureAction[]> {
   let query = getSupabaseAdmin()
     .from('v_feature_actions')
     .select('*');

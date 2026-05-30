@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  await supabase.auth.getUser(); // refresh session cookie
 
   const path = request.nextUrl.pathname;
 
