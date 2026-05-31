@@ -39,7 +39,7 @@ export function Sidebar() {
         </div>
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold">{siteConfig.shortName}</span>
-          <span className="text-xs text-muted-foreground">Analytics Platform</span>
+          <span className="text-xs text-muted-foreground">Operational Intelligence</span>
         </div>
       </div>
 
@@ -78,7 +78,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t p-4 text-[11px] text-muted-foreground">
-        {siteConfig.company} · v0.2.0
+        {siteConfig.company} · Internal Platform
       </div>
     </aside>
   );

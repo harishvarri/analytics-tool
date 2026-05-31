@@ -31,8 +31,8 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`${appName} — People`}
-        description={`Users active in ${appName}, with their activity and last seen. Identified users appear when the app logs them in.`}
+        title={`${appName} — Staff`}
+        description={`Staff active in ${appName}, with their activity and when they were last seen.`}
         actions={
           <ExportButton
             filename={`people-${appSlug}`}
@@ -46,21 +46,19 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
       />
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <KpiCard label="People in this app" value={users.length.toLocaleString()} icon={Users}
-          trend={{ direction: 'flat', label: 'Active in the window' }} />
-        <KpiCard label="Identified" value={identified.length.toLocaleString()} icon={UserCheck}
+        <KpiCard label={`Staff in ${appName}`} value={users.length.toLocaleString()} icon={Users}
+          trend={{ direction: 'flat', label: 'Active in the last 30 days' }} />
+        <KpiCard label="Named staff" value={identified.length.toLocaleString()} icon={UserCheck}
           trend={{ direction: 'flat', label: 'Logged-in (have email)' }} />
-        <KpiCard label="Anonymous" value={(users.length - identified.length).toLocaleString()} icon={Building2}
+        <KpiCard label="Unidentified" value={(users.length - identified.length).toLocaleString()} icon={Building2}
           trend={{ direction: 'flat', label: 'Not yet identified' }} />
       </section>
 
       {users.length === 0 ? (
         <div className="rounded-md border border-dashed bg-muted/30 p-8 text-center">
-          <div className="text-sm font-medium">No people for {appName} yet</div>
+          <div className="text-sm font-medium">No staff found for {appName} yet</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Once {appName} sends events that identify the logged-in user
-            (<code className="rounded bg-muted px-1 text-[10px]">window.ncpl.identify(...)</code> on login),
-            its people and their activity appear here.
+            Staff appear here when they sign into {appName}. Names appear automatically when {appName} passes identity information.
           </p>
         </div>
       ) : (
@@ -69,11 +67,11 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
             <table className="w-full text-xs">
               <thead className="text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Person</th>
+                  <th className="px-2 py-2 text-left font-medium">Staff member</th>
                   <th className="px-2 py-2 text-left font-medium">Department</th>
-                  <th className="px-2 py-2 text-right font-medium">Events</th>
-                  <th className="px-2 py-2 text-right font-medium">Sessions</th>
-                  <th className="px-2 py-2 text-right font-medium">Last active</th>
+                  <th className="px-2 py-2 text-right font-medium">Actions</th>
+                  <th className="px-2 py-2 text-right font-medium">Work sessions</th>
+                  <th className="px-2 py-2 text-right font-medium">Last seen</th>
                 </tr>
               </thead>
               <tbody>
@@ -81,7 +79,7 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
                   <tr key={u.userId} className="border-b last:border-b-0 hover:bg-muted/40">
                     <td className="px-2 py-2">
                       <Link href={`/dashboard/people/${u.userId}`} className="hover:underline">
-                        <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Anonymous')}</div>
+                        <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Unidentified visitor')}</div>
                         <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
                       </Link>
                     </td>
@@ -109,8 +107,8 @@ async function CrossAppDirectory() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="People"
-        description="Everyone who has used your apps — the apps they use and when they were last active. Pick an app in the top filter to focus on one."
+        title="Staff Directory"
+        description="Which staff members are actively using which products, and who has gone quiet?"
         actions={
           <ExportButton
             filename="people"
@@ -123,11 +121,11 @@ async function CrossAppDirectory() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <KpiCard label="People seen" value={users.length.toLocaleString()} icon={Building2}
+        <KpiCard label="Staff in system" value={users.length.toLocaleString()} icon={Building2}
           trend={{ direction: 'flat', label: 'Across all apps' }} />
-        <KpiCard label="Identified" value={identified.length.toLocaleString()} icon={UserCheck}
+        <KpiCard label="Named staff" value={identified.length.toLocaleString()} icon={UserCheck}
           trend={{ direction: 'flat', label: 'Logged-in (have a name/email)' }} />
-        <KpiCard label="Anonymous" value={(users.length - identified.length).toLocaleString()} icon={Users}
+        <KpiCard label="Unidentified sessions" value={(users.length - identified.length).toLocaleString()} icon={Users}
           trend={{ direction: 'flat', label: 'Not yet identified by the app' }} />
       </section>
 
@@ -136,11 +134,9 @@ async function CrossAppDirectory() {
           <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted">
             <Building2 className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="text-sm font-medium">No people yet</div>
+          <div className="text-sm font-medium">No staff found yet</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            People appear once your apps send events. To show real names instead of
-            &quot;Anonymous&quot;, each app calls{' '}
-            <code className="rounded bg-muted px-1 text-[10px]">window.ncpl.identify(...)</code> on login.
+            Staff appear here once they sign into a connected product. Names appear automatically when the product passes identity information.
           </p>
         </div>
       ) : (
@@ -149,11 +145,11 @@ async function CrossAppDirectory() {
             <table className="w-full text-xs">
               <thead className="text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Person</th>
-                  <th className="px-2 py-2 text-right font-medium">Apps used</th>
-                  <th className="px-2 py-2 text-right font-medium">Events</th>
-                  <th className="px-2 py-2 text-right font-medium">Sessions</th>
-                  <th className="px-2 py-2 text-right font-medium">Last active</th>
+                  <th className="px-2 py-2 text-left font-medium">Staff member</th>
+                  <th className="px-2 py-2 text-right font-medium">Products used</th>
+                  <th className="px-2 py-2 text-right font-medium">Actions taken</th>
+                  <th className="px-2 py-2 text-right font-medium">Work sessions</th>
+                  <th className="px-2 py-2 text-right font-medium">Last seen</th>
                 </tr>
               </thead>
               <tbody>
@@ -161,7 +157,7 @@ async function CrossAppDirectory() {
                   <tr key={u.userId} className="border-b last:border-b-0 hover:bg-muted/40">
                     <td className="px-2 py-2">
                       <Link href={`/dashboard/people/${u.userId}`} className="hover:underline">
-                        <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Anonymous')}</div>
+                        <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Unidentified visitor')}</div>
                         <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
                       </Link>
                     </td>

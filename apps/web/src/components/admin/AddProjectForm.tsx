@@ -52,9 +52,9 @@ export function AddProjectForm() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Project <code className="rounded bg-muted px-1">{state.project.slug}</code> is registered and
+              Product <code className="rounded bg-muted px-1">{state.project.slug}</code> is registered and
               tracking is {state.project.trackingEnabled ? 'enabled' : 'disabled'}. Paste a snippet below into
-              the application — events will start flowing into all dashboards automatically.
+              the product — events will start flowing into all dashboards automatically.
             </p>
             <ProjectIntegrationSnippet
               slug={state.project.slug}
@@ -67,7 +67,7 @@ export function AddProjectForm() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Add New Project</CardTitle>
+          <CardTitle className="text-base">Add New Product</CardTitle>
         </CardHeader>
         <CardContent>
           {state.error && !state.fieldErrors && (
@@ -78,14 +78,14 @@ export function AddProjectForm() {
 
           <form action={formAction} className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelCls} htmlFor="name">Project Name *</label>
+              <label className={labelCls} htmlFor="name">Product Name *</label>
               <input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)}
                 placeholder="Customer CRM" className={inputCls} required />
               {fieldErr('name') && <p className="mt-1 text-[11px] text-rose-500">{fieldErr('name')}</p>}
             </div>
 
             <div>
-              <label className={labelCls} htmlFor="slug">Project Slug *</label>
+              <label className={labelCls} htmlFor="slug">Product Slug *</label>
               <input id="slug" name="slug" value={slug}
                 onChange={(e) => { setSlug(e.target.value); setSlugEdited(true); }}
                 placeholder="crm" className={`${inputCls} font-mono`} required />
@@ -119,7 +119,7 @@ export function AddProjectForm() {
             </div>
 
             <div>
-              <label className={labelCls} htmlFor="projectType">Project Type</label>
+              <label className={labelCls} htmlFor="projectType">Product Type</label>
               <select id="projectType" name="projectType" defaultValue="web" className={inputCls}>
                 <option value="web">Web app</option>
                 <option value="mobile">Mobile app</option>
@@ -144,7 +144,7 @@ export function AddProjectForm() {
             <div className="sm:col-span-2">
               <Button type="submit" disabled={pending} className="gap-1.5">
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                {pending ? 'Creating…' : 'Create project & generate key'}
+                {pending ? 'Creating…' : 'Add product & generate key'}
               </Button>
             </div>
           </form>

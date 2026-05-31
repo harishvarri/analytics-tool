@@ -53,34 +53,34 @@ export default async function RetentionPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Retention"
-        description="Do people come back? Returning-visitor rates over time, plus who has gone quiet."
+        title="Engagement Trends"
+        description="Are staff consistently coming back to use our products, or are people dropping off?"
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
-            ● 8-week cohort window
+            ● Engagement window: 8 weeks
           </Badge>
         }
       />
 
       {/* Active-user counts (DAU / WAU / MAU) */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="DAU" value={active.dau.toLocaleString()} icon={UserPlus}
+        <KpiCard label="Active daily" value={active.dau.toLocaleString()} icon={UserPlus}
           trend={{ direction: 'flat', label: 'Active in last 24h' }} />
-        <KpiCard label="WAU" value={active.wau.toLocaleString()} icon={UserPlus}
+        <KpiCard label="Active this week" value={active.wau.toLocaleString()} icon={UserPlus}
           trend={{ direction: 'flat', label: 'Active in last 7d' }} />
-        <KpiCard label="MAU" value={active.mau.toLocaleString()} icon={UserPlus}
+        <KpiCard label="Active this month" value={active.mau.toLocaleString()} icon={UserPlus}
           trend={{ direction: 'flat', label: 'Active in last 30d' }} />
-        <KpiCard label="Stickiness" value={`${active.stickinessPct}%`} icon={Repeat2}
-          trend={{ direction: 'flat', label: 'DAU / MAU ratio' }} />
+        <KpiCard label="Daily habit rate" value={`${active.stickinessPct}%`} icon={Repeat2}
+          trend={{ direction: 'flat', label: 'Daily active ÷ monthly active' }} />
       </section>
 
       {/* KPI strip */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="New Users (8w)"
+          label="New staff (8w)"
           value={String(totalNew)}
           icon={UserPlus}
-          trend={{ direction: 'flat', label: 'First-seen in tracked window' }}
+          trend={{ direction: 'flat', label: 'Staff first seen in this period' }}
         />
         <KpiCard
           label="Avg D1 Retention"
@@ -95,10 +95,10 @@ export default async function RetentionPage() {
           trend={{ direction: 'flat', label: 'Active one week later' }}
         />
         <KpiCard
-          label="Dormant Users"
+          label="Staff who went quiet"
           value={String(dormant.length)}
           icon={UserMinus}
-          trend={{ direction: dormant.length > 0 ? 'up' : 'flat', label: 'Silent ≥ 14d' }}
+          trend={{ direction: dormant.length > 0 ? 'up' : 'flat', label: 'Inactive for 14+ days' }}
           invertTrend
         />
       </section>
@@ -110,8 +110,7 @@ export default async function RetentionPage() {
           </div>
           <div className="text-sm font-medium">No retention data yet</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Retention is computed from authenticated event activity. As soon as users log in and
-            return over multiple days, cohorts, journeys, and dormancy lists will populate here.
+            Engagement trends appear once staff have been using connected products for at least two weeks. The weekly return rate shows whether people are coming back consistently.
           </p>
         </div>
       )}
@@ -119,15 +118,15 @@ export default async function RetentionPage() {
       {/* Cohort table */}
       {cohorts.length > 0 && (
         <ChartCard
-          title="Do new visitors come back?"
-          description="Each row is a group who first visited that week. Columns show the % who returned 1 day, 7 days, and 30 days later."
+          title="Do new staff keep coming back?"
+          description="Each row is a group of staff first seen that week. Columns show what percentage returned the next day, after one week, and after one month."
         >
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Cohort week</th>
-                  <th className="px-2 py-2 text-right font-medium">Size</th>
+                  <th className="px-2 py-2 text-left font-medium">Week joined</th>
+                  <th className="px-2 py-2 text-right font-medium">New staff</th>
                   <th className="px-2 py-2 text-right font-medium">D1</th>
                   <th className="px-2 py-2 text-right font-medium">D7</th>
                   <th className="px-2 py-2 text-right font-medium">D30</th>
@@ -152,8 +151,8 @@ export default async function RetentionPage() {
       {/* Two-column: Top journeys + Dormant users */}
       <section className="grid gap-4 xl:grid-cols-2">
         <ChartCard
-          title="Most common next steps"
-          description="The actions people most often take one right after another (last 7 days)"
+          title="Common workflows in sequence"
+          description="The actions staff most often take one right after another — useful for understanding typical work patterns (last 7 days)"
         >
           {journeys.length > 0 ? (
             <div className="space-y-2">
@@ -172,21 +171,21 @@ export default async function RetentionPage() {
               ))}
             </div>
           ) : (
-            <EmptyChart hint="No session data captured in the last 7 days." />
+            <EmptyChart hint="No workflow data in the last 7 days." />
           )}
         </ChartCard>
 
         <ChartCard
-          title="Visitors who went quiet"
-          description="People who were active recently but haven't come back in 14+ days"
+          title="Staff who stopped using the platform"
+          description="Staff who were recently active but haven't returned in 14 or more days."
         >
           {dormant.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="text-muted-foreground">
                   <tr className="border-b">
-                    <th className="px-2 py-2 text-left font-medium">User</th>
-                    <th className="px-2 py-2 text-right font-medium">Days silent</th>
+                    <th className="px-2 py-2 text-left font-medium">Staff member</th>
+                    <th className="px-2 py-2 text-right font-medium">Days since last activity</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -213,7 +212,7 @@ export default async function RetentionPage() {
               </table>
             </div>
           ) : (
-            <EmptyChart hint="No dormant users — every recent user is still active." />
+            <EmptyChart hint="All staff who were recently active are still using the platform." />
           )}
         </ChartCard>
       </section>

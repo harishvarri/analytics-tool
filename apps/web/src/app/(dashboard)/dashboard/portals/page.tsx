@@ -1,9 +1,11 @@
+import { Network } from 'lucide-react';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { PortalsBarChart } from '@/components/charts/PortalsBarChart';
-import { CHART_COLORS, PORTAL_COLOR } from '@/components/charts/ChartTheme';
+import { CHART_COLORS } from '@/components/charts/ChartTheme';
+import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { PortalStatRow } from '@/components/analytics/PortalStatRow';
-import { getPortalConfig, PORTAL_LIST } from '@/config/portals';
+import { getPortalConfig } from '@/config/portals';
 import { fetchPortalSummaries } from '@/lib/data/fetchers';
 
 export const dynamic = 'force-dynamic';
@@ -23,16 +25,28 @@ export default async function PortalsAnalyticsPage({ searchParams }: PageProps) 
     Users: s.users24h,
   }));
 
+  const productsConnected = summaries.length;
+  const productsActiveToday = summaries.filter((s) => s.users24h > 0).length;
+  const mostActivePortal = summaries.length > 0
+    ? getPortalConfig([...summaries].sort((a, b) => b.events24h - a.events24h)[0]!.portalId).name
+    : '—';
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Applications"
-        description="Usage, activity, and errors for each connected app."
+        title="All Products"
+        description="Which products are being used, by how many staff, and how active is each one?"
       />
 
+      <section className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Products connected" value={String(productsConnected)} icon={Network} trend={{ direction: 'flat', label: 'in the registry' }} />
+        <KpiCard label="Products active today" value={String(productsActiveToday)} icon={Network} trend={{ direction: 'flat', label: 'with staff activity' }} />
+        <KpiCard label="Most active product" value={mostActivePortal} icon={Network} trend={{ direction: 'flat', label: 'by actions today' }} />
+      </section>
+
       <ChartCard
-        title="Activity by application — last 24h"
-        description="How busy each connected app has been"
+        title="Product activity today"
+        description="How much your staff used each product in the last 24 hours"
       >
         <PortalsBarChart
           data={chartData}
@@ -47,29 +61,11 @@ export default async function PortalsAnalyticsPage({ searchParams }: PageProps) 
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          All Portals
+          All Products
         </h2>
         {summaries.map((s) => (
           <PortalStatRow key={s.portalId} summary={s} />
         ))}
-      </section>
-
-      <section className="rounded-md border p-4 text-xs text-muted-foreground">
-        <div className="mb-2 font-semibold uppercase tracking-wide">Portal registry</div>
-        <div className="flex flex-wrap gap-2">
-          {PORTAL_LIST.map((p) => (
-            <span
-              key={p.id}
-              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-            >
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: PORTAL_COLOR[p.id] }}
-              />
-              {p.id}
-            </span>
-          ))}
-        </div>
       </section>
     </div>
   );

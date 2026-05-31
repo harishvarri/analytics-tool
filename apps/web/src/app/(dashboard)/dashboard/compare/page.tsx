@@ -39,8 +39,8 @@ export default async function ComparePage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Compare Applications"
-        description="All your apps side by side — how many people use them, how engaged they are, and how many errors they hit (last 30 days)."
+        title="Product Comparison"
+        description="Which of our products are thriving, which are underused, and which have quality problems?"
         actions={
           <ExportButton
             filename="cross-project-comparison"
@@ -59,19 +59,19 @@ export default async function ComparePage({ searchParams }: PageProps) {
       {/* KPI strip */}
       <section className="grid gap-4 sm:grid-cols-3">
         <KpiCard
-          label="Applications"
+          label="Products tracked"
           value={String(rows.length)}
           icon={Boxes}
           trend={{ direction: 'flat', label: `${active.length} active` }}
         />
         <KpiCard
-          label="Org users (30d)"
+          label="Staff reached (30d)"
           value={totalUsers.toLocaleString()}
           icon={Users}
           trend={{ direction: 'flat', label: 'Across all apps' }}
         />
         <KpiCard
-          label="Org errors (30d)"
+          label="Problems encountered (30d)"
           value={totalErrors.toLocaleString()}
           icon={Bug}
           trend={{ direction: totalErrors > 0 ? 'up' : 'flat', label: 'All applications' }}
@@ -84,10 +84,9 @@ export default async function ComparePage({ searchParams }: PageProps) {
           <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted">
             <Layers className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="text-sm font-medium">No application activity yet</div>
+          <div className="text-sm font-medium">No product activity yet</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            As applications send events, this table compares their usage, engagement,
-            error rates, and feature breadth — the organization-wide product scorecard.
+            No product activity yet. Once products are connected and staff begin using them, this scorecard shows which products are thriving and which need attention.
           </p>
         </div>
       )}
@@ -95,22 +94,22 @@ export default async function ComparePage({ searchParams }: PageProps) {
       {/* Comparison table */}
       {hasData && (
         <ChartCard
-          title="How each app is doing"
-          description="People, activity, errors, and features used — for every app"
+          title="How each product is doing"
+          description="Staff, activity, problems, and modules used — for every product"
         >
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Application</th>
-                  <th className="px-2 py-2 text-right font-medium">Users 30d</th>
-                  <th className="px-2 py-2 text-right font-medium">Users 7d</th>
-                  <th className="px-2 py-2 text-right font-medium">Sessions</th>
-                  <th className="px-2 py-2 text-right font-medium">Events</th>
-                  <th className="px-2 py-2 text-right font-medium">Errors</th>
-                  <th className="px-2 py-2 text-right font-medium">Error rate</th>
-                  <th className="px-2 py-2 text-right font-medium">Features</th>
-                  <th className="px-2 py-2 text-right font-medium">Stickiness</th>
+                  <th className="px-2 py-2 text-left font-medium">Product</th>
+                  <th className="px-2 py-2 text-right font-medium">Staff (30d)</th>
+                  <th className="px-2 py-2 text-right font-medium">Staff (7d)</th>
+                  <th className="px-2 py-2 text-right font-medium">Work sessions</th>
+                  <th className="px-2 py-2 text-right font-medium">Actions</th>
+                  <th className="px-2 py-2 text-right font-medium">Problems</th>
+                  <th className="px-2 py-2 text-right font-medium">Problem rate</th>
+                  <th className="px-2 py-2 text-right font-medium">Modules used</th>
+                  <th className="px-2 py-2 text-right font-medium">Daily engagement</th>
                 </tr>
               </thead>
               <tbody>
@@ -118,7 +117,6 @@ export default async function ComparePage({ searchParams }: PageProps) {
                   <tr key={r.portalId} className="border-b last:border-b-0 hover:bg-muted/40">
                     <td className="px-2 py-2">
                       <div className="font-medium">{r.portalName}</div>
-                      <div className="text-[10px] text-muted-foreground">{r.portalId}</div>
                     </td>
                     <td className="px-2 py-2 text-right">
                       <div className="flex items-center justify-end gap-2">

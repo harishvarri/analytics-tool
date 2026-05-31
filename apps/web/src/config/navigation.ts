@@ -1,15 +1,16 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  Activity,
-  Gauge,
-  LayoutDashboard,
-  Network,
-  Repeat2,
-  Rows3,
+  AppWindow,
+  BellRing,
+  Bug,
+  Building2,
+  Radio,
   Settings2,
-  ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
-  Users,
+  Timer,
+  TrendingUp,
+  UserRound,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 
@@ -21,95 +22,104 @@ export interface NavItem {
 }
 
 export interface NavSection {
-  label: string | null; // null = unlabelled (top section)
+  label: string | null;
   items: readonly NavItem[];
 }
 
 /**
- * Sidebar IA — a lean internal operational-intelligence command center, scoped
- * to what an organisation actually needs to monitor its internal apps: activity,
- * usage, people/logins, and health. Fully event-driven, per app, no SSO.
+ * NCPL Operational Intelligence — sidebar information architecture.
  *
- * (Audience / Smart Insights / Anomalies / Journeys were trimmed as non-essential
- * marketing/advanced extras — their pages still exist and can be re-listed here.)
+ * Organised around four management concerns:
+ *   1. Top-level pulse (unlabelled)
+ *   2. Our Products  — per-product health and usage
+ *   3. People & Teams — staff engagement and activity
+ *   4. Operations    — system errors, speed, unusual activity, highlights
+ *   5. Admin         — product onboarding and keys
+ *
+ * Pages removed from nav (routes still alive):
+ *   /dashboard/users     — redundant with Staff Directory
+ *   /dashboard/features  — too granular for current audiences
+ *   /dashboard/audience  — device/browser irrelevant for internal staff tool
+ *   /dashboard/journeys  — too technical; Sankey not a stated management need
  */
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
     label: null,
     items: [
       {
-        label: 'Command Center',
+        label: 'Org Overview',
         href: ROUTES.dashboard,
-        icon: LayoutDashboard,
-        description: 'All apps at a glance — activity, logins, errors, and health',
+        icon: Building2,
+        description: 'All products at a glance — activity, sign-ins, errors, and health',
       },
       {
-        label: 'Live Feed',
+        label: 'Live Activity',
         href: ROUTES.live,
-        icon: Activity,
-        description: 'Streaming event tail across all apps',
+        icon: Radio,
+        description: 'A live stream of what staff are doing right now',
       },
     ],
   },
   {
-    label: 'Applications',
+    label: 'Our Products',
     items: [
       {
-        label: 'Applications',
+        label: 'All Products',
         href: ROUTES.applications,
-        icon: Network,
-        description: 'Per-application usage and performance',
+        icon: AppWindow,
+        description: 'Usage and activity for every connected product',
       },
       {
-        label: 'Cross-Project',
+        label: 'Product Comparison',
         href: ROUTES.compare,
-        icon: Rows3,
-        description: 'Compare every application side by side',
+        icon: SlidersHorizontal,
+        description: 'Which products are thriving, underused, or have quality problems',
       },
     ],
   },
   {
-    label: 'Usage',
+    label: 'People & Teams',
     items: [
       {
-        label: 'Features',
-        href: ROUTES.features,
-        icon: Sparkles,
-        description: 'Which features people actually use',
-      },
-      {
-        label: 'Retention',
-        href: ROUTES.retention,
-        icon: Repeat2,
-        description: 'DAU/WAU/MAU, returning users, dormancy',
-      },
-    ],
-  },
-  {
-    label: 'People',
-    items: [
-      {
-        label: 'People',
+        label: 'Staff Directory',
         href: ROUTES.people,
-        icon: Users,
-        description: 'Who uses each app, and each person’s activity',
+        icon: UserRound,
+        description: 'Who is using which products and when they were last active',
+      },
+      {
+        label: 'Engagement Trends',
+        href: ROUTES.retention,
+        icon: TrendingUp,
+        description: 'Are staff coming back? Daily, weekly, and monthly patterns',
       },
     ],
   },
   {
-    label: 'Monitoring',
+    label: 'Operations',
     items: [
       {
-        label: 'Reliability',
+        label: 'System Errors',
         href: ROUTES.reliability,
-        icon: ShieldCheck,
-        description: 'Errors, API failures, error rate, and health',
+        icon: Bug,
+        description: 'Errors staff are hitting, their frequency, and quality targets',
       },
       {
-        label: 'Performance',
+        label: 'Response Times',
         href: ROUTES.performance,
-        icon: Gauge,
-        description: 'Page load, server response, slow routes',
+        icon: Timer,
+        description: 'How fast products load and which pages are slowest',
+      },
+      {
+        label: 'Unusual Activity',
+        href: ROUTES.anomalies,
+        icon: BellRing,
+        description: 'Automatic alerts when any product behaves abnormally',
+      },
+      {
+        label: 'Weekly Highlights',
+        href: ROUTES.insights,
+        icon: Sparkles,
+        description: 'What changed meaningfully across products this week',
       },
     ],
   },
@@ -117,10 +127,10 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: 'Admin',
     items: [
       {
-        label: 'Projects',
+        label: 'Connected Products',
         href: ROUTES.manageProjects,
         icon: Settings2,
-        description: 'Onboard applications and manage API keys',
+        description: 'Onboard products and manage their tracking keys',
       },
     ],
   },

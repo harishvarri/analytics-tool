@@ -19,8 +19,8 @@ export default async function RealtimePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Live Feed"
-        description="A live stream of what people are doing right now, across every app."
+        title="Live Activity"
+        description="A live stream of what your staff is doing across every product, right now."
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -37,7 +37,7 @@ export default async function RealtimePage() {
             </CardHeader>
             <CardContent>
               <div className="text-xl font-semibold">{fmt.format(p.users24h)}</div>
-              <div className="text-xs text-muted-foreground">active users / 24h</div>
+              <div className="text-xs text-muted-foreground">staff active (24h)</div>
             </CardContent>
           </Card>
         ))}

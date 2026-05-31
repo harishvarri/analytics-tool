@@ -15,10 +15,10 @@ import type { Insight, InsightSeverity } from '@/lib/repositories/insights';
 export const dynamic = 'force-dynamic';
 
 const SEVERITY_STYLE: Record<InsightSeverity, { border: string; chip: string; label: string }> = {
-  critical: { border: 'border-l-rose-500',    chip: 'border-rose-500/50 text-rose-600 dark:text-rose-400',       label: 'Critical' },
-  warning:  { border: 'border-l-amber-500',   chip: 'border-amber-500/50 text-amber-600 dark:text-amber-400',    label: 'Warning' },
-  positive: { border: 'border-l-emerald-500', chip: 'border-emerald-500/50 text-emerald-600 dark:text-emerald-400', label: 'Positive' },
-  info:     { border: 'border-l-sky-500',     chip: 'border-sky-500/50 text-sky-600 dark:text-sky-400',          label: 'Info' },
+  critical: { border: 'border-l-rose-500',    chip: 'border-rose-500/50 text-rose-600 dark:text-rose-400',       label: 'Needs attention' },
+  warning:  { border: 'border-l-amber-500',   chip: 'border-amber-500/50 text-amber-600 dark:text-amber-400',    label: 'Worth watching' },
+  positive: { border: 'border-l-emerald-500', chip: 'border-emerald-500/50 text-emerald-600 dark:text-emerald-400', label: 'Good news' },
+  info:     { border: 'border-l-sky-500',     chip: 'border-sky-500/50 text-sky-600 dark:text-sky-400',          label: 'FYI' },
 };
 
 export default async function InsightsPage() {
@@ -28,11 +28,11 @@ export default async function InsightsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Smart Insights"
-        description="Plain-English highlights of what changed this week versus last week — generated automatically."
+        title="Weekly Highlights"
+        description="What changed meaningfully across your products this week compared to last week?"
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
-            ● Rule-based · WoW
+            Updated weekly
           </Badge>
         }
       />
@@ -40,31 +40,31 @@ export default async function InsightsPage() {
       {/* Feature Intelligence scorecard */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <IntelCard
-          label="Most adopted"
+          label="Most-used capability"
           icon={Sparkles}
           value={intelligence.mostAdopted?.feature ?? '—'}
-          sub={intelligence.mostAdopted ? `${intelligence.mostAdopted.users} users this week` : 'No data'}
+          sub={intelligence.mostAdopted ? `${intelligence.mostAdopted.users} staff using it this week` : 'No data'}
           tone="emerald"
         />
         <IntelCard
-          label="Fastest growing"
+          label="Growing fastest"
           icon={TrendingUp}
           value={intelligence.fastestGrowing?.feature ?? '—'}
-          sub={intelligence.fastestGrowing ? `+${intelligence.fastestGrowing.deltaPct}% WoW` : 'No growth signal'}
+          sub={intelligence.fastestGrowing ? `+${intelligence.fastestGrowing.deltaPct}% vs last week` : 'No notable growth this week'}
           tone="sky"
         />
         <IntelCard
-          label="Least used"
+          label="Least-used capability"
           icon={TrendingDown}
           value={intelligence.leastUsed?.feature ?? '—'}
-          sub={intelligence.leastUsed ? `${intelligence.leastUsed.users} users this week` : 'No data'}
+          sub={intelligence.leastUsed ? `${intelligence.leastUsed.users} staff using it this week` : 'No data'}
           tone="slate"
         />
         <IntelCard
-          label="Churn risk"
+          label="Declining fast"
           icon={ArrowDownRight}
           value={intelligence.churnRisk?.feature ?? '—'}
-          sub={intelligence.churnRisk ? `${intelligence.churnRisk.deltaPct}% WoW` : 'None detected'}
+          sub={intelligence.churnRisk ? `${intelligence.churnRisk.deltaPct}% vs last week` : 'Nothing declining significantly'}
           tone="rose"
         />
       </section>
@@ -73,7 +73,7 @@ export default async function InsightsPage() {
       {insights.length > 0 ? (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">
-            {insights.length} insight{insights.length === 1 ? '' : 's'} this week
+            {insights.length} highlight{insights.length === 1 ? '' : 's'} this week
           </h2>
           {insights.map((ins) => (
             <InsightCard key={ins.id} insight={ins} />
@@ -84,24 +84,17 @@ export default async function InsightsPage() {
           <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted">
             <Lightbulb className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="text-sm font-medium">{hasData ? 'No notable changes this week' : 'No insights yet'}</div>
+          <div className="text-sm font-medium">{hasData ? 'No notable changes this week' : 'No highlights yet'}</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Insights surface when a metric or feature moves significantly week-over-week
-            (≥ 25% change). As activity accumulates over two weeks, callouts appear here automatically.
+            Highlights appear when something moves significantly compared to last week. As your products collect more activity, this page will surface notable changes automatically.
           </p>
         </div>
       )}
 
       {/* Method footer */}
-      <section className="rounded-md border p-4 text-xs text-muted-foreground">
-        <div className="mb-2 font-semibold uppercase tracking-wide">How insights are generated</div>
-        <ol className="ml-4 list-decimal space-y-1">
-          <li>Each platform metric (active users, sessions, logins, errors, login failures) and each feature is compared <strong>this week vs the prior week</strong>.</li>
-          <li>A change of <strong>≥ 25%</strong> is notable; <strong>≥ 50%</strong> is a spike/drop. New traction and full churn (usage → 0) are flagged explicitly.</li>
-          <li>Severity is rule-based: rising errors/failures are warnings; rising usage is positive; falling usage is info/warning by magnitude.</li>
-          <li>Entirely deterministic — <strong>no external AI/LLM</strong> is used, so output is explainable and reproducible.</li>
-        </ol>
-      </section>
+      <div className="rounded-md border p-4">
+        <p className="text-xs text-muted-foreground">Highlights are generated by comparing this week&apos;s activity to last week&apos;s — no AI involved.</p>
+      </div>
     </div>
   );
 }

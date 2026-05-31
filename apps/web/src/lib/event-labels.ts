@@ -115,12 +115,12 @@ export function eventDescription(name: string): string {
 /** Plain-English label for an event category. */
 export function friendlyCategory(category: string): string {
   const map: Record<string, string> = {
-    auth: 'Account',
+    auth: 'Sign-ins',
     navigation: 'Navigation',
     feature: 'Feature use',
-    interaction: 'Interaction',
-    error: 'Error',
-    custom: 'Activity',
+    interaction: 'Interactions',
+    error: 'Problems',
+    custom: 'Custom activity',
   };
   return map[category] ?? sentenceCase(category);
 }

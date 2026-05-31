@@ -30,11 +30,11 @@ export default async function ManageProjectsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Projects"
-        description="Add a new app to start tracking it. You'll get a tracking snippet to paste in — no redeploy needed."
+        title="Connected Products"
+        description="Add a new product to start tracking it. You'll get a tracking snippet to paste in — no redeploy needed."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
-            {projects.length} registered
+            {projects.length} products connected
           </Badge>
         }
       />
@@ -42,8 +42,8 @@ export default async function ManageProjectsPage() {
       <AddProjectForm />
 
       <ChartCard
-        title="Your apps"
-        description="Every app set up to send data to this dashboard"
+        title="All connected products"
+        description="Every product set up to send activity to this dashboard"
       >
         {loadError ? (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-xs text-amber-600 dark:text-amber-400">
@@ -52,20 +52,20 @@ export default async function ManageProjectsPage() {
         ) : projects.length === 0 ? (
           <div className="flex h-[120px] flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground">
             <Boxes className="h-5 w-5" />
-            No projects yet — add your first one above.
+            No products connected yet — add your first one above.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Project</th>
-                  <th className="px-2 py-2 text-left font-medium">Slug</th>
-                  <th className="px-2 py-2 text-left font-medium">Type</th>
-                  <th className="px-2 py-2 text-left font-medium">Env</th>
-                  <th className="px-2 py-2 text-left font-medium">Owner</th>
-                  <th className="px-2 py-2 text-left font-medium">Tracking</th>
-                  <th className="px-2 py-2 text-left font-medium">API key</th>
+                  <th className="px-2 py-2 text-left font-medium">Product</th>
+                  <th className="px-2 py-2 text-left font-medium">Internal ID</th>
+                  <th className="px-2 py-2 text-left font-medium">Product type</th>
+                  <th className="px-2 py-2 text-left font-medium">Environment</th>
+                  <th className="px-2 py-2 text-left font-medium">Team</th>
+                  <th className="px-2 py-2 text-left font-medium">Status</th>
+                  <th className="px-2 py-2 text-left font-medium">Tracking key</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,8 +83,8 @@ export default async function ManageProjectsPage() {
                     <td className="px-2 py-2 text-muted-foreground">{p.teamOwner ?? '—'}</td>
                     <td className="px-2 py-2">
                       {p.trackingEnabled
-                        ? <span className="text-emerald-600 dark:text-emerald-400">● live</span>
-                        : <span className="text-muted-foreground">○ paused</span>}
+                        ? <span className="text-emerald-600 dark:text-emerald-400">● Active</span>
+                        : <span className="text-muted-foreground">○ Paused</span>}
                     </td>
                     <td className="px-2 py-2">
                       <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">

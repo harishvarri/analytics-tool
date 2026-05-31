@@ -45,23 +45,23 @@ export default async function PerformancePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Performance"
-        description="How fast your pages load for real visitors, and which pages are slowest (last 7 days)."
+        title="Response Times"
+        description="How fast do our products load for staff, and which pages are the slowest?"
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
-            ● {kpis.samples.toLocaleString()} samples
+            ● {kpis.samples.toLocaleString()} load measurements
           </Badge>
         }
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Typical load time" value={fmtMs(kpis.loadP50Ms)} icon={Gauge}
+        <KpiCard label="Typical page speed" value={fmtMs(kpis.loadP50Ms)} icon={Gauge}
           trend={{ direction: 'flat', label: 'Half of loads faster than this' }} />
-        <KpiCard label="Slowest 5% of loads" value={fmtMs(kpis.loadP95Ms)} icon={Timer}
-          trend={{ direction: kpis.loadP95Ms && kpis.loadP95Ms > 2500 ? 'up' : 'flat', label: 'Worst-case tail' }} invertTrend />
-        <KpiCard label="Server response time" value={fmtMs(kpis.ttfbP50Ms)} icon={Zap}
+        <KpiCard label="Slowest loads (worst 5%)" value={fmtMs(kpis.loadP95Ms)} icon={Timer}
+          trend={{ direction: kpis.loadP95Ms && kpis.loadP95Ms > 2500 ? 'up' : 'flat', label: 'Slowest experiences' }} invertTrend />
+        <KpiCard label="Server first response" value={fmtMs(kpis.ttfbP50Ms)} icon={Zap}
           trend={{ direction: 'flat', label: 'Time to first byte' }} />
-        <KpiCard label="Avg time on page" value={kpis.avgEngagedSec !== null ? `${kpis.avgEngagedSec}s` : '—'} icon={Activity}
+        <KpiCard label="Avg time spent per page" value={kpis.avgEngagedSec !== null ? `${kpis.avgEngagedSec}s` : '—'} icon={Activity}
           trend={{ direction: 'flat', label: 'Time on page per view' }} />
       </section>
 
@@ -72,15 +72,13 @@ export default async function PerformancePage() {
           </div>
           <div className="text-sm font-medium">No performance samples yet</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Performance is captured automatically by the SDK&apos;s auto-tracking
-            (<code className="rounded bg-muted px-1 text-[10px]">performance.page_load</code>). Once a connected
-            app loads pages with the latest SDK, load-time percentiles and slow routes appear here.
+            Page speed is measured automatically each time a page loads in a connected product — no extra setup required.
           </p>
         </div>
       )}
 
       {chartData.length > 0 && (
-        <ChartCard title="Typical page-load time — last 14 days" description="The middle (median) load time each day. Lower is better.">
+        <ChartCard title="Page speed trend — last 14 days" description="The middle (median) load time each day. Under 1 second is fast; over 2.5 seconds needs attention.">
           <PerfTrendChart data={chartData} xKey="day"
             series={[{ dataKey: 'load', label: 'p50 load', color: CHART_COLORS.primary }]} height={240} />
         </ChartCard>
@@ -102,11 +100,11 @@ export default async function PerformancePage() {
             <table className="w-full text-xs">
               <thead className="text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Route</th>
-                  <th className="px-2 py-2 text-right font-medium">Samples</th>
-                  <th className="px-2 py-2 text-right font-medium">p50 load</th>
-                  <th className="px-2 py-2 text-right font-medium">p95 load</th>
-                  <th className="px-2 py-2 text-right font-medium">TTFB avg</th>
+                  <th className="px-2 py-2 text-left font-medium">Page</th>
+                  <th className="px-2 py-2 text-right font-medium">Measurements</th>
+                  <th className="px-2 py-2 text-right font-medium">Typical speed</th>
+                  <th className="px-2 py-2 text-right font-medium">Slow outliers</th>
+                  <th className="px-2 py-2 text-right font-medium">Server response</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,11 +124,11 @@ export default async function PerformancePage() {
       )}
 
       <section className="rounded-md border p-4 text-xs text-muted-foreground">
-        <div className="mb-2 font-semibold uppercase tracking-wide">How performance is measured</div>
+        <div className="mb-2 font-semibold uppercase tracking-wide">How page speed is measured</div>
         <ol className="ml-4 list-decimal space-y-1">
-          <li>The SDK auto-captures the browser&apos;s Navigation Timing on each page load — no app code needed.</li>
-          <li>We report <strong>percentiles</strong> (p50/p95), not averages, so a few slow loads don&apos;t distort the picture.</li>
-          <li>Routes are ranked by median load to surface the highest-impact pages to optimize.</li>
+          <li>Page speed is captured automatically each time any page loads in a connected product.</li>
+          <li>We report &apos;typical&apos; and &apos;outlier&apos; speeds rather than averages, because a single very slow load shouldn&apos;t make everything else look bad.</li>
+          <li>Pages are ranked by typical speed to surface the highest-impact ones to optimise.</li>
           <li>Engagement time is the visible time per page, flushed when the tab is hidden or closed.</li>
         </ol>
       </section>

@@ -1,10 +1,10 @@
 export const siteConfig = {
-  name: 'NCPL Analytics',
-  shortName: 'NCPL',
+  name: 'NCPL Operational Intelligence',
+  shortName: 'NCPL OI',
   description:
-    'Centralized internal analytics platform for NCPL Consultancy — track, monitor, and analyze every internal portal.',
+    'Organisation-wide visibility across every NCPL product — who is using what, what is broken, and what changed this week.',
   company: 'NCPL Consultancy',
-  url: 'https://analytics.ncpl.internal',
+  url: 'https://intelligence.ncpl.internal',
   supportEmail: 'platform@ncpl.internal',
 } as const;
 

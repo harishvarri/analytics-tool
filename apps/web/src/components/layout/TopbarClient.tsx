@@ -50,7 +50,7 @@ export function TopbarClient({ applications, projects }: Props) {
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="border-b px-6 py-4">
-            <SheetTitle>{siteConfig.shortName} Analytics</SheetTitle>
+            <SheetTitle>{siteConfig.shortName} — Operational Intelligence</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col gap-3 p-4">
             {NAV_SECTIONS.map((section, i) => (

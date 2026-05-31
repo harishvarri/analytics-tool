@@ -56,11 +56,11 @@ export default async function ReliabilityPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reliability"
-        description="How often things break — errors grouped together, the error trend, and whether you're staying within your reliability target."
+        title="System Errors"
+        description="How many errors are our products throwing, what are they, and are we within acceptable limits?"
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
-            ● SLO target {kpis.sloTargetPct}%
+            ● Quality target {kpis.sloTargetPct}%
           </Badge>
         }
       />
@@ -68,29 +68,29 @@ export default async function ReliabilityPage() {
       {/* KPI strip */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="Error-free sessions"
+          label="Problem-free sessions"
           value={`${kpis.errorFreePct}%`}
           icon={ShieldCheck}
           trend={{
             direction: kpis.errorFreePct >= kpis.sloTargetPct ? 'flat' : 'down',
             label:
               kpis.errorFreePct >= kpis.sloTargetPct
-                ? `Meeting ${kpis.sloTargetPct}% SLO`
-                : `Below ${kpis.sloTargetPct}% SLO`,
+                ? `Within quality target`
+                : `Below quality target`,
           }}
         />
         <KpiCard
-          label="Budget burn (24h)"
+          label="Error headroom used"
           value={`${kpis.budgetBurnPct}%`}
           icon={Gauge}
           trend={{
             direction: kpis.budgetBurnPct >= 100 ? 'up' : 'flat',
-            label: kpis.budgetBurnPct >= 100 ? 'Budget exhausted' : 'Within budget',
+            label: kpis.budgetBurnPct >= 100 ? 'Error allowance exhausted' : 'Within error allowance',
           }}
           invertTrend
         />
         <KpiCard
-          label="Errors (24h)"
+          label="Problems today"
           value={kpis.totalErrors24h.toLocaleString()}
           icon={Bug}
           trend={{
@@ -100,7 +100,7 @@ export default async function ReliabilityPage() {
           invertTrend
         />
         <KpiCard
-          label="Affected users (24h)"
+          label="Staff affected today"
           value={kpis.affectedUsers24h.toLocaleString()}
           icon={Users}
           trend={{
@@ -125,8 +125,8 @@ export default async function ReliabilityPage() {
             <div>
               <div className="text-sm font-semibold">
                 {kpis.errorFreePct >= kpis.sloTargetPct
-                  ? 'SLO is healthy'
-                  : 'SLO breach — error budget under pressure'}
+                  ? 'All products within quality target'
+                  : 'Quality target breached — action needed'}
               </div>
               <div className="text-xs text-muted-foreground">
                 {kpis.erroredSessions} of {kpis.totalSessions} sessions hit an error in the last 24h.
@@ -137,7 +137,7 @@ export default async function ReliabilityPage() {
           {/* Budget burn bar */}
           <div className="w-full max-w-xs">
             <div className="mb-1 flex items-center justify-between text-[11px]">
-              <span className="text-muted-foreground">Error budget consumed</span>
+              <span className="text-muted-foreground">Error allowance used</span>
               <span className={`font-semibold tabular-nums ${burnTone(kpis.budgetBurnPct)}`}>
                 {kpis.budgetBurnPct}%
               </span>
@@ -175,7 +175,7 @@ export default async function ReliabilityPage() {
       {/* Error rate trend */}
       {chartData.length > 0 && (
         <ChartCard
-          title="Error rate — last 24 hours"
+          title="Problem rate — last 24 hours"
           description={`Hourly error events as a % of all events. Peak: ${peakRate}%.`}
         >
           <ErrorRateChart
@@ -190,8 +190,8 @@ export default async function ReliabilityPage() {
       {/* Top error groups */}
       {groups.length > 0 && (
         <ChartCard
-          title="Most common errors"
-          description="Similar errors grouped together, most frequent first (last 24 hours)"
+          title="Recurring problems"
+          description="Similar problems grouped together, most frequent first (last 24 hours)"
           actions={
             <ExportButton
               filename="error-groups"
@@ -216,23 +216,22 @@ export default async function ReliabilityPage() {
 
       {/* Methodology footer */}
       <section className="rounded-md border p-4 text-xs text-muted-foreground">
-        <div className="mb-2 font-semibold uppercase tracking-wide">How reliability is measured</div>
+        <div className="mb-2 font-semibold uppercase tracking-wide">How quality is measured</div>
         <ol className="ml-4 list-decimal space-y-1">
           <li>
-            Every error event (<code className="rounded bg-muted px-1 text-[10px]">category = error</code>)
-            is fingerprinted by stripping volatile tokens (UUIDs, numbers, hex, quoted strings) from
-            its message — so similar errors collapse into one group.
+            Problems are counted whenever a connected product reports an issue to the platform.
+            Similar problems are grouped together so you can see patterns at a glance.
           </li>
           <li>
-            <strong>Error rate</strong> = error events ÷ all events, bucketed hourly over the last 24h.
+            <strong>Problem rate</strong> = problem events ÷ all events, bucketed hourly over the last 24h.
           </li>
           <li>
-            <strong>SLO</strong>: target is {kpis.sloTargetPct}% of sessions error-free over 24h. The{' '}
-            <strong>error budget</strong> is the remaining {(100 - kpis.sloTargetPct).toFixed(1)}%.
+            <strong>Quality target</strong>: {kpis.sloTargetPct}% of sessions should be problem-free over 24h. The{' '}
+            <strong>error allowance</strong> is the remaining {(100 - kpis.sloTargetPct).toFixed(1)}%.
           </li>
           <li>
-            <strong>Budget burn</strong> = how much of that budget the current error-session rate has
-            consumed. Over 100% means the SLO is breached for the window.
+            <strong>Error headroom used</strong> = how much of that allowance the current problem-session rate has
+            consumed. Over 100% means the quality target is breached for the window.
           </li>
         </ol>
       </section>
@@ -255,7 +254,7 @@ function ErrorGroupRow({ group: g }: { group: ErrorGroup }) {
           </span>
           {g.isNew && (
             <Badge variant="outline" className="shrink-0 border-amber-500/50 text-amber-600 dark:text-amber-400">
-              new
+              first seen today
             </Badge>
           )}
         </div>

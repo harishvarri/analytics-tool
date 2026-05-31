@@ -8,6 +8,7 @@ import { ChartCard } from '@/components/charts/ChartCard';
 import { EventsAreaChart } from '@/components/charts/EventsAreaChart';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { CATEGORY_COLOR, CHART_COLORS } from '@/components/charts/ChartTheme';
+import { friendlyCategory } from '@/lib/event-labels';
 import {
   fetchCategoryBreakdown,
   fetchDashboardKpis,
@@ -25,7 +26,6 @@ interface PageProps {
 }
 
 const fmt = new Intl.NumberFormat('en-US');
-const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
 
 type Trend = { direction: 'up' | 'down' | 'flat'; label: string };
 
@@ -46,8 +46,7 @@ function appStatus(errorRatePct: number, events30d: number) {
   return { label: 'Healthy', tone: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' };
 }
 
-export default async function CommandCenterPage({ searchParams }: PageProps) {
-  // BUG-012 fix: read the global app filter from the URL
+export default async function OrgOverviewPage({ searchParams }: PageProps) {
   const { app: selectedApp } = await searchParams;
   const [kpis, timeSeries, breakdown, activity, pulse, apps, reliability] = await Promise.all([
     fetchDashboardKpis(),
@@ -62,15 +61,14 @@ export default async function CommandCenterPage({ searchParams }: PageProps) {
   const eventSpark = timeSeries.map((p) => ({ value: p.events }));
   const userSpark = timeSeries.map((p) => ({ value: p.users }));
   const totalCategoryEvents = breakdown.reduce((sum, b) => sum + b.events, 0);
-  // Filter app board by the global topbar Application filter
   const visibleApps = selectedApp ? apps.filter((a) => a.portalId === selectedApp) : apps;
   const unhealthy = visibleApps.filter((a) => a.events30d > 0 && a.errorRatePct >= 1).length;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Command Center"
-        description="Live operational view of every connected app — activity, logins, errors, and health."
+        title="Org Overview"
+        description="Are all our products healthy and are our people actually using them today?"
         actions={
           <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
             ● Live
@@ -78,29 +76,29 @@ export default async function CommandCenterPage({ searchParams }: PageProps) {
         }
       />
 
-      {/* Org pulse */}
+      {/* Org pulse — top-line KPIs */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Active users (24h)" value={fmt.format(kpis.activeUsers)} icon={Users}
+        <KpiCard label="Staff active today" value={fmt.format(kpis.activeUsers)} icon={Users}
           trend={halfWindowTrend(timeSeries.map((p) => p.users))} sparkline={userSpark}
           sparklineColor={CHART_COLORS.primary as string} />
-        <KpiCard label="Logins today" value={fmt.format(pulse.loginsToday)} icon={LogIn}
-          trend={{ direction: 'flat', label: 'auth.login events' }} />
-        <KpiCard label="Sessions (24h)" value={fmt.format(kpis.totalSessions)} icon={Zap}
-          trend={{ direction: 'flat', label: 'visits' }} />
-        <KpiCard label="Events (24h)" value={fmt.format(kpis.totalEvents)} icon={Activity}
+        <KpiCard label="Sign-ins today" value={fmt.format(pulse.loginsToday)} icon={LogIn}
+          trend={{ direction: 'flat', label: 'across all products' }} />
+        <KpiCard label="Work sessions today" value={fmt.format(kpis.totalSessions)} icon={Zap}
+          trend={{ direction: 'flat', label: 'distinct working sessions' }} />
+        <KpiCard label="Actions today" value={fmt.format(kpis.totalEvents)} icon={Activity}
           trend={halfWindowTrend(timeSeries.map((p) => p.events))} sparkline={eventSpark}
           sparklineColor={CHART_COLORS.emerald} />
-        <KpiCard label="Errors (24h)" value={fmt.format(reliability.totalErrors24h)} icon={AlertTriangle}
-          trend={{ direction: reliability.totalErrors24h > 0 ? 'up' : 'flat', label: `${unhealthy} app(s) with errors` }}
+        <KpiCard label="Problems today" value={fmt.format(reliability.totalErrors24h)} icon={AlertTriangle}
+          trend={{ direction: reliability.totalErrors24h > 0 ? 'up' : 'flat', label: `${unhealthy} product(s) with problems` }}
           invertTrend />
-        <KpiCard label="Health" value={`${reliability.errorFreePct}%`} icon={ShieldCheck}
-          trend={{ direction: reliability.errorFreePct >= reliability.sloTargetPct ? 'flat' : 'down', label: 'error-free sessions' }} />
+        <KpiCard label="Platform health" value={`${reliability.errorFreePct}%`} icon={ShieldCheck}
+          trend={{ direction: reliability.errorFreePct >= reliability.sloTargetPct ? 'flat' : 'down', label: 'problem-free sessions' }} />
       </section>
 
-      {/* Per-app health & activity board */}
+      {/* Product status board */}
       <ChartCard
-        title="Applications — health & activity"
-        description="Every connected app: who's using it, how busy it is, and whether it's erroring (last 30 days)"
+        title="Product status board"
+        description="Every connected product: how many staff use it, how busy it is, and whether there are problems (last 30 days)"
         actions={
           <Badge variant="outline">
             <Boxes className="mr-1 h-3 w-3" /> {pulse.appsActive}/{pulse.appsTotal} active today
@@ -110,9 +108,9 @@ export default async function CommandCenterPage({ searchParams }: PageProps) {
         {visibleApps.length === 0 ? (
           <div className="flex h-[160px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
             <Boxes className="h-6 w-6" />
-            No applications are sending events yet. Onboard one from{' '}
+            No products connected yet. Add your first product from{' '}
             <Link href="/dashboard/admin/projects" className="font-medium text-foreground hover:underline">
-              Admin → Projects
+              Admin → Connected Products
             </Link>.
           </div>
         ) : (
@@ -120,13 +118,13 @@ export default async function CommandCenterPage({ searchParams }: PageProps) {
             <table className="w-full text-xs">
               <thead className="text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Application</th>
+                  <th className="px-2 py-2 text-left font-medium">Product</th>
                   <th className="px-2 py-2 text-left font-medium">Status</th>
-                  <th className="px-2 py-2 text-right font-medium">Active 7d</th>
-                  <th className="px-2 py-2 text-right font-medium">Users 30d</th>
-                  <th className="px-2 py-2 text-right font-medium">Sessions</th>
-                  <th className="px-2 py-2 text-right font-medium">Errors</th>
-                  <th className="px-2 py-2 text-right font-medium">Error rate</th>
+                  <th className="px-2 py-2 text-right font-medium">Staff (7d)</th>
+                  <th className="px-2 py-2 text-right font-medium">Staff (30d)</th>
+                  <th className="px-2 py-2 text-right font-medium">Work sessions</th>
+                  <th className="px-2 py-2 text-right font-medium">Problems</th>
+                  <th className="px-2 py-2 text-right font-medium">Problem rate</th>
                 </tr>
               </thead>
               <tbody>
@@ -161,8 +159,8 @@ export default async function CommandCenterPage({ searchParams }: PageProps) {
       {/* Activity + categories */}
       <section className="grid gap-4 xl:grid-cols-3">
         <ChartCard
-          title="Activity over the last 24 hours"
-          description="How much happened and how many people were active, hour by hour"
+          title="Platform activity today"
+          description="How much happened and how many staff were active, hour by hour"
           className="xl:col-span-2"
           actions={<Badge variant="outline">24h</Badge>}
         >
@@ -170,18 +168,18 @@ export default async function CommandCenterPage({ searchParams }: PageProps) {
             data={timeSeries as unknown as Record<string, unknown>[]}
             xKey="ts"
             series={[
-              { dataKey: 'events', label: 'Events', color: CHART_COLORS.primary },
-              { dataKey: 'users', label: 'Active users', color: CHART_COLORS.emerald },
+              { dataKey: 'events', label: 'Actions', color: CHART_COLORS.primary },
+              { dataKey: 'users', label: 'Staff active', color: CHART_COLORS.emerald },
             ]}
             height={300}
           />
         </ChartCard>
 
-        <ChartCard title="What kinds of activity" description="Breakdown of activity by type (last 24h)">
+        <ChartCard title="What staff did today" description="Breakdown of activity by type (last 24h)">
           <DonutChart
             data={breakdown.map((b) => {
               const color = CATEGORY_COLOR[b.category];
-              return { name: b.category, value: b.events, ...(color ? { color } : {}) };
+              return { name: friendlyCategory(b.category), value: b.events, ...(color ? { color } : {}) };
             })}
             centerLabel="Total"
             centerValue={fmt.format(totalCategoryEvents)}
@@ -191,12 +189,12 @@ export default async function CommandCenterPage({ searchParams }: PageProps) {
       </section>
 
       {/* Live activity */}
-      <ChartCard title="Latest activity" description="The most recent things people did across all apps">
+      <ChartCard title="What's happening right now" description="The most recent things staff did across all products">
         <ActivityFeed items={activity} />
       </ChartCard>
 
       <div className="text-[11px] text-muted-foreground">
-        Error rate ≥ 1% = Degraded, ≥ 5% = Critical. Overall error rate (24h): {pct(kpis.errorRate)}.
+        Product health is based on how often staff encounter errors. Green = working normally.
       </div>
     </div>
   );
