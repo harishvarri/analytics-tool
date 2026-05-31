@@ -47,7 +47,7 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <KpiCard label={`Staff in ${appName}`} value={users.length.toLocaleString()} icon={Users}
-          trend={{ direction: 'flat', label: 'Active in the last 30 days' }} />
+          trend={{ direction: 'flat', label: `Active in ${appName}` }} />
         <KpiCard label="Named staff" value={identified.length.toLocaleString()} icon={UserCheck}
           trend={{ direction: 'flat', label: 'Have a name or email we recognise' }} />
         <KpiCard label="Unidentified" value={(users.length - identified.length).toLocaleString()} icon={Building2}
