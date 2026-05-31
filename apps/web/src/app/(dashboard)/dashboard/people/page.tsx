@@ -49,9 +49,9 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
         <KpiCard label={`Staff in ${appName}`} value={users.length.toLocaleString()} icon={Users}
           trend={{ direction: 'flat', label: 'Active in the last 30 days' }} />
         <KpiCard label="Named staff" value={identified.length.toLocaleString()} icon={UserCheck}
-          trend={{ direction: 'flat', label: 'Logged-in (have email)' }} />
+          trend={{ direction: 'flat', label: 'Have a name or email we recognise' }} />
         <KpiCard label="Unidentified" value={(users.length - identified.length).toLocaleString()} icon={Building2}
-          trend={{ direction: 'flat', label: 'Not yet identified' }} />
+          trend={{ direction: 'flat', label: 'Add identify() on login to name them' }} />
       </section>
 
       {users.length === 0 ? (
