@@ -85,24 +85,31 @@ export async function resolveUserIds(events: TrackEventInput[]): Promise<Resolve
   if (emailTraits.size) {
     const lowered = [...emailTraits.keys()];
     try {
-      const { data: existing } = await admin
-        .from('analytics_users')
-        .select('id, email')
-        .in('email', lowered);
-      for (const row of (existing ?? []) as { id: string; email: string | null }[]) {
-        if (row.email) emailToId.set(row.email.toLowerCase(), row.id);
-      }
-      const missing = lowered.filter((e) => !emailToId.has(e));
-      if (missing.length) {
-        const rows = missing.map((email) => ({
-          id: uuidv5FromEmail(email),
-          email,
-          display_name: emailTraits.get(email)?.name ?? null,
-          source: 'event',
-          is_internal: false,
-        }));
-        await admin.from('analytics_users').upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
-        for (const r of rows) emailToId.set(r.email, r.id);
+      // Use the safe SQL upsert function (migration 0023) which handles
+      // race conditions and duplicate emails correctly.
+      for (const email of lowered) {
+        try {
+          const { data } = await admin.rpc('upsert_user_by_email', {
+            p_email: email,
+            p_display_name: emailTraits.get(email)?.name ?? null,
+            p_source: 'event',
+            p_is_internal: false,
+          });
+          if (data) emailToId.set(email, data as string);
+        } catch {
+          // Fallback to the JS-mint path if the RPC isn't available yet.
+          try {
+            const id = uuidv5FromEmail(email);
+            await admin.from('analytics_users').upsert({
+              id, email,
+              display_name: emailTraits.get(email)?.name ?? null,
+              source: 'event', is_internal: false,
+            }, { onConflict: 'id', ignoreDuplicates: true });
+            emailToId.set(email, id);
+          } catch {
+            console.warn('[analytics] resolveUserIds: could not mint user for', email);
+          }
+        }
       }
     } catch (err) {
       console.warn('[analytics] resolveUserIds email path failed:', err instanceof Error ? err.message : err);
