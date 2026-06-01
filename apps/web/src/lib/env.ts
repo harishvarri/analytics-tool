@@ -58,9 +58,23 @@ function parseClientEnv() {
   return parsed.data;
 }
 
-const isServer = typeof window === 'undefined';
+let cachedServerEnv: ServerEnv | null = null;
+let cachedClientEnv: ClientEnv | null = null;
 
-export const env = isServer ? parseServerEnv() : (parseClientEnv() as ReturnType<typeof parseServerEnv>);
+function getRuntimeEnv(): ServerEnv | ClientEnv {
+  if (typeof window === 'undefined') {
+    cachedServerEnv ??= parseServerEnv();
+    return cachedServerEnv;
+  }
+  cachedClientEnv ??= parseClientEnv();
+  return cachedClientEnv;
+}
+
+export const env = new Proxy({} as ServerEnv, {
+  get(_target, prop: keyof ServerEnv) {
+    return getRuntimeEnv()[prop as keyof ReturnType<typeof getRuntimeEnv>];
+  },
+});
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 export type ClientEnv = z.infer<typeof clientSchema>;
