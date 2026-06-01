@@ -64,4 +64,6 @@ export interface RealtimeActivityItem {
   sessionId: string | null;
   url: string | null;
   occurredAt: string;
+  /** Raw event metadata — used to enrich labels (page names, feature names, etc.). */
+  metadata: Record<string, unknown> | null;
 }

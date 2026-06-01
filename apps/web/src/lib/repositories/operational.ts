@@ -139,7 +139,7 @@ export interface UserDetail {
   totalSessionMinutes: number;
   logins:              number;
   apps:                { projectSlug: string; events: number; sessions: number; firstSeen: string | null; lastActive: string | null }[];
-  recent:              { name: string; category: string; portalId: string; occurredAt: string }[];
+  recent:              { name: string; category: string; portalId: string; occurredAt: string; url: string | null; metadata: Record<string, unknown> | null }[];
 }
 
 export async function getUserDetail(userId: string): Promise<UserDetail | null> {
@@ -158,7 +158,7 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     admin.from('analytics_sessions').select('started_at, last_seen_at, ended_at').eq('user_id', userId).limit(2000),
     admin
       .from('analytics_events')
-      .select('name, category, portal_id, occurred_at')
+      .select('name, category, portal_id, occurred_at, url, metadata')
       .eq('user_id', userId)
       .order('occurred_at', { ascending: false })
       .limit(50),
@@ -185,6 +185,8 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     category:   String(r.category),
     portalId:   String(r.portal_id),
     occurredAt: String(r.occurred_at),
+    url:        (r.url as string | null) ?? null,
+    metadata:   (r.metadata as Record<string, unknown> | null) ?? null,
   }));
   const logins = recent.filter((e) => e.name === 'auth.login').length;
 

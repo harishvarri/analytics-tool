@@ -34,14 +34,14 @@ export function ActivityFeed({ items, empty = 'No activity in the last 5 minutes
             </div>
             <div className="mt-0.5 text-xs text-muted-foreground">
               <span className="font-medium text-foreground" title={item.eventName}>
-                {friendlyEventName(item.eventName)}
+                {friendlyEventName(item.eventName, item.metadata, item.url)}
               </span>
               <span className="mx-1.5">·</span>
               <span>{item.portalName}</span>
             </div>
             {/* Plain-English note explaining what this means in the app flow */}
             <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground/80">
-              {eventDescription(item.eventName)}
+              {eventDescription(item.eventName, item.metadata, item.url)}
             </div>
           </div>
         </li>

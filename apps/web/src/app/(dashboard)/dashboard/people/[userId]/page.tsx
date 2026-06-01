@@ -120,11 +120,11 @@ export default async function UserDetailPage({ params }: PageProps) {
                   <EventBadge category={e.category as EventCategory} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium" title={e.name}>{friendlyEventName(e.name)}</span>
+                      <span className="font-medium" title={e.name}>{friendlyEventName(e.name, e.metadata, e.url)}</span>
                       <span className="shrink-0 text-muted-foreground">{formatRelativeTime(e.occurredAt)}</span>
                     </div>
                     <div className="text-[11px] text-muted-foreground/80">
-                      {eventDescription(e.name)} · {getPortalConfig(e.portalId).name}
+                      {eventDescription(e.name, e.metadata, e.url)} · {getPortalConfig(e.portalId).name}
                     </div>
                   </div>
                 </li>

@@ -136,6 +136,7 @@ export function mockRecentActivity(limit = 20): RealtimeActivityItem[] {
       sessionId: `ses_${rng(10_000, 99_999)}`,
       url: pick(MOCK_URLS),
       occurredAt,
+      metadata: null,
     });
   }
   return items;

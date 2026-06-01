@@ -223,5 +223,6 @@ export async function getRealtimeActivity(limit = 100): Promise<RealtimeActivity
     sessionId: r.session_id,
     url: r.url,
     occurredAt: r.occurred_at,
+    metadata: (r.metadata as Record<string, unknown> | null) ?? null,
   }));
 }

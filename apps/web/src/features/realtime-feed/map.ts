@@ -21,5 +21,6 @@ export function rowToActivityItem(row: AnalyticsEventRow): RealtimeActivityItem 
     sessionId: row.session_id,
     url: row.url,
     occurredAt: row.occurred_at,
+    metadata: (row.metadata as Record<string, unknown> | null) ?? null,
   };
 }
