@@ -10,8 +10,7 @@ import { Button } from '@/components/ui/button';
  * the SDK and plain-fetch options are shown as advanced alternatives.
  */
 
-const INGEST_ENDPOINT = 'https://ncpl-analytics-tool.vercel.app/api/v1/events';
-const SCRIPT_SRC = INGEST_ENDPOINT.replace('/api/v1/events', '/ncpl.js');
+const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
 
 interface Props {
   slug: string;
@@ -58,16 +57,21 @@ function CopyBlock({
 }
 
 export function ProjectIntegrationSnippet({ slug, apiKey, environment }: Props) {
+  const appUrl =
+    configuredAppUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+  const ingestEndpoint = `${appUrl}/api/v1/events`;
+  const scriptSrc = `${appUrl}/ncpl.js`;
+
   const scriptSnippet = `<script
   defer
-  src="${SCRIPT_SRC}"
+  src="${scriptSrc}"
   data-project="${slug}"
   data-key="${apiKey}"></script>`;
 
   const sdkSnippet = `import { AnalyticsClient } from '@ncpl/analytics-sdk';
 
 export const analytics = new AnalyticsClient({
-  endpoint: '${INGEST_ENDPOINT}',
+  endpoint: '${ingestEndpoint}',
   apiKey: '${apiKey}',
   portalId: '${slug}',
   defaults: { environment: '${environment}' },
@@ -76,7 +80,7 @@ export const analytics = new AnalyticsClient({
 // Auto-tracks page views, errors, performance; or fire custom events:
 analytics.track('feature.used', { name: 'export' });`;
 
-  const fetchSnippet = `await fetch('${INGEST_ENDPOINT}', {
+  const fetchSnippet = `await fetch('${ingestEndpoint}', {
   method: 'POST',
   keepalive: true,
   headers: {
