@@ -57,14 +57,6 @@ export async function requireIngestKey(req: NextRequest): Promise<string | null>
   // Fast path: global shared secret — any portalId allowed (no DB round-trip).
   if (env.INGEST_API_KEY && safeEqual(provided, env.INGEST_API_KEY)) return null;
 
-  // BUG-007 fix: missing key in production = misconfiguration, not open access.
-  if (!env.INGEST_API_KEY) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new AuthError('INGEST_API_KEY is not configured on this server');
-    }
-    return null; // dev: accept any key so local testing works
-  }
-
   // Per-project key lookup. Returns the slug so the caller can enforce portalId.
   try {
     const { data } = await getSupabaseAdmin()
@@ -76,6 +68,12 @@ export async function requireIngestKey(req: NextRequest): Promise<string | null>
     if (data) return (data as { slug: string }).slug; // BUG-006: return slug for portalId check
   } catch {
     // DB unreachable — fall through to reject.
+  }
+
+  // Missing global key is only fatal for global-key callers. Per-project keys
+  // above must keep working after dynamic project onboarding.
+  if (!env.INGEST_API_KEY && process.env.NODE_ENV !== 'production') {
+    return null; // dev: accept any key so local testing works
   }
 
   throw new AuthError('Invalid x-ncpl-api-key');
