@@ -6,14 +6,17 @@ import { getSupabaseServer } from '../supabase/server';
 import { getSupabaseAdmin } from '../supabase/admin';
 
 /**
- * Constant-time-ish string comparison. Avoids early-exit timing leaks on
- * the API key check. Not cryptographically perfect, but good enough for
- * a shared secret authn header.
+ * Constant-time string comparison. Runs the full XOR loop even when lengths
+ * differ so response latency cannot be used to binary-search the secret's
+ * length. The length mismatch is OR-ed into `diff` (non-zero → not equal)
+ * without short-circuiting, while the loop always iterates `max(a,b)` times.
  */
 function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  const len = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length; // non-zero when lengths differ
+  for (let i = 0; i < len; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
   return diff === 0;
 }
 

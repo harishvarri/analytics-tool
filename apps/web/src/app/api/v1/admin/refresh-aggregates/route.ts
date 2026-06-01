@@ -12,6 +12,7 @@ export const runtime = 'nodejs';
  * GET /api/v1/admin/refresh-aggregates  (BUG-005 fix: Vercel Cron sends GET)
  * POST kept for manual triggers / backwards compatibility.
  * Refreshes every materialized view (concurrently, via the SQL function).
+ * Migration 0026 makes the function self-healing for empty MVs.
  */
 async function handler(req: NextRequest) {
   requireCronSecret(req);

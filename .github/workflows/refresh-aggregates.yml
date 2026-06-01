@@ -20,20 +20,51 @@ jobs:
           ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          test -n "$ANALYTICS_APP_URL" || (echo "ANALYTICS_APP_URL secret not set" && exit 1)
-          test -n "$CRON_SECRET"       || (echo "CRON_SECRET secret not set" && exit 1)
-          # Route exports both GET and POST — use GET (matches Vercel Cron convention)
-          curl --fail --show-error --silent \
+          test -n "$ANALYTICS_APP_URL" || (echo "::error::ANALYTICS_APP_URL secret not set" && exit 1)
+          test -n "$CRON_SECRET"       || (echo "::error::CRON_SECRET secret not set" && exit 1)
+
+          # Capture response body + HTTP status in one curl call.
+          # --show-error prints curl-level errors; we intentionally omit --silent
+          # so the server's JSON response (including error details) is visible in
+          # the Actions log when the request fails.
+          RESPONSE=$(curl --show-error \
             --request GET \
             --header "x-cron-secret: $CRON_SECRET" \
-            "$ANALYTICS_APP_URL/api/v1/admin/refresh-aggregates"
+            --write-out "\nHTTP_STATUS:%{http_code}" \
+            "$ANALYTICS_APP_URL/api/v1/admin/refresh-aggregates" 2>&1)
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | sed 's/HTTP_STATUS://')
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::refresh-aggregates returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
 
       - name: Ensure event partitions
         env:
           ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl --fail --show-error --silent \
+          test -n "$ANALYTICS_APP_URL" || (echo "::error::ANALYTICS_APP_URL secret not set" && exit 1)
+          test -n "$CRON_SECRET"       || (echo "::error::CRON_SECRET secret not set" && exit 1)
+
+          RESPONSE=$(curl --show-error \
             --request GET \
             --header "x-cron-secret: $CRON_SECRET" \
-            "$ANALYTICS_APP_URL/api/v1/admin/ensure-partitions"
+            --write-out "\nHTTP_STATUS:%{http_code}" \
+            "$ANALYTICS_APP_URL/api/v1/admin/ensure-partitions" 2>&1)
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | sed 's/HTTP_STATUS://')
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::ensure-partitions returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
