@@ -1,0 +1,26 @@
+name: Refresh analytics aggregates
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-analytics-aggregates
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call refresh endpoint
+        env:
+          ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$ANALYTICS_APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail --show-error --silent --request POST \
+            --header "authorization: Bearer $CRON_SECRET" \
+            "$ANALYTICS_APP_URL/api/v1/admin/refresh-aggregates"
