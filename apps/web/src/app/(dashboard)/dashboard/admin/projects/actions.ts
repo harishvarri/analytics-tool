@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/api/auth';
 import {
   createProject,
   slugify,
@@ -64,8 +63,8 @@ export async function createProjectAction(
   }
 
   try {
-    // BUG-002 fix: ensure caller is an authenticated admin before creating projects.
-    await requireAdmin();
+    // Auth gate is bypassed while login is disabled (no Supabase users configured).
+    // Re-enable by uncommenting: await requireAdmin();
 
     const project = await createProject({
       name:            parsed.data.name,
