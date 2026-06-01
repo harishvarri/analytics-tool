@@ -30,9 +30,20 @@ export async function getOrgPulse(): Promise<OrgPulse> {
 
   if (loginsRes.error) throw new AppError('ORG_PULSE_FAILED', loginsRes.error.message, 500);
 
-  // Count distinct portals that had any event today via RPC (SQL-level DISTINCT).
-  const { data: activeData } = await admin.rpc('count_active_portals_today', { p_since: since });
-  const appsActive = Number(activeData ?? 0);
+  // Count distinct portals active today via SQL RPC (with JS fallback).
+  let appsActive = 0;
+  try {
+    const { data: activeData } = await admin.rpc('count_active_portals_today', { p_since: since });
+    appsActive = Number(activeData ?? 0);
+  } catch {
+    // RPC not yet deployed — fall back to JS aggregation.
+    const { data: evData } = await admin
+      .from('analytics_events')
+      .select('portal_id')
+      .gte('occurred_at', since)
+      .limit(5000);
+    appsActive = new Set(((evData ?? []) as { portal_id: string }[]).map((r) => r.portal_id)).size;
+  }
 
   return {
     loginsToday: loginsRes.count ?? 0,

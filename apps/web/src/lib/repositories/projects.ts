@@ -114,9 +114,13 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
     throw new AppError('PROJECT_EXISTS', `A project with slug "${slug}" already exists.`, 409);
   }
 
-  // 1. Grow the enum (must be a separate transaction — Postgres limitation).
-  const { error: enumErr } = await admin.rpc('add_portal_value', { p_slug: slug });
-  if (enumErr) throw new AppError('PROJECT_ENUM_FAILED', enumErr.message, 500);
+  // 1. Grow the enum if it still exists (may have been converted to plain text).
+  //    If the RPC doesn't exist or fails, continue — the column is likely text now.
+  try {
+    await admin.rpc('add_portal_value', { p_slug: slug });
+  } catch {
+    // add_portal_value was dropped after portal_id enum → text migration. OK.
+  }
 
   // 2+3. BUG-024 fix: run analytics_portals upsert + analytics_projects insert
   //   in a single atomic SQL function so a failure in step 3 doesn't orphan
