@@ -1,5 +1,8 @@
 -- =============================================================================
--- Migration 0023 - Fix project creation portal_id cast
+-- Migration 0023 — Fix create_project_atomic after portal_id enum → text
+-- =============================================================================
+-- Run AFTER: ALTER TABLE analytics_portals/sessions/events ALTER COLUMN * TYPE text
+--            DROP TYPE IF EXISTS public.portal_id CASCADE
 -- =============================================================================
 -- analytics_portals.id is public.portal_id, while create_project_atomic receives
 -- p_slug as text. Cast after add_portal_value(slug) has committed.
@@ -20,7 +23,7 @@ create or replace function public.create_project_atomic(
 returns void language plpgsql as $$
 begin
   insert into public.analytics_portals (id, name, description, color)
-  values (p_slug::public.portal_id, p_name, p_description, 'slate')
+  values (p_slug, p_name, coalesce(p_description, ''), 'slate')
   on conflict (id) do update set
     name = excluded.name,
     description = excluded.description;

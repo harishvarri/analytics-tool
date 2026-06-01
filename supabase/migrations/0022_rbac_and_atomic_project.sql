@@ -57,7 +57,7 @@ returns void language plpgsql as $$
 begin
   -- Mirror into analytics_portals so legacy views/joins recognise the slug.
   insert into public.analytics_portals (id, name, description, color)
-  values (p_slug::public.portal_id, p_name, p_description, 'slate')
+  values (p_slug, p_name, coalesce(p_description, ''), 'slate')
   on conflict (id) do update set name = excluded.name, description = excluded.description;
 
   -- Insert the rich project registry row.

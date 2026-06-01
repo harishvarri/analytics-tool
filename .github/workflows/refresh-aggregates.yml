@@ -2,6 +2,7 @@ name: Refresh analytics aggregates
 
 on:
   schedule:
+    # Every 5 minutes — moved from Vercel Cron (Hobby plan only allows daily)
     - cron: '*/5 * * * *'
   workflow_dispatch:
 
@@ -14,13 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Call refresh endpoint
+      - name: Refresh materialized views
         env:
           ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          test -n "$ANALYTICS_APP_URL"
-          test -n "$CRON_SECRET"
-          curl --fail --show-error --silent --request POST \
-            --header "authorization: Bearer $CRON_SECRET" \
+          test -n "$ANALYTICS_APP_URL" || (echo "ANALYTICS_APP_URL secret not set" && exit 1)
+          test -n "$CRON_SECRET"       || (echo "CRON_SECRET secret not set" && exit 1)
+          # Route exports both GET and POST — use GET (matches Vercel Cron convention)
+          curl --fail --show-error --silent \
+            --request GET \
+            --header "x-cron-secret: $CRON_SECRET" \
             "$ANALYTICS_APP_URL/api/v1/admin/refresh-aggregates"
+
+      - name: Ensure event partitions
+        env:
+          ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            --request GET \
+            --header "x-cron-secret: $CRON_SECRET" \
+            "$ANALYTICS_APP_URL/api/v1/admin/ensure-partitions"

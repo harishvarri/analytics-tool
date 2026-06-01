@@ -4,10 +4,5 @@
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/v1/admin/ensure-partitions",
-      "schedule": "0 0 1 * *"
-    }
-  ]
+  "crons": []
 }
