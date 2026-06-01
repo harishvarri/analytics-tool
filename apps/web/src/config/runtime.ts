@@ -29,4 +29,11 @@ export const RUNTIME = {
     /** Months ahead to pre-create on each maintenance run. */
     leadMonths: 2,
   },
+  retention: {
+    /**
+     * Raw-event retention window in days. Partitions fully older than this are
+     * archived (business_critical rows) then dropped by enforce_event_retention.
+     */
+    rawDays: 90,
+  },
 } as const;

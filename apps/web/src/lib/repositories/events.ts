@@ -5,6 +5,7 @@ import { AppError } from '../api/errors';
 import type { RealtimeActivityRow } from '@/types/database';
 import type { TrackEventInput } from '../schemas/events';
 import type { RealtimeActivityItem } from '@/types/analytics';
+import { classifyImportance, meetsThreshold, type ImportanceTier } from '../importance';
 
 interface InsertContext {
   ipHash?: string | null;
@@ -150,6 +151,9 @@ export async function insertEventsBatch(
       ...(e.metadata ?? {}),
       ...(ctx.ipHash ? { _ip_hash: ctx.ipHash } : {}),
       ...(ctx.userAgent ? { _ua: ctx.userAgent } : {}),
+      // Server-derived importance tier (0027). Stamped at write-time so the
+      // realtime feed and retention job can filter without a DB round-trip.
+      _importance: classifyImportance(e.category, e.name),
     },
     occurred_at: e.occurredAt ?? new Date().toISOString(),
   }));
@@ -203,15 +207,27 @@ export async function ensureSessionsForBatch(
 /**
  * Recent activity feed (last 5 minutes, capped to `limit`). Reads the
  * realtime view, which already enriches user + portal joins.
+ *
+ * @param limit         max rows to return
+ * @param minImportance hide events less important than this tier (default
+ *                      'normal' → drops 'debug' noise like page views/perf).
+ *                      Pass 'debug' to show everything.
  */
-export async function getRealtimeActivity(limit = 100): Promise<RealtimeActivityItem[]> {
+export async function getRealtimeActivity(
+  limit = 100,
+  minImportance: ImportanceTier = 'normal',
+): Promise<RealtimeActivityItem[]> {
+  // Over-fetch when filtering so we still return ~`limit` meaningful rows after
+  // dropping debug noise.
+  const fetchLimit = minImportance === 'debug' ? limit : limit * 3;
   const { data, error } = await getSupabaseAdmin()
     .from('v_realtime_activity')
     .select('*')
-    .limit(limit);
+    .limit(fetchLimit);
   if (error) throw new AppError('REALTIME_QUERY_FAILED', error.message, 500);
   const rows = (data ?? []) as RealtimeActivityRow[];
-  return rows.map((r) => ({
+
+  const mapped = rows.map((r) => ({
     id: r.id,
     portalId: r.portal_id,
     portalName: r.portal_name,
@@ -225,4 +241,16 @@ export async function getRealtimeActivity(limit = 100): Promise<RealtimeActivity
     occurredAt: r.occurred_at,
     metadata: (r.metadata as Record<string, unknown> | null) ?? null,
   }));
+
+  if (minImportance === 'debug') return mapped.slice(0, limit);
+
+  return mapped
+    .filter((item) => {
+      // Fall back to classifying on the fly for rows ingested before 0027.
+      const tier =
+        ((item.metadata?.['_importance'] as ImportanceTier | undefined)) ??
+        classifyImportance(item.category, item.eventName);
+      return meetsThreshold(tier, minImportance);
+    })
+    .slice(0, limit);
 }

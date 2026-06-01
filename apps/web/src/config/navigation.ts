@@ -4,6 +4,8 @@ import {
   BellRing,
   Bug,
   Building2,
+  HeartPulse,
+  KeyRound,
   Radio,
   Settings2,
   SlidersHorizontal,
@@ -75,6 +77,18 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         icon: SlidersHorizontal,
         description: 'Which products are thriving, underused, or have quality problems',
       },
+      {
+        label: 'Project Health',
+        href: ROUTES.health,
+        icon: HeartPulse,
+        description: 'A single 0–100 health score per product — problems first',
+      },
+      {
+        label: 'Access Analytics',
+        href: ROUTES.access,
+        icon: KeyRound,
+        description: 'Who has access to each product versus who actually uses it',
+      },
     ],
   },
   {
@@ -85,6 +99,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.people,
         icon: UserRound,
         description: 'Who is using which products and when they were last active',
+      },
+      {
+        label: 'Department Analytics',
+        href: ROUTES.departments,
+        icon: Building2,
+        description: 'Engagement and headcount broken down by department and team',
       },
       {
         label: 'Engagement Trends',

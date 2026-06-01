@@ -13,12 +13,15 @@ import {
   fetchCategoryBreakdown,
   fetchDashboardKpis,
   fetchEventsTimeSeries,
+  fetchCommandCenter,
   fetchOrgPulse,
   fetchProjectComparison,
   fetchRecentActivity,
   fetchReliabilityKpis,
 } from '@/lib/data/fetchers';
 import { AutoRefresh } from '@/components/AutoRefresh';
+import { Card, CardContent } from '@/components/ui/card';
+import { KeyRound, UserX } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,7 +52,7 @@ function appStatus(errorRatePct: number, events30d: number) {
 
 export default async function OrgOverviewPage({ searchParams }: PageProps) {
   const { app: selectedApp } = await searchParams;
-  const [kpis, timeSeries, breakdown, activity, pulse, apps, reliability] = await Promise.all([
+  const [kpis, timeSeries, breakdown, activity, pulse, apps, reliability, command] = await Promise.all([
     fetchDashboardKpis(),
     fetchEventsTimeSeries(),
     fetchCategoryBreakdown(),
@@ -57,6 +60,7 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
     fetchOrgPulse(),
     fetchProjectComparison(),
     fetchReliabilityKpis(),
+    fetchCommandCenter(),
   ]);
 
   const eventSpark = timeSeries.map((p) => ({ value: p.events }));
@@ -95,6 +99,54 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
           invertTrend />
         <KpiCard label="Platform health" value={`${reliability.errorFreePct}%`} icon={ShieldCheck}
           trend={{ direction: reliability.errorFreePct >= reliability.sloTargetPct ? 'flat' : 'down', label: 'problem-free sessions' }} />
+      </section>
+
+      {/* Executive command-center band — adoption signals from v_command_center */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Boxes className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Most-used product</div>
+              <div className="truncate text-sm font-semibold">{command.mostUsedProject ?? '—'}</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <Boxes className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Least-adopted product</div>
+              <div className="truncate text-sm font-semibold">{command.leastAdoptedProject ?? '—'}</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+              <UserX className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Inactive staff (w/ access)</div>
+              <div className="text-sm font-semibold tabular-nums">{fmt.format(command.inactiveUsersCount)}</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <KeyRound className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Granted, never used</div>
+              <div className="text-sm font-semibold tabular-nums">{fmt.format(command.neverUsedAccessCount)}</div>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
       {/* Product status board */}

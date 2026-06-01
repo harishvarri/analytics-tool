@@ -68,3 +68,36 @@ jobs:
             echo "::error::ensure-partitions returned HTTP $HTTP_STATUS"
             exit 1
           fi
+
+  retention:
+    # Daily-only: archive Tier-1 events and drop partitions past the window.
+    # Runs on the same 5-min trigger but is a no-op unless a partition is stale,
+    # so it is safe and cheap to call frequently.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: refresh
+    steps:
+      - name: Enforce event retention
+        env:
+          ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$ANALYTICS_APP_URL" || (echo "::error::ANALYTICS_APP_URL secret not set" && exit 1)
+          test -n "$CRON_SECRET"       || (echo "::error::CRON_SECRET secret not set" && exit 1)
+
+          RESPONSE=$(curl --show-error \
+            --request GET \
+            --header "x-cron-secret: $CRON_SECRET" \
+            --write-out "\nHTTP_STATUS:%{http_code}" \
+            "$ANALYTICS_APP_URL/api/v1/admin/enforce-retention" 2>&1)
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | sed 's/HTTP_STATUS://')
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::enforce-retention returned HTTP $HTTP_STATUS"
+            exit 1
+          fi

@@ -69,14 +69,27 @@ import {
 } from '../repositories/performance';
 import {
   getAppUsers,
+  getDepartmentActivity,
+  getDepartmentRollup,
   getOrgPulse,
   getUserDetail,
   getUserProfileSummaries,
   type AppUserRow,
+  type DepartmentActivityRow,
+  type DepartmentRollupRow,
   type OrgPulse,
   type UserDetail,
   type UserProfileSummary,
 } from '../repositories/operational';
+import {
+  getAccessVsUsage,
+  getInactiveWithAccess,
+  type AccessVsUsageRow,
+  type InactiveWithAccessRow,
+} from '../repositories/access';
+import { getProjectHealth, type ProjectHealthRow } from '../repositories/health';
+import { getCommandCenter, type CommandCenter } from '../repositories/analytics';
+import type { ImportanceTier } from '../importance';
 import {
   mockActiveUsers,
   mockCategoryBreakdown,
@@ -129,9 +142,13 @@ export const fetchRecentSessions = (limit = 20): Promise<SessionSummary[]> =>
 export const fetchActiveUsers = (limit = 12): Promise<UserActivityRow[]> =>
   withMockFallback('users', () => getActiveUsers(limit), () => mockActiveUsers(limit));
 
-export const fetchRecentActivity = (limit = 20, appId?: string): Promise<RealtimeActivityItem[]> =>
+export const fetchRecentActivity = (
+  limit = 20,
+  appId?: string,
+  minImportance: ImportanceTier = 'normal',
+): Promise<RealtimeActivityItem[]> =>
   withMockFallback('activity', async () => {
-    const all = await getRealtimeActivity(limit * (appId ? 5 : 1)); // over-fetch then filter
+    const all = await getRealtimeActivity(limit * (appId ? 5 : 1), minImportance); // over-fetch then filter
     if (!appId) return all.slice(0, limit);
     return all.filter((a) => a.portalId === appId).slice(0, limit);
   }, () => mockRecentActivity(limit));
@@ -283,3 +300,27 @@ export const fetchAppUsers = (appSlug: string, limit = 100): Promise<AppUserRow[
 
 export const fetchUserDetail = (userId: string): Promise<UserDetail | null> =>
   withMockFallback('ops.userDetail', () => getUserDetail(userId), () => null);
+
+// ── Operational Intelligence v2 (surface existing 0020/0030 views) ────────────
+
+export const fetchCommandCenter = (): Promise<CommandCenter> =>
+  withMockFallback('ops.commandCenter', getCommandCenter, () => ({
+    activeUsersToday: 0, sessionsToday: 0, eventsToday: 0, errorsToday: 0,
+    mostUsedProject: null, leastAdoptedProject: null, totalDirectoryUsers: 0,
+    inactiveUsersCount: 0, neverUsedAccessCount: 0,
+  }));
+
+export const fetchAccessVsUsage = (days = 30): Promise<AccessVsUsageRow[]> =>
+  withMockFallback('access.usage', () => getAccessVsUsage(days), () => []);
+
+export const fetchInactiveWithAccess = (limit = 100): Promise<InactiveWithAccessRow[]> =>
+  withMockFallback('access.inactive', () => getInactiveWithAccess(limit), () => []);
+
+export const fetchProjectHealth = (): Promise<ProjectHealthRow[]> =>
+  withMockFallback('health.projects', getProjectHealth, () => []);
+
+export const fetchDepartmentRollup = (): Promise<DepartmentRollupRow[]> =>
+  withMockFallback('dept.rollup', getDepartmentRollup, () => []);
+
+export const fetchDepartmentActivity = (days = 30): Promise<DepartmentActivityRow[]> =>
+  withMockFallback('dept.activity', () => getDepartmentActivity(days), () => []);

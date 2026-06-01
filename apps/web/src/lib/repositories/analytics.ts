@@ -234,3 +234,38 @@ export async function getActiveUsers(limit = 50): Promise<UserActivityRow[]> {
     events24h: Number(r.total_events),
   }));
 }
+
+// ── Executive Command Center (single-row org snapshot for today) ─────────────
+export interface CommandCenter {
+  activeUsersToday:    number;
+  sessionsToday:       number;
+  eventsToday:         number;
+  errorsToday:         number;
+  mostUsedProject:     string | null;
+  leastAdoptedProject: string | null;
+  totalDirectoryUsers: number;
+  inactiveUsersCount:  number;
+  neverUsedAccessCount: number;
+}
+
+/** Reads the v_command_center view (migration 0020) — one executive snapshot. */
+export async function getCommandCenter(): Promise<CommandCenter> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('v_command_center')
+    .select('*')
+    .maybeSingle();
+  if (error) throw new AppError('COMMAND_CENTER_FAILED', error.message, 500);
+  const r = (data ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => Number(v ?? 0);
+  return {
+    activeUsersToday:     num(r.active_users_today),
+    sessionsToday:        num(r.sessions_today),
+    eventsToday:          num(r.events_today),
+    errorsToday:          num(r.errors_today),
+    mostUsedProject:      (r.most_used_project as string | null) ?? null,
+    leastAdoptedProject:  (r.least_adopted_project as string | null) ?? null,
+    totalDirectoryUsers:  num(r.total_directory_users),
+    inactiveUsersCount:   num(r.inactive_users_count),
+    neverUsedAccessCount: num(r.never_used_access_count),
+  };
+}

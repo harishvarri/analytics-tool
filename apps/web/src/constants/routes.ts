@@ -14,6 +14,9 @@ export const ROUTES = {
   insights:  '/dashboard/insights',
   performance: '/dashboard/performance',
   people:    '/dashboard/people',
+  access:    '/dashboard/access',
+  health:    '/dashboard/health',
+  departments: '/dashboard/departments',
   manageProjects: '/dashboard/admin/projects',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks

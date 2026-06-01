@@ -213,3 +213,66 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     recent,
   };
 }
+
+// ── Department analytics ─────────────────────────────────────────────────────
+export interface DepartmentRollupRow {
+  department:    string;
+  team:          string;
+  totalUsers:    number;
+  activeUsers:   number;
+  inactiveUsers: number;
+  invitedUsers:  number;
+  internalUsers: number;
+}
+
+/** Org composition by department/team (headcount + status). View from 0020. */
+export async function getDepartmentRollup(): Promise<DepartmentRollupRow[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('v_org_directory_rollup')
+    .select('*');
+  if (error) throw new AppError('DEPT_ROLLUP_FAILED', error.message, 500);
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    department:    String(r.department ?? 'Unassigned'),
+    team:          String(r.team ?? 'Unassigned'),
+    totalUsers:    n(r.total_users),
+    activeUsers:   n(r.active_users),
+    inactiveUsers: n(r.inactive_users),
+    invitedUsers:  n(r.invited_users),
+    internalUsers: n(r.internal_users),
+  }));
+}
+
+export interface DepartmentActivityRow {
+  department: string;
+  events:     number;
+  users:      number;
+  sessions:   number;
+  errors:     number;
+}
+
+/**
+ * Activity totals per department over the last `days`, from mv_department_daily
+ * (migration 0029). Aggregated in SQL-friendly fashion then summed per dept.
+ */
+export async function getDepartmentActivity(days = 30): Promise<DepartmentActivityRow[]> {
+  const since = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+  const { data, error } = await getSupabaseAdmin()
+    .from('mv_department_daily')
+    .select('department, events, users, sessions, errors, day')
+    .gte('day', since);
+  if (error) throw new AppError('DEPT_ACTIVITY_FAILED', error.message, 500);
+
+  // Sum the daily rows per department (distinct-user counts are approximate
+  // across days, which is acceptable for a relative department comparison).
+  const acc = new Map<string, DepartmentActivityRow>();
+  for (const raw of (data ?? []) as Record<string, unknown>[]) {
+    const dept = String(raw.department ?? 'Unassigned');
+    const cur = acc.get(dept) ?? { department: dept, events: 0, users: 0, sessions: 0, errors: 0 };
+    cur.events   += n(raw.events);
+    cur.users    += n(raw.users);
+    cur.sessions += n(raw.sessions);
+    cur.errors   += n(raw.errors);
+    acc.set(dept, cur);
+  }
+  return Array.from(acc.values()).sort((a, b) => b.events - a.events);
+}

@@ -4,12 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
-import { EventBadge } from '@/components/analytics/EventBadge';
+import { UserTimeline } from '@/components/analytics/UserTimeline';
 import { fetchUserDetail } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
-import { friendlyEventName, eventDescription } from '@/lib/event-labels';
 import { formatRelativeTime } from '@/lib/utils';
-import type { EventCategory } from '@/types/analytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,28 +109,9 @@ export default async function UserDetailPage({ params }: PageProps) {
           )}
         </ChartCard>
 
-        {/* Recent activity timeline */}
-        <ChartCard title="Recent activity" description="Most recent actions, newest first">
-          {u.recent.length > 0 ? (
-            <ul className="space-y-2">
-              {u.recent.slice(0, 20).map((e, i) => (
-                <li key={`${e.name}-${i}`} className="flex items-start gap-2 text-xs">
-                  <EventBadge category={e.category as EventCategory} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium" title={e.name}>{friendlyEventName(e.name, e.metadata, e.url)}</span>
-                      <span className="shrink-0 text-muted-foreground">{formatRelativeTime(e.occurredAt)}</span>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground/80">
-                      {eventDescription(e.name, e.metadata, e.url)} · {getPortalConfig(e.portalId).name}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="flex h-[140px] items-center justify-center text-xs text-muted-foreground">No recent activity</div>
-          )}
+        {/* Cross-app activity timeline */}
+        <ChartCard title="Activity timeline" description="What this person did across every product, newest first">
+          <UserTimeline events={u.recent.slice(0, 40)} empty="No recent activity" />
         </ChartCard>
       </section>
 

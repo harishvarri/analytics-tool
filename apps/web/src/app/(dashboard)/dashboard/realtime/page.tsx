@@ -12,7 +12,9 @@ export default async function RealtimePage() {
   // Server-render initial state for an instant first paint, then hand off
   // to the client-side Realtime subscription.
   const [initial, portals] = await Promise.all([
-    fetchRecentActivity(40),
+    // Fetch everything (incl. debug) so the client-side "Important only" toggle
+    // can filter without a server round-trip.
+    fetchRecentActivity(60, undefined, 'debug'),
     fetchPortalSummaries(),
   ]);
 
