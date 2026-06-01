@@ -21,31 +21,70 @@
 ------------------------------------------------------------------------------
 -- ENUMS
 ------------------------------------------------------------------------------
-create type public.portal_id as enum (
-  'sentinel',
-  'analytics'
-);
+do $$
+begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'portal_id'
+  ) then
+    create type public.portal_id as enum ('sentinel', 'analytics');
+  end if;
+end $$;
 
-create type public.event_category as enum (
-  'auth',
-  'navigation',
-  'feature',
-  'interaction',
-  'error',
-  'custom'
-);
+alter type public.portal_id add value if not exists 'sentinel';
+alter type public.portal_id add value if not exists 'analytics';
 
-create type public.event_source as enum (
-  'web',
-  'mobile',
-  'server',
-  'integration'
-);
+do $$
+begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'event_category'
+  ) then
+    create type public.event_category as enum (
+      'auth',
+      'navigation',
+      'feature',
+      'interaction',
+      'error',
+      'custom'
+    );
+  end if;
+end $$;
+
+alter type public.event_category add value if not exists 'auth';
+alter type public.event_category add value if not exists 'navigation';
+alter type public.event_category add value if not exists 'feature';
+alter type public.event_category add value if not exists 'interaction';
+alter type public.event_category add value if not exists 'error';
+alter type public.event_category add value if not exists 'custom';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'event_source'
+  ) then
+    create type public.event_source as enum (
+      'web',
+      'mobile',
+      'server',
+      'integration'
+    );
+  end if;
+end $$;
+
+alter type public.event_source add value if not exists 'web';
+alter type public.event_source add value if not exists 'mobile';
+alter type public.event_source add value if not exists 'server';
+alter type public.event_source add value if not exists 'integration';
 
 ------------------------------------------------------------------------------
 -- analytics_users  (lightweight mirror of auth.users)
 ------------------------------------------------------------------------------
-create table public.analytics_users (
+create table if not exists public.analytics_users (
   id           uuid primary key references auth.users(id) on delete cascade,
   email        text,
   display_name text,
@@ -55,13 +94,13 @@ create table public.analytics_users (
   last_seen_at timestamptz
 );
 
-create index analytics_users_email_idx       on public.analytics_users (lower(email));
-create index analytics_users_last_seen_idx   on public.analytics_users (last_seen_at desc nulls last);
+create index if not exists analytics_users_email_idx       on public.analytics_users (lower(email));
+create index if not exists analytics_users_last_seen_idx   on public.analytics_users (last_seen_at desc nulls last);
 
 ------------------------------------------------------------------------------
 -- analytics_portals  (registry; mirrors src/config/portals.ts)
 ------------------------------------------------------------------------------
-create table public.analytics_portals (
+create table if not exists public.analytics_portals (
   id          public.portal_id primary key,
   name        text not null,
   description text,
@@ -73,7 +112,7 @@ create table public.analytics_portals (
 ------------------------------------------------------------------------------
 -- analytics_sessions  (one row per portal session)
 ------------------------------------------------------------------------------
-create table public.analytics_sessions (
+create table if not exists public.analytics_sessions (
   id              uuid primary key default gen_random_uuid(),
   user_id         uuid references public.analytics_users(id) on delete set null,
   portal_id       public.portal_id not null references public.analytics_portals(id),
@@ -87,18 +126,18 @@ create table public.analytics_sessions (
   metadata        jsonb not null default '{}'::jsonb
 );
 
-create index analytics_sessions_user_idx        on public.analytics_sessions (user_id);
-create index analytics_sessions_portal_idx      on public.analytics_sessions (portal_id);
-create index analytics_sessions_started_idx     on public.analytics_sessions (started_at desc);
-create index analytics_sessions_last_seen_idx   on public.analytics_sessions (last_seen_at desc);
-create index analytics_sessions_active_idx
+create index if not exists analytics_sessions_user_idx        on public.analytics_sessions (user_id);
+create index if not exists analytics_sessions_portal_idx      on public.analytics_sessions (portal_id);
+create index if not exists analytics_sessions_started_idx     on public.analytics_sessions (started_at desc);
+create index if not exists analytics_sessions_last_seen_idx   on public.analytics_sessions (last_seen_at desc);
+create index if not exists analytics_sessions_active_idx
   on public.analytics_sessions (portal_id, last_seen_at desc)
   where ended_at is null;
 
 ------------------------------------------------------------------------------
 -- analytics_events  (hot, partitioned by month)
 ------------------------------------------------------------------------------
-create table public.analytics_events (
+create table if not exists public.analytics_events (
   id           uuid not null default gen_random_uuid(),
   portal_id    public.portal_id not null references public.analytics_portals(id),
   category     public.event_category not null,
@@ -115,36 +154,36 @@ create table public.analytics_events (
 ) partition by range (occurred_at);
 
 -- Default partition catches stragglers / future months until a real one exists.
-create table public.analytics_events_default
+create table if not exists public.analytics_events_default
   partition of public.analytics_events default;
 
 -- Seed partitions for the rolling window (current month + next 2).
 -- New partitions are created via the maintenance function below.
-create table public.analytics_events_y2026m05
+create table if not exists public.analytics_events_y2026m05
   partition of public.analytics_events
   for values from ('2026-05-01') to ('2026-06-01');
 
-create table public.analytics_events_y2026m06
+create table if not exists public.analytics_events_y2026m06
   partition of public.analytics_events
   for values from ('2026-06-01') to ('2026-07-01');
 
-create table public.analytics_events_y2026m07
+create table if not exists public.analytics_events_y2026m07
   partition of public.analytics_events
   for values from ('2026-07-01') to ('2026-08-01');
 
 -- Indexes are inherited by partitions.
-create index analytics_events_occurred_idx          on public.analytics_events (occurred_at desc);
-create index analytics_events_portal_occurred_idx   on public.analytics_events (portal_id, occurred_at desc);
-create index analytics_events_user_occurred_idx     on public.analytics_events (user_id, occurred_at desc) where user_id is not null;
-create index analytics_events_session_idx           on public.analytics_events (session_id) where session_id is not null;
-create index analytics_events_category_idx          on public.analytics_events (category, occurred_at desc);
-create index analytics_events_name_trgm_idx         on public.analytics_events using gin (name extensions.gin_trgm_ops);
-create index analytics_events_metadata_gin_idx      on public.analytics_events using gin (metadata jsonb_path_ops);
+create index if not exists analytics_events_occurred_idx          on public.analytics_events (occurred_at desc);
+create index if not exists analytics_events_portal_occurred_idx   on public.analytics_events (portal_id, occurred_at desc);
+create index if not exists analytics_events_user_occurred_idx     on public.analytics_events (user_id, occurred_at desc) where user_id is not null;
+create index if not exists analytics_events_session_idx           on public.analytics_events (session_id) where session_id is not null;
+create index if not exists analytics_events_category_idx          on public.analytics_events (category, occurred_at desc);
+create index if not exists analytics_events_name_trgm_idx         on public.analytics_events using gin (name extensions.gin_trgm_ops);
+create index if not exists analytics_events_metadata_gin_idx      on public.analytics_events using gin (metadata jsonb_path_ops);
 
 ------------------------------------------------------------------------------
 -- analytics_reports  (saved/scheduled report definitions)
 ------------------------------------------------------------------------------
-create table public.analytics_reports (
+create table if not exists public.analytics_reports (
   id           uuid primary key default gen_random_uuid(),
   owner_id     uuid references public.analytics_users(id) on delete set null,
   name         text not null,
@@ -156,8 +195,8 @@ create table public.analytics_reports (
   updated_at   timestamptz not null default now()
 );
 
-create index analytics_reports_owner_idx on public.analytics_reports (owner_id);
-create index analytics_reports_shared_idx on public.analytics_reports (is_shared) where is_shared = true;
+create index if not exists analytics_reports_owner_idx on public.analytics_reports (owner_id);
+create index if not exists analytics_reports_shared_idx on public.analytics_reports (is_shared) where is_shared = true;
 
 ------------------------------------------------------------------------------
 -- updated_at touch trigger (reused)
@@ -169,10 +208,12 @@ begin
   return new;
 end $$;
 
+drop trigger if exists analytics_users_touch on public.analytics_users;
 create trigger analytics_users_touch
   before update on public.analytics_users
   for each row execute function public.tg_touch_updated_at();
 
+drop trigger if exists analytics_reports_touch on public.analytics_reports;
 create trigger analytics_reports_touch
   before update on public.analytics_reports
   for each row execute function public.tg_touch_updated_at();
@@ -209,6 +250,7 @@ begin
   return new;
 end $$;
 
+drop trigger if exists analytics_events_bump_session on public.analytics_events;
 create trigger analytics_events_bump_session
   after insert on public.analytics_events
   for each row execute function public.tg_bump_session_event_count();
@@ -254,19 +296,29 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 
 -- analytics_users: self-read, admin-read-all
+drop policy if exists "users: self can read" on public.analytics_users;
+drop policy if exists "users: admins read all" on public.analytics_users;
+drop policy if exists "users: self can update" on public.analytics_users;
 create policy "users: self can read"   on public.analytics_users for select using (id = auth.uid());
 create policy "users: admins read all" on public.analytics_users for select using (public.is_analytics_admin());
 create policy "users: self can update" on public.analytics_users for update using (id = auth.uid()) with check (id = auth.uid());
 
 -- analytics_portals: readable by any authenticated user, no writes from clients
+drop policy if exists "portals: authenticated read" on public.analytics_portals;
 create policy "portals: authenticated read" on public.analytics_portals
   for select to authenticated using (true);
 
 -- analytics_sessions / analytics_events: admin read; service role writes
+drop policy if exists "sessions: admins read" on public.analytics_sessions;
+drop policy if exists "events:   admins read" on public.analytics_events;
 create policy "sessions: admins read" on public.analytics_sessions for select using (public.is_analytics_admin());
 create policy "events:   admins read" on public.analytics_events   for select using (public.is_analytics_admin());
 
 -- analytics_reports: owner CRUD, shared visible to all admins
+drop policy if exists "reports: owner select" on public.analytics_reports;
+drop policy if exists "reports: owner insert" on public.analytics_reports;
+drop policy if exists "reports: owner update" on public.analytics_reports;
+drop policy if exists "reports: owner delete" on public.analytics_reports;
 create policy "reports: owner select"  on public.analytics_reports for select
   using (owner_id = auth.uid() or (is_shared and public.is_analytics_admin()));
 create policy "reports: owner insert"  on public.analytics_reports for insert

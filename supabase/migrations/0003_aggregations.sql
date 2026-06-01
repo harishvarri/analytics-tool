@@ -35,7 +35,7 @@ create or replace view public.v_realtime_activity as
 ------------------------------------------------------------------------------
 -- Daily portal rollup (materialized)
 ------------------------------------------------------------------------------
-create materialized view public.mv_portal_daily as
+create materialized view if not exists public.mv_portal_daily as
   select
     portal_id,
     date_trunc('day', occurred_at)::date as day,
@@ -47,13 +47,13 @@ create materialized view public.mv_portal_daily as
   group by portal_id, day
   with no data;
 
-create unique index mv_portal_daily_pk on public.mv_portal_daily (portal_id, day);
-create index mv_portal_daily_day_idx   on public.mv_portal_daily (day desc);
+create unique index if not exists mv_portal_daily_pk on public.mv_portal_daily (portal_id, day);
+create index if not exists mv_portal_daily_day_idx   on public.mv_portal_daily (day desc);
 
 ------------------------------------------------------------------------------
 -- Daily user activity (materialized)
 ------------------------------------------------------------------------------
-create materialized view public.mv_user_daily as
+create materialized view if not exists public.mv_user_daily as
   select
     user_id,
     date_trunc('day', occurred_at)::date as day,
@@ -65,13 +65,13 @@ create materialized view public.mv_user_daily as
   group by user_id, day
   with no data;
 
-create unique index mv_user_daily_pk    on public.mv_user_daily (user_id, day);
-create index        mv_user_daily_day_idx on public.mv_user_daily (day desc);
+create unique index if not exists mv_user_daily_pk    on public.mv_user_daily (user_id, day);
+create index if not exists mv_user_daily_day_idx on public.mv_user_daily (day desc);
 
 ------------------------------------------------------------------------------
 -- Top features per portal (rolling 30 days, materialized)
 ------------------------------------------------------------------------------
-create materialized view public.mv_feature_usage_30d as
+create materialized view if not exists public.mv_feature_usage_30d as
   select
     portal_id,
     name as event_name,
@@ -84,9 +84,9 @@ create materialized view public.mv_feature_usage_30d as
   group by portal_id, name
   with no data;
 
-create unique index mv_feature_usage_30d_pk
+create unique index if not exists mv_feature_usage_30d_pk
   on public.mv_feature_usage_30d (portal_id, event_name);
-create index mv_feature_usage_30d_top_idx
+create index if not exists mv_feature_usage_30d_top_idx
   on public.mv_feature_usage_30d (portal_id, occurrences desc);
 
 ------------------------------------------------------------------------------

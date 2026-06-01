@@ -7,6 +7,7 @@
 -- only allows updating non-role columns (email, display_name, last_seen_at).
 -- Role changes must go through the service-role client (admin tool / support).
 drop policy if exists "users: self can update" on public.analytics_users;
+drop policy if exists "users: self can update non-role columns" on public.analytics_users;
 
 create policy "users: self can update non-role columns"
   on public.analytics_users for update

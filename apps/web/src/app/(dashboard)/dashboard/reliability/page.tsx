@@ -42,11 +42,14 @@ function burnTone(burnPct: number): string {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function ReliabilityPage() {
+interface PageProps { searchParams: Promise<{ app?: string }> }
+
+export default async function ReliabilityPage({ searchParams }: PageProps) {
+  const { app: appId } = await searchParams;
   const [kpis, trend, groups] = await Promise.all([
-    fetchReliabilityKpis(),
-    fetchErrorRateTrend(),
-    fetchErrorGroups(40),
+    fetchReliabilityKpis(appId),
+    fetchErrorRateTrend(appId),
+    fetchErrorGroups(40, appId),
   ]);
 
   const chartData = trend.map((p) => ({ bucket: p.bucket, rate: p.errorRatePct }));

@@ -32,11 +32,14 @@ function fmtDay(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default async function PerformancePage() {
+interface PageProps { searchParams: Promise<{ app?: string }> }
+
+export default async function PerformancePage({ searchParams }: PageProps) {
+  const { app: appId } = await searchParams;
   const [kpis, routes, trend] = await Promise.all([
-    fetchPerformanceKpis(),
-    fetchPerformanceByRoute(20),
-    fetchPerformanceTrend(),
+    fetchPerformanceKpis(appId),
+    fetchPerformanceByRoute(20, appId),
+    fetchPerformanceTrend(appId),
   ]);
 
   const chartData = trend.map((p) => ({ day: fmtDay(p.day), load: p.loadP50Ms ?? 0 }));

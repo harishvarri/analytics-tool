@@ -52,7 +52,7 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
     fetchDashboardKpis(),
     fetchEventsTimeSeries(),
     fetchCategoryBreakdown(),
-    fetchRecentActivity(10),
+    fetchRecentActivity(10, selectedApp ?? undefined),
     fetchOrgPulse(),
     fetchProjectComparison(),
     fetchReliabilityKpis(),

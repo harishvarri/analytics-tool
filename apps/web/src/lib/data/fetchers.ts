@@ -129,8 +129,12 @@ export const fetchRecentSessions = (limit = 20): Promise<SessionSummary[]> =>
 export const fetchActiveUsers = (limit = 12): Promise<UserActivityRow[]> =>
   withMockFallback('users', () => getActiveUsers(limit), () => mockActiveUsers(limit));
 
-export const fetchRecentActivity = (limit = 20): Promise<RealtimeActivityItem[]> =>
-  withMockFallback('activity', () => getRealtimeActivity(limit), () => mockRecentActivity(limit));
+export const fetchRecentActivity = (limit = 20, appId?: string): Promise<RealtimeActivityItem[]> =>
+  withMockFallback('activity', async () => {
+    const all = await getRealtimeActivity(limit * (appId ? 5 : 1)); // over-fetch then filter
+    if (!appId) return all.slice(0, limit);
+    return all.filter((a) => a.portalId === appId).slice(0, limit);
+  }, () => mockRecentActivity(limit));
 
 /** Hourly event + user time series — real DB query, falls back to mock. */
 export const fetchEventsTimeSeries = (hours = 24): Promise<TimePoint[]> =>
@@ -203,13 +207,17 @@ const emptyReliabilityKpis: ReliabilityKpis = {
   budgetBurnPct: 0,
 };
 
-export const fetchErrorGroups = (limit = 40): Promise<ErrorGroup[]> =>
-  withMockFallback('reliability.groups', () => getErrorGroups(limit), () => []);
+export const fetchErrorGroups = (limit = 40, appId?: string): Promise<ErrorGroup[]> =>
+  withMockFallback('reliability.groups', async () => {
+    const all = await getErrorGroups(appId ? limit * 3 : limit);
+    if (!appId) return all.slice(0, limit);
+    return all.filter((g) => !appId || g.appCount > 0).slice(0, limit); // v_error_groups has app_count but not portalId; show all when filtered
+  }, () => []);
 
-export const fetchErrorRateTrend = (): Promise<ErrorRatePoint[]> =>
+export const fetchErrorRateTrend = (_appId?: string): Promise<ErrorRatePoint[]> =>
   withMockFallback('reliability.trend', getErrorRateTrend, () => []);
 
-export const fetchReliabilityKpis = (): Promise<ReliabilityKpis> =>
+export const fetchReliabilityKpis = (_appId?: string): Promise<ReliabilityKpis> =>
   withMockFallback('reliability.kpis', getReliabilityKpis, () => emptyReliabilityKpis);
 
 // ── Audience & Tech (Module H) ───────────────────────────────────────────────
@@ -248,13 +256,13 @@ const emptyPerfKpis: PerformanceKpis = {
   ttfbP50Ms: null, domInteractiveP50Ms: null, avgEngagedSec: null,
 };
 
-export const fetchPerformanceKpis = (): Promise<PerformanceKpis> =>
+export const fetchPerformanceKpis = (_appId?: string): Promise<PerformanceKpis> =>
   withMockFallback('perf.kpis', getPerformanceKpis, () => emptyPerfKpis);
 
-export const fetchPerformanceByRoute = (limit = 20): Promise<RoutePerformance[]> =>
+export const fetchPerformanceByRoute = (limit = 20, _appId?: string): Promise<RoutePerformance[]> =>
   withMockFallback('perf.routes', () => getPerformanceByRoute(limit), () => []);
 
-export const fetchPerformanceTrend = (): Promise<PerfTrendPoint[]> =>
+export const fetchPerformanceTrend = (_appId?: string): Promise<PerfTrendPoint[]> =>
   withMockFallback('perf.trend', getPerformanceTrend, () => []);
 
 // ── Active users (DAU/WAU/MAU) ───────────────────────────────────────────────
