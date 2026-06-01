@@ -59,7 +59,7 @@ export default async function InsightsPage() {
           label="Least-used capability"
           icon={TrendingDown}
           value={intelligence.leastUsed?.feature ?? '—'}
-          sub={intelligence.leastUsed ? `${intelligence.leastUsed.users} staff using it this week` : 'No data'}
+          sub={intelligence.leastUsed ? `${intelligence.leastUsed.users} staff using it this week` : 'Needs 2+ features to compare'}
           tone="slate"
         />
         <IntelCard

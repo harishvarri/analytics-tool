@@ -162,9 +162,25 @@ export async function getInsights(): Promise<InsightsBundle> {
   const mostAdopted = active.length
     ? active.reduce((m, f) => (f.thisW > m.thisW ? f : m))
     : null;
-  const leastUsed = active.filter((f) => f.thisW > 0).length
-    ? active.filter((f) => f.thisW > 0).reduce((m, f) => (f.thisW < m.thisW ? f : m))
-    : null;
+
+  // "Least used" is only a meaningful, distinct signal when there are at least
+  // TWO features with usage this week. With a single active feature, the same
+  // item would otherwise be reported as both most- and least-used (QA bug:
+  // /dashboard/insights showed "Performance" in both slots). We also guard
+  // against ties collapsing onto the most-adopted feature.
+  const usedThisWeek = active.filter((f) => f.thisW > 0);
+  const leastCandidate =
+    usedThisWeek.length > 1
+      ? usedThisWeek.reduce((m, f) => (f.thisW < m.thisW ? f : m))
+      : null;
+  const leastUsed =
+    leastCandidate && leastCandidate.feature !== mostAdopted?.feature
+      ? leastCandidate
+      : null;
+
+  // Fastest-growing / churn-risk operate on the growth axis (Δ% sign), so they
+  // never duplicate each other (one is >0, the other <0). They may legitimately
+  // coincide with most/least-used since that is a different axis (volume).
   const fastestGrowing = withDelta.length
     ? withDelta.reduce((m, f) => (f.delta > m.delta ? f : m))
     : null;
