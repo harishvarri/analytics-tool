@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm --prefix ../.. run sdk:build",
     "build": "next build",
     "build:verify": "node scripts/build-verify.mjs",
     "start": "next start",

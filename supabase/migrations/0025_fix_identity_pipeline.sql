@@ -90,7 +90,7 @@ end;
 $$;
 
 -- Grant execute so the service-role client can call it.
-grant execute on function public.upsert_user_by_email to service_role;
+grant execute on function public.upsert_user_by_email(text, text, text, boolean) to service_role;
 
 -- ── B. Ensure civic-desk is registered (if not done via admin UI) ─────────────
 -- This is idempotent — safe to run even if already done.

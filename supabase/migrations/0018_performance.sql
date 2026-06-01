@@ -31,11 +31,11 @@ eng as (
 )
 select
   (select count(*) from pl)                                                          as samples,
-  round((select percentile_cont(0.50) within group (order by load_ms) from pl), 0)   as load_p50_ms,
-  round((select percentile_cont(0.75) within group (order by load_ms) from pl), 0)   as load_p75_ms,
-  round((select percentile_cont(0.95) within group (order by load_ms) from pl), 0)   as load_p95_ms,
-  round((select percentile_cont(0.50) within group (order by ttfb_ms) from pl), 0)   as ttfb_p50_ms,
-  round((select percentile_cont(0.50) within group (order by dom_interactive_ms) from pl), 0) as dom_interactive_p50_ms,
+  round((select percentile_cont(0.50) within group (order by load_ms) from pl)::numeric, 0)   as load_p50_ms,
+  round((select percentile_cont(0.75) within group (order by load_ms) from pl)::numeric, 0)   as load_p75_ms,
+  round((select percentile_cont(0.95) within group (order by load_ms) from pl)::numeric, 0)   as load_p95_ms,
+  round((select percentile_cont(0.50) within group (order by ttfb_ms) from pl)::numeric, 0)   as ttfb_p50_ms,
+  round((select percentile_cont(0.50) within group (order by dom_interactive_ms) from pl)::numeric, 0) as dom_interactive_p50_ms,
   round((select avg(engaged_sec) from eng), 0)                                       as avg_engaged_sec;
 
 -- ─── v_performance_by_route ───────────────────────────────────────────────────
@@ -44,8 +44,8 @@ create or replace view public.v_performance_by_route as
 select
   coalesce(nullif(metadata->>'route', ''), '(unknown)')                       as route,
   count(*)                                                                    as samples,
-  round(percentile_cont(0.50) within group (order by (metadata->>'loadMs')::numeric), 0) as load_p50_ms,
-  round(percentile_cont(0.95) within group (order by (metadata->>'loadMs')::numeric), 0) as load_p95_ms,
+  round(percentile_cont(0.50) within group (order by (metadata->>'loadMs')::numeric)::numeric, 0) as load_p50_ms,
+  round(percentile_cont(0.95) within group (order by (metadata->>'loadMs')::numeric)::numeric, 0) as load_p95_ms,
   round(avg((metadata->>'ttfbMs')::numeric), 0)                               as ttfb_avg_ms
 from public.analytics_events
 where name = 'performance.page_load'
@@ -61,7 +61,7 @@ create or replace view public.v_performance_trend as
 select
   date_trunc('day', occurred_at)::date                                        as day,
   count(*)                                                                    as samples,
-  round(percentile_cont(0.50) within group (order by (metadata->>'loadMs')::numeric), 0) as load_p50_ms
+  round(percentile_cont(0.50) within group (order by (metadata->>'loadMs')::numeric)::numeric, 0) as load_p50_ms
 from public.analytics_events
 where name = 'performance.page_load'
   and occurred_at >= now() - interval '14 days'
