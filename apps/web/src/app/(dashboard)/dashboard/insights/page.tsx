@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { fetchInsights } from '@/lib/data/fetchers';
 import type { Insight, InsightSeverity } from '@/lib/repositories/insights';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,7 @@ export default async function InsightsPage() {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="Weekly Highlights"
         description="What changed meaningfully across your products this week compared to last week?"

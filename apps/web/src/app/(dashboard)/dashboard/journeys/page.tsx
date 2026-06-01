@@ -6,6 +6,7 @@ import { ChartCard } from '@/components/charts/ChartCard';
 import { JourneySankey } from '@/components/charts/JourneySankey';
 import { fetchJourneyGraph } from '@/lib/data/fetchers';
 import { rangeToDays, rangeLabel } from '@/lib/range';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,7 @@ export default async function JourneysPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="User Journeys"
         description="The paths people take through your app — where they go next, and where they drop off."

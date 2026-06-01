@@ -7,6 +7,7 @@ import { fetchAnomalySignals, fetchAnomalySummary } from '@/lib/data/fetchers';
 import { friendlyEventName } from '@/lib/event-labels';
 import { getPortalConfig } from '@/config/portals';
 import type { AnomalySignal } from '@/lib/repositories/anomalies';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,7 @@ export default async function AnomaliesPage() {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={60_000} />
       <PageHeader
         title="Unusual Activity"
         description="Automatic alerts when activity suddenly spikes or drops compared to what's normal."

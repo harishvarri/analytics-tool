@@ -12,6 +12,7 @@ import {
   fetchReliabilityKpis,
 } from '@/lib/data/fetchers';
 import type { ErrorGroup } from '@/lib/repositories/reliability';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,7 @@ export default async function ReliabilityPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={60_000} />
       <PageHeader
         title="System Errors"
         description="How many errors are our products throwing, what are they, and are we within acceptable limits?"

@@ -18,6 +18,7 @@ import {
   fetchRecentActivity,
   fetchReliabilityKpis,
 } from '@/lib/data/fetchers';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +67,7 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={30_000} />
       <PageHeader
         title="Org Overview"
         description="Are all our products healthy and are our people actually using them today?"

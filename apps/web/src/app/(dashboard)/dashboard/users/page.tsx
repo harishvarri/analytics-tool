@@ -6,6 +6,7 @@ import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchActiveUsers } from '@/lib/data/fetchers';
 import { formatRelativeTime } from '@/lib/utils';
 import type { UserActivityRow } from '@/lib/repositories/analytics';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 const fmt = new Intl.NumberFormat('en-US');
@@ -65,6 +66,7 @@ export default async function UsersAnalyticsPage() {
   const users = await fetchActiveUsers(25);
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={30_000} />
       <PageHeader
         title="Users"
         description="Who's using your apps, how often they come back, and what each person does."

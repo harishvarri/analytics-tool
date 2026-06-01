@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/analytics/PageHeader';
 import { PortalStatRow } from '@/components/analytics/PortalStatRow';
 import { getPortalConfig } from '@/config/portals';
 import { fetchPortalSummaries } from '@/lib/data/fetchers';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,7 @@ export default async function PortalsAnalyticsPage({ searchParams }: PageProps) 
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={60_000} />
       <PageHeader
         title="All Products"
         description="Which products are being used, by how many staff, and how active is each one?"

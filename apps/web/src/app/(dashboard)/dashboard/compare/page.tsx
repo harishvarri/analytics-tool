@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchProjectComparison } from '@/lib/data/fetchers';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={60_000} />
       <PageHeader
         title="Product Comparison"
         description="Which of our products are thriving, which are underused, and which have quality problems?"

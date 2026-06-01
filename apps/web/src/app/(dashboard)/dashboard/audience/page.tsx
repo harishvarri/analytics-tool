@@ -8,6 +8,7 @@ import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchAudienceBreakdown } from '@/lib/data/fetchers';
 import { rangeToDays, rangeLabel } from '@/lib/range';
 import type { AudienceRow } from '@/lib/repositories/audience';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,7 @@ export default async function AudiencePage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="Audience"
         description="Who your visitors are — the devices, browsers, languages, and places they come from."

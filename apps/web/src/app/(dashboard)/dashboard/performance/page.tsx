@@ -12,6 +12,7 @@ import {
   fetchPerformanceTrend,
 } from '@/lib/data/fetchers';
 import type { RoutePerformance } from '@/lib/repositories/performance';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,7 @@ export default async function PerformancePage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={60_000} />
       <PageHeader
         title="Response Times"
         description="How fast do our products load for staff, and which pages are the slowest?"

@@ -10,6 +10,7 @@ import {
   fetchRetentionCohorts,
   fetchTopJourneys,
 } from '@/lib/data/fetchers';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +54,7 @@ export default async function RetentionPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="Engagement Trends"
         description="Are staff consistently coming back to use our products, or are people dropping off?"

@@ -15,6 +15,7 @@ import {
   fetchFeatureWeeklyTrend,
 } from '@/lib/data/fetchers';
 import type { FeatureDecayPoint, FeatureSummary } from '@/lib/repositories/features';
+import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,6 +121,7 @@ export default async function FeaturesPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="Feature Adoption"
         description="Which features people actually use — and which ones they ignore."
