@@ -2,8 +2,9 @@ name: Refresh analytics aggregates
 
 on:
   schedule:
-    # Every 5 minutes — moved from Vercel Cron (Hobby plan only allows daily)
-    - cron: '*/5 * * * *'
+    # Every 15 minutes — keeps dashboard materialized views fresh.
+    # (Moved off Vercel Cron, whose Hobby plan only allows daily.)
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -20,28 +21,21 @@ jobs:
           ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          test -n "$ANALYTICS_APP_URL" || (echo "::error::ANALYTICS_APP_URL secret not set" && exit 1)
-          test -n "$CRON_SECRET"       || (echo "::error::CRON_SECRET secret not set" && exit 1)
+          test -n "$ANALYTICS_APP_URL" || { echo "::error::ANALYTICS_APP_URL secret is not set in repo Settings → Secrets → Actions"; exit 1; }
+          test -n "$CRON_SECRET"       || { echo "::error::CRON_SECRET secret is not set in repo Settings → Secrets → Actions"; exit 1; }
 
-          # Capture response body + HTTP status in one curl call.
-          # --show-error prints curl-level errors; we intentionally omit --silent
-          # so the server's JSON response (including error details) is visible in
-          # the Actions log when the request fails.
-          RESPONSE=$(curl --show-error \
-            --request GET \
-            --header "x-cron-secret: $CRON_SECRET" \
-            --write-out "\nHTTP_STATUS:%{http_code}" \
-            "$ANALYTICS_APP_URL/api/v1/admin/refresh-aggregates" 2>&1)
-
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | sed 's/HTTP_STATUS://')
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          echo "Response body: $BODY"
-          echo "HTTP status: $HTTP_STATUS"
-
-          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-            echo "::error::refresh-aggregates returned HTTP $HTTP_STATUS"
+          # Body → file, status → stdout. -sS = quiet but surface real errors.
+          http=$(curl -sS --retry 2 --max-time 60 \
+            -o /tmp/resp.txt -w '%{http_code}' \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$ANALYTICS_APP_URL/api/v1/admin/refresh-aggregates")
+          echo "HTTP $http"; echo "Body: $(cat /tmp/resp.txt 2>/dev/null)"
+          if [ "$http" = "401" ]; then
+            echo "::error::401 Unauthorized — the CRON_SECRET in GitHub does not match the CRON_SECRET in Vercel."
             exit 1
+          fi
+          if [ "$http" -lt 200 ] || [ "$http" -ge 300 ]; then
+            echo "::error::refresh-aggregates returned HTTP $http"; exit 1
           fi
 
       - name: Ensure event partitions
@@ -49,55 +43,14 @@ jobs:
           ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          test -n "$ANALYTICS_APP_URL" || (echo "::error::ANALYTICS_APP_URL secret not set" && exit 1)
-          test -n "$CRON_SECRET"       || (echo "::error::CRON_SECRET secret not set" && exit 1)
+          test -n "$ANALYTICS_APP_URL" || { echo "::error::ANALYTICS_APP_URL secret not set"; exit 1; }
+          test -n "$CRON_SECRET"       || { echo "::error::CRON_SECRET secret not set"; exit 1; }
 
-          RESPONSE=$(curl --show-error \
-            --request GET \
-            --header "x-cron-secret: $CRON_SECRET" \
-            --write-out "\nHTTP_STATUS:%{http_code}" \
-            "$ANALYTICS_APP_URL/api/v1/admin/ensure-partitions" 2>&1)
-
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | sed 's/HTTP_STATUS://')
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          echo "Response body: $BODY"
-          echo "HTTP status: $HTTP_STATUS"
-
-          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-            echo "::error::ensure-partitions returned HTTP $HTTP_STATUS"
-            exit 1
-          fi
-
-  retention:
-    # Daily-only: archive Tier-1 events and drop partitions past the window.
-    # Runs on the same 5-min trigger but is a no-op unless a partition is stale,
-    # so it is safe and cheap to call frequently.
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: refresh
-    steps:
-      - name: Enforce event retention
-        env:
-          ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          test -n "$ANALYTICS_APP_URL" || (echo "::error::ANALYTICS_APP_URL secret not set" && exit 1)
-          test -n "$CRON_SECRET"       || (echo "::error::CRON_SECRET secret not set" && exit 1)
-
-          RESPONSE=$(curl --show-error \
-            --request GET \
-            --header "x-cron-secret: $CRON_SECRET" \
-            --write-out "\nHTTP_STATUS:%{http_code}" \
-            "$ANALYTICS_APP_URL/api/v1/admin/enforce-retention" 2>&1)
-
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1 | sed 's/HTTP_STATUS://')
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          echo "Response body: $BODY"
-          echo "HTTP status: $HTTP_STATUS"
-
-          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-            echo "::error::enforce-retention returned HTTP $HTTP_STATUS"
-            exit 1
+          http=$(curl -sS --retry 2 --max-time 60 \
+            -o /tmp/resp.txt -w '%{http_code}' \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$ANALYTICS_APP_URL/api/v1/admin/ensure-partitions")
+          echo "HTTP $http"; echo "Body: $(cat /tmp/resp.txt 2>/dev/null)"
+          if [ "$http" -lt 200 ] || [ "$http" -ge 300 ]; then
+            echo "::error::ensure-partitions returned HTTP $http"; exit 1
           fi

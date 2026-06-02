@@ -1,0 +1,39 @@
+name: Enforce event retention
+
+on:
+  schedule:
+    # Once daily at 03:15 UTC — archive Tier-1 events and drop stale partitions.
+    # Retention only does real work when a partition ages past the window, so
+    # daily is plenty (running it every refresh cycle would be wasteful).
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: enforce-analytics-retention
+  cancel-in-progress: false
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enforce event retention
+        env:
+          ANALYTICS_APP_URL: ${{ secrets.ANALYTICS_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$ANALYTICS_APP_URL" || { echo "::error::ANALYTICS_APP_URL secret not set"; exit 1; }
+          test -n "$CRON_SECRET"       || { echo "::error::CRON_SECRET secret not set"; exit 1; }
+
+          http=$(curl -sS --retry 2 --max-time 120 \
+            -o /tmp/resp.txt -w '%{http_code}' \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$ANALYTICS_APP_URL/api/v1/admin/enforce-retention")
+          echo "HTTP $http"; echo "Body: $(cat /tmp/resp.txt 2>/dev/null)"
+          if [ "$http" = "401" ]; then
+            echo "::error::401 Unauthorized — CRON_SECRET in GitHub does not match Vercel."
+            exit 1
+          fi
+          if [ "$http" -lt 200 ] || [ "$http" -ge 300 ]; then
+            echo "::error::enforce-retention returned HTTP $http"; exit 1
+          fi
