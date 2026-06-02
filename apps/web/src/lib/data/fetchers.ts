@@ -93,6 +93,14 @@ import {
 } from '../repositories/access';
 import { getProjectHealth, type ProjectHealthRow } from '../repositories/health';
 import { getCommandCenter, type CommandCenter } from '../repositories/analytics';
+import {
+  getPlatformHealth,
+  getProjectIntelligence,
+  getProjectIntelligenceBySlug,
+  getProjectRecentActivity,
+  type PlatformHealth,
+  type ProjectIntelligence,
+} from '../repositories/projectIntelligence';
 import type { ImportanceTier } from '../importance';
 import {
   mockActiveUsers,
@@ -331,6 +339,21 @@ export const fetchDepartmentActivity = (days = 30): Promise<DepartmentActivityRo
 
 export const fetchLoginHistory = (opts: { appId?: string; days?: number; limit?: number } = {}): Promise<LoginRow[]> =>
   withMockFallback('ops.logins', () => getLoginHistory(opts), () => []);
+
+// ── Project Intelligence (registry-driven Products section) ──────────────────
+export const fetchProjectIntelligence = (): Promise<ProjectIntelligence[]> =>
+  withMockFallback('projects.intelligence', getProjectIntelligence, () => []);
+
+export const fetchProjectIntelligenceBySlug = (slug: string): Promise<ProjectIntelligence | null> =>
+  withMockFallback('projects.intelligence.one', () => getProjectIntelligenceBySlug(slug), () => null);
+
+export const fetchPlatformHealth = (): Promise<PlatformHealth> =>
+  withMockFallback('projects.platformHealth', getPlatformHealth, () => ({
+    overallScore: 0, healthy: 0, warning: 0, critical: 0, totalProjects: 0, critical_projects: [],
+  }));
+
+export const fetchProjectRecentActivity = (slug: string, limit = 150): Promise<RealtimeActivityItem[]> =>
+  withMockFallback('projects.recent', () => getProjectRecentActivity(slug, limit), () => []);
 
 export const fetchSessionList = (opts: { appId?: string; days?: number; limit?: number } = {}): Promise<SessionRow[]> =>
   withMockFallback('ops.sessions', () => getSessionList(opts), () => []);
