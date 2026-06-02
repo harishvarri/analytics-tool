@@ -5,14 +5,21 @@ import { ChartCard } from '@/components/charts/ChartCard';
 import { ExportButton } from '@/components/shared/ExportButton';
 import { AutoRefresh } from '@/components/AutoRefresh';
 import { fetchDepartmentActivity, fetchDepartmentRollup } from '@/lib/data/fetchers';
+import { rangeToDays, rangeLabel } from '@/lib/range';
 
 export const dynamic = 'force-dynamic';
 
 const fmt = new Intl.NumberFormat('en-US');
 
-export default async function DepartmentAnalyticsPage() {
+interface PageProps {
+  searchParams: Promise<{ range?: string }>;
+}
+
+export default async function DepartmentAnalyticsPage({ searchParams }: PageProps) {
+  const { range } = await searchParams;
+  const days = rangeToDays(range);
   const [activity, rollup] = await Promise.all([
-    fetchDepartmentActivity(30),
+    fetchDepartmentActivity(days),
     fetchDepartmentRollup(),
   ]);
 
@@ -75,7 +82,7 @@ export default async function DepartmentAnalyticsPage() {
         <>
           {hasActivity && (
             <ChartCard
-              title="Activity by department (last 30 days)"
+              title={`Activity by department — ${rangeLabel(range).toLowerCase()}`}
               description="Which teams are getting the most value out of the products"
             >
               <div className="overflow-x-auto">

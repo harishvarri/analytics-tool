@@ -20,14 +20,14 @@ import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
 import { WorkspaceFilter } from './WorkspaceFilter';
 import { RangePicker } from './RangePicker';
-import type { ApplicationOption, ProjectOption } from '@/lib/repositories/workspace';
+import { RefreshButton } from './RefreshButton';
+import type { ApplicationOption } from '@/lib/repositories/workspace';
 
 interface Props {
   applications: ApplicationOption[];
-  projects:     ProjectOption[];
 }
 
-export function TopbarClient({ applications, projects }: Props) {
+export function TopbarClient({ applications }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -85,17 +85,17 @@ export function TopbarClient({ applications, projects }: Props) {
         </SheetContent>
       </Sheet>
 
-      {/* Workspace filter (Application + Project) + date range */}
-      <WorkspaceFilter applications={applications} projects={projects} />
+      {/* Workspace filter (Application) + date range — each self-hides on pages
+          that don't support it (lib/page-filters). */}
+      <WorkspaceFilter applications={applications} />
       <div className="hidden md:block">
         <RangePicker />
       </div>
 
-      {/* BUG-016 fix: dead search input removed (was decorative only, no behavior).
-          Re-add when a real search feature is implemented. */}
       <div className="flex-1" />
 
       <div className="ml-auto flex items-center gap-2">
+        <RefreshButton />
         <Badge variant="outline" className="hidden border-emerald-500/40 text-emerald-600 dark:text-emerald-400 md:inline-flex">
           ● Live
         </Badge>

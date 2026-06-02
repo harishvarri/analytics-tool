@@ -1,16 +1,12 @@
-import { fetchApplications, fetchProjects } from '@/lib/data/fetchers';
+import { fetchApplications } from '@/lib/data/fetchers';
 import { TopbarClient } from './TopbarClient';
 
 /**
- * Server-side topbar — fetches the workspace lookup tables once, hands them
- * to the client component for interactivity. This keeps the search index of
- * apps/projects out of every client bundle.
+ * Server-side topbar — fetches the Application lookup table once and hands it
+ * to the client component for interactivity. (The legacy per-project lookup was
+ * removed along with the non-functional Project filter.)
  */
 export async function Topbar() {
-  const [applications, projects] = await Promise.all([
-    fetchApplications(),
-    fetchProjects(),
-  ]);
-
-  return <TopbarClient applications={applications} projects={projects} />;
+  const applications = await fetchApplications();
+  return <TopbarClient applications={applications} />;
 }

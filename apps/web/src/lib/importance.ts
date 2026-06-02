@@ -88,3 +88,38 @@ export function classifyImportance(category: string, name: string): ImportanceTi
 export function meetsThreshold(tier: ImportanceTier, threshold: ImportanceTier): boolean {
   return TIER_RANK[tier] <= TIER_RANK[threshold];
 }
+
+// ── Operational-feed visibility ──────────────────────────────────────────────
+// Decides what shows in the Executive Command Center live feed. This is a
+// SEPARATE concept from retention tiers: we want a business-meaningful activity
+// stream ("who did what across the org"), not raw events. Decoupled so feed
+// curation never changes what the retention job keeps forever.
+
+// Business-domain namespaces (any action within these is operational).
+const OPERATIONAL_PREFIXES = [
+  'candidate.', 'interview.', 'attendance.', 'payment.', 'course.',
+  'report.', 'document.', 'project.', 'admin.', 'invoice.', 'order.',
+  'ticket.', 'application.', 'enrollment.', 'lead.',
+];
+
+// Meaningful verbs regardless of namespace (e.g. anything.created).
+const OPERATIONAL_SUFFIXES = [
+  '.created', '.updated', '.completed', '.submitted', '.generated',
+  '.uploaded', '.marked', '.scheduled', '.reviewed', '.deleted',
+  '.approved', '.rejected', '.assigned', '.accessed', '.published',
+  '.cancelled', '.shipped', '.paid',
+];
+
+/**
+ * Is this event meaningful operational activity worth surfacing in the live
+ * command-center feed? Shows logins, errors, and business actions; hides
+ * navigation/page-view/click/performance noise.
+ */
+export function isOperationalEvent(category: string, name: string): boolean {
+  if (category === 'error') return true;          // all errors matter
+  const n = (name || '').toLowerCase();
+  if (n.startsWith('auth.')) return true;         // login / logout / signup / failed
+  if (OPERATIONAL_PREFIXES.some((p) => n.startsWith(p))) return true;
+  if (OPERATIONAL_SUFFIXES.some((s) => n.endsWith(s))) return true;
+  return false; // page_view, route_change, click, performance.*, dashboard.viewed → hidden
+}

@@ -1,7 +1,9 @@
 'use client';
 
 import { CalendarRange } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useFilters } from '@/hooks/useFilters';
+import { filtersForPath } from '@/lib/page-filters';
 import { RANGE_OPTIONS, DEFAULT_RANGE } from '@/lib/range';
 
 /**
@@ -12,7 +14,10 @@ import { RANGE_OPTIONS, DEFAULT_RANGE } from '@/lib/range';
  */
 export function RangePicker() {
   const { range, setFilters } = useFilters();
+  const pathname = usePathname();
   const current = range ?? DEFAULT_RANGE;
+
+  if (!filtersForPath(pathname).range) return null;
 
   return (
     <div className="flex h-8 items-center gap-1.5 rounded-md border bg-background px-2.5 transition-colors hover:bg-accent/40">

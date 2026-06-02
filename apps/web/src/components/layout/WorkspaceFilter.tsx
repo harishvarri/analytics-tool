@@ -1,76 +1,48 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Boxes, Layers } from 'lucide-react';
+import { Boxes } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useFilters } from '@/hooks/useFilters';
-import type { ApplicationOption, ProjectOption } from '@/lib/repositories/workspace';
+import { filtersForPath } from '@/lib/page-filters';
+import type { ApplicationOption } from '@/lib/repositories/workspace';
 
 interface Props {
   applications: ApplicationOption[];
-  projects:     ProjectOption[];
 }
 
 /**
- * Topbar workspace filter — two cascading selects (Application → Project).
+ * Topbar Application/Product scope filter. Writes ?app=<slug> into the URL via
+ * useFilters so the chosen scope flows into every downstream dashboard via
+ * server-readable searchParams.
  *
- * Mirrors enterprise analytics platforms (Datadog "Service", Mixpanel
- * "Project", PostHog "Project") where the chosen scope flows into every
- * downstream dashboard via URL state.
+ * Self-hides on pages that don't support the app filter (see lib/page-filters)
+ * so we never show a control that does nothing. The legacy "Project" sub-filter
+ * was removed — it was wired to nothing and only rendered "No projects yet".
  */
-export function WorkspaceFilter({ applications, projects }: Props) {
-  const { app, project, setFilters } = useFilters();
+export function WorkspaceFilter({ applications }: Props) {
+  const { app, setFilters } = useFilters();
+  const pathname = usePathname();
 
-  // If an app is selected, narrow the visible projects to that app's list.
-  const visibleProjects = useMemo(
-    () => (app ? projects.filter((p) => p.appId === app || p.appId === null) : projects),
-    [app, projects],
-  );
+  if (!filtersForPath(pathname).app) return null;
 
   return (
     <div className="hidden items-center gap-2 md:flex">
-      <SelectShell icon={<Boxes className="h-3.5 w-3.5" />}>
+      <div className="flex h-8 items-center gap-1.5 rounded-md border bg-background px-2.5 transition-colors hover:bg-accent/40">
+        <span className="text-muted-foreground"><Boxes className="h-3.5 w-3.5" /></span>
         <select
           aria-label="Application filter"
           value={app ?? ''}
-          onChange={(e) => setFilters({ app: e.target.value || null, project: null })}
+          onChange={(e) => setFilters({ app: e.target.value || null })}
           className="bg-transparent text-xs font-medium outline-none"
         >
-          <option value="">All applications</option>
+          <option value="">All products</option>
           {applications.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
             </option>
           ))}
         </select>
-      </SelectShell>
-
-      <SelectShell icon={<Layers className="h-3.5 w-3.5" />}>
-        <select
-          aria-label="Project filter"
-          value={project ?? ''}
-          onChange={(e) => setFilters({ project: e.target.value || null })}
-          className="max-w-[180px] truncate bg-transparent text-xs font-medium outline-none"
-          disabled={visibleProjects.length === 0}
-        >
-          <option value="">
-            {visibleProjects.length === 0 ? 'No projects yet' : 'All projects'}
-          </option>
-          {visibleProjects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </SelectShell>
-    </div>
-  );
-}
-
-function SelectShell({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex h-8 items-center gap-1.5 rounded-md border bg-background px-2.5 transition-colors hover:bg-accent/40">
-      <span className="text-muted-foreground">{icon}</span>
-      {children}
+      </div>
     </div>
   );
 }

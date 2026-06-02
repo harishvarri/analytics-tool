@@ -1,37 +1,11 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-interface AutoRefreshProps {
-  /**
-   * How often to re-fetch server data, in milliseconds.
-   * Default: 30 000 (30 s).
-   */
-  intervalMs?: number;
-}
-
 /**
- * Invisible client component that calls `router.refresh()` on a fixed interval,
- * triggering a server-side re-fetch of all `force-dynamic` data on the page
- * without a full navigation. Drop it anywhere inside a server page layout.
+ * Deprecated: auto-refresh is now owned by the global header <RefreshButton>
+ * (components/layout/RefreshButton.tsx), which auto-refreshes every page on an
+ * interval AND exposes a manual refresh + "last updated" timestamp.
  *
- * @example
- * // In a server page component:
- * return (
- *   <>
- *     <AutoRefresh intervalMs={30_000} />
- *     ... page content ...
- *   </>
- * );
+ * This component is kept as a no-op so the many existing `<AutoRefresh />`
+ * call sites don't need to be touched and we avoid a double refresh loop.
  */
-export function AutoRefresh({ intervalMs = 30_000 }: AutoRefreshProps) {
-  const router = useRouter();
-
-  useEffect(() => {
-    const id = setInterval(() => router.refresh(), intervalMs);
-    return () => clearInterval(id);
-  }, [router, intervalMs]);
-
+export function AutoRefresh(_props: { intervalMs?: number }) {
   return null;
 }

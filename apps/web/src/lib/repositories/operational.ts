@@ -52,6 +52,128 @@ export async function getOrgPulse(): Promise<OrgPulse> {
   };
 }
 
+// ── Login history (KPI drill-down: Sign-ins today) ───────────────────────────
+export interface LoginRow {
+  occurredAt:  string;
+  kind:        'login' | 'logout' | 'failed' | 'signup';
+  portalId:    string;
+  userId:      string | null;
+  email:       string | null;
+  displayName: string | null;
+  browser:     string | null;
+  os:          string | null;
+  deviceType:  string | null;
+}
+
+const AUTH_NAMES = ['auth.login', 'auth.logout', 'auth.login_failed', 'auth.signup'];
+
+function loginKind(name: string): LoginRow['kind'] {
+  if (name === 'auth.logout') return 'logout';
+  if (name === 'auth.login_failed') return 'failed';
+  if (name === 'auth.signup') return 'signup';
+  return 'login';
+}
+
+/** Login/logout/failure history with device context, newest first. */
+export async function getLoginHistory(opts: { appId?: string; days?: number; limit?: number } = {}): Promise<LoginRow[]> {
+  const { appId, days = 7, limit = 100 } = opts;
+  const since = new Date(Date.now() - days * 86400_000).toISOString();
+  let q = getSupabaseAdmin()
+    .from('analytics_events')
+    .select('occurred_at, name, portal_id, user_id, metadata')
+    .in('name', AUTH_NAMES)
+    .gte('occurred_at', since)
+    .order('occurred_at', { ascending: false })
+    .limit(limit);
+  if (appId) q = q.eq('portal_id', appId);
+  const { data, error } = await q;
+  if (error) throw new AppError('LOGIN_HISTORY_FAILED', error.message, 500);
+
+  const rows = (data ?? []) as Record<string, unknown>[];
+  // Enrich with user identity in one batch.
+  const ids = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean))) as string[];
+  const userMap = new Map<string, { email: string | null; display_name: string | null }>();
+  if (ids.length) {
+    const { data: users } = await getSupabaseAdmin()
+      .from('analytics_users').select('id, email, display_name').in('id', ids);
+    (users ?? []).forEach((u: Record<string, unknown>) =>
+      userMap.set(String(u.id), { email: (u.email as string | null) ?? null, display_name: (u.display_name as string | null) ?? null }));
+  }
+
+  return rows.map((r) => {
+    const meta = (r.metadata ?? {}) as Record<string, unknown>;
+    const u = r.user_id ? userMap.get(String(r.user_id)) : undefined;
+    return {
+      occurredAt:  String(r.occurred_at),
+      kind:        loginKind(String(r.name)),
+      portalId:    String(r.portal_id),
+      userId:      (r.user_id as string | null) ?? null,
+      email:       u?.email ?? null,
+      displayName: u?.display_name ?? null,
+      browser:     (meta.browser as string | null) ?? null,
+      os:          (meta.os as string | null) ?? null,
+      deviceType:  (meta.deviceType as string | null) ?? null,
+    };
+  });
+}
+
+// ── Session list (KPI drill-down: Work sessions today) ───────────────────────
+export interface SessionRow {
+  sessionId:    string;
+  userId:       string | null;
+  email:        string | null;
+  displayName:  string | null;
+  portalId:     string;
+  startedAt:    string;
+  lastSeenAt:   string;
+  endedAt:      string | null;
+  durationMin:  number;
+  eventCount:   number;
+}
+
+/** Recent sessions with computed duration, newest first. */
+export async function getSessionList(opts: { appId?: string; days?: number; limit?: number } = {}): Promise<SessionRow[]> {
+  const { appId, days = 7, limit = 100 } = opts;
+  const since = new Date(Date.now() - days * 86400_000).toISOString();
+  let q = getSupabaseAdmin()
+    .from('analytics_sessions')
+    .select('id, user_id, portal_id, started_at, last_seen_at, ended_at, event_count')
+    .gte('started_at', since)
+    .order('started_at', { ascending: false })
+    .limit(limit);
+  if (appId) q = q.eq('portal_id', appId);
+  const { data, error } = await q;
+  if (error) throw new AppError('SESSION_LIST_FAILED', error.message, 500);
+
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const ids = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean))) as string[];
+  const userMap = new Map<string, { email: string | null; display_name: string | null }>();
+  if (ids.length) {
+    const { data: users } = await getSupabaseAdmin()
+      .from('analytics_users').select('id, email, display_name').in('id', ids);
+    (users ?? []).forEach((u: Record<string, unknown>) =>
+      userMap.set(String(u.id), { email: (u.email as string | null) ?? null, display_name: (u.display_name as string | null) ?? null }));
+  }
+
+  return rows.map((r) => {
+    const start = new Date(String(r.started_at)).getTime();
+    const end = new Date(String(r.ended_at ?? r.last_seen_at)).getTime();
+    const u = r.user_id ? userMap.get(String(r.user_id)) : undefined;
+    return {
+      sessionId:   String(r.id),
+      userId:      (r.user_id as string | null) ?? null,
+      email:       u?.email ?? null,
+      displayName: u?.display_name ?? null,
+      portalId:    String(r.portal_id),
+      startedAt:   String(r.started_at),
+      lastSeenAt:  String(r.last_seen_at),
+      endedAt:     (r.ended_at as string | null) ?? null,
+      durationMin: end > start ? Math.round((end - start) / 60000) : 0,
+      eventCount:  n(r.event_count),
+    };
+  });
+}
+
 // ── People (per app or cross-app) — identified users from events ─────────────
 export interface AppUserRow {
   userId:        string;

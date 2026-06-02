@@ -71,13 +71,17 @@ import {
   getAppUsers,
   getDepartmentActivity,
   getDepartmentRollup,
+  getLoginHistory,
   getOrgPulse,
+  getSessionList,
   getUserDetail,
   getUserProfileSummaries,
   type AppUserRow,
   type DepartmentActivityRow,
   type DepartmentRollupRow,
+  type LoginRow,
   type OrgPulse,
+  type SessionRow,
   type UserDetail,
   type UserProfileSummary,
 } from '../repositories/operational';
@@ -324,3 +328,9 @@ export const fetchDepartmentRollup = (): Promise<DepartmentRollupRow[]> =>
 
 export const fetchDepartmentActivity = (days = 30): Promise<DepartmentActivityRow[]> =>
   withMockFallback('dept.activity', () => getDepartmentActivity(days), () => []);
+
+export const fetchLoginHistory = (opts: { appId?: string; days?: number; limit?: number } = {}): Promise<LoginRow[]> =>
+  withMockFallback('ops.logins', () => getLoginHistory(opts), () => []);
+
+export const fetchSessionList = (opts: { appId?: string; days?: number; limit?: number } = {}): Promise<SessionRow[]> =>
+  withMockFallback('ops.sessions', () => getSessionList(opts), () => []);

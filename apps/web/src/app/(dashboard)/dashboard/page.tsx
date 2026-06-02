@@ -22,6 +22,8 @@ import {
 import { AutoRefresh } from '@/components/AutoRefresh';
 import { Card, CardContent } from '@/components/ui/card';
 import { KeyRound, UserX } from 'lucide-react';
+import { isOperationalEvent } from '@/lib/importance';
+import { aggregateActivity } from '@/features/realtime-feed/aggregate';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +58,7 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
     fetchDashboardKpis(),
     fetchEventsTimeSeries(),
     fetchCategoryBreakdown(),
-    fetchRecentActivity(10, selectedApp ?? undefined),
+    fetchRecentActivity(60, selectedApp ?? undefined, 'debug'),
     fetchOrgPulse(),
     fetchProjectComparison(),
     fetchReliabilityKpis(),
@@ -68,6 +70,15 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
   const totalCategoryEvents = breakdown.reduce((sum, b) => sum + b.events, 0);
   const visibleApps = selectedApp ? apps.filter((a) => a.portalId === selectedApp) : apps;
   const unhealthy = visibleApps.filter((a) => a.events30d > 0 && a.errorRatePct >= 1).length;
+
+  // Preserve the current Application scope when drilling into a KPI detail page.
+  const scope = selectedApp ? `?app=${encodeURIComponent(selectedApp)}` : '';
+
+  // Operational command-center feed: business-meaningful activity only, with
+  // repeats collapsed — not a raw event stream.
+  const operationalActivity = aggregateActivity(
+    activity.filter((a) => isOperationalEvent(a.category, a.eventName)),
+  ).slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -86,19 +97,20 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Staff active today" value={fmt.format(kpis.activeUsers)} icon={Users}
           trend={halfWindowTrend(timeSeries.map((p) => p.users))} sparkline={userSpark}
-          sparklineColor={CHART_COLORS.primary as string} />
+          sparklineColor={CHART_COLORS.primary as string} href={`/dashboard/people${scope}`} />
         <KpiCard label="Sign-ins today" value={fmt.format(pulse.loginsToday)} icon={LogIn}
-          trend={{ direction: 'flat', label: 'across all products' }} />
+          trend={{ direction: 'flat', label: 'across all products' }} href={`/dashboard/logins${scope}`} />
         <KpiCard label="Work sessions today" value={fmt.format(kpis.totalSessions)} icon={Zap}
-          trend={{ direction: 'flat', label: 'distinct working sessions' }} />
+          trend={{ direction: 'flat', label: 'distinct working sessions' }} href={`/dashboard/sessions${scope}`} />
         <KpiCard label="Actions today" value={fmt.format(kpis.totalEvents)} icon={Activity}
           trend={halfWindowTrend(timeSeries.map((p) => p.events))} sparkline={eventSpark}
           sparklineColor={CHART_COLORS.emerald} />
         <KpiCard label="Problems today" value={fmt.format(reliability.totalErrors24h)} icon={AlertTriangle}
           trend={{ direction: reliability.totalErrors24h > 0 ? 'up' : 'flat', label: `${unhealthy} product(s) with problems` }}
-          invertTrend />
+          invertTrend href={`/dashboard/reliability${scope}`} />
         <KpiCard label="Platform health" value={`${reliability.errorFreePct}%`} icon={ShieldCheck}
-          trend={{ direction: reliability.errorFreePct >= reliability.sloTargetPct ? 'flat' : 'down', label: 'problem-free sessions' }} />
+          trend={{ direction: reliability.errorFreePct >= reliability.sloTargetPct ? 'flat' : 'down', label: 'problem-free sessions' }}
+          href="/dashboard/health" />
       </section>
 
       {/* Executive command-center band — adoption signals from v_command_center */}
@@ -242,9 +254,9 @@ export default async function OrgOverviewPage({ searchParams }: PageProps) {
         </ChartCard>
       </section>
 
-      {/* Live activity */}
-      <ChartCard title="What's happening right now" description="The most recent things staff did across all products">
-        <ActivityFeed items={activity} />
+      {/* Live activity — operational, cross-project */}
+      <ChartCard title="What's happening right now" description="Meaningful actions staff took across all products — logins, business actions, and problems">
+        <ActivityFeed items={operationalActivity} empty="No operational activity in the last few minutes." />
       </ChartCard>
 
       <div className="text-[11px] text-muted-foreground">

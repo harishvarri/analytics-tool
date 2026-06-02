@@ -6,10 +6,15 @@ import { ExportButton } from '@/components/shared/ExportButton';
 import { AutoRefresh } from '@/components/AutoRefresh';
 import { fetchAccessVsUsage, fetchInactiveWithAccess } from '@/lib/data/fetchers';
 import { formatRelativeTime } from '@/lib/utils';
+import { rangeToDays, rangeLabel } from '@/lib/range';
 
 export const dynamic = 'force-dynamic';
 
 const fmt = new Intl.NumberFormat('en-US');
+
+interface PageProps {
+  searchParams: Promise<{ range?: string }>;
+}
 
 function adoptionTone(pct: number): string {
   if (pct >= 60) return 'text-emerald-600 dark:text-emerald-400';
@@ -17,9 +22,11 @@ function adoptionTone(pct: number): string {
   return 'text-rose-600 dark:text-rose-400';
 }
 
-export default async function AccessAnalyticsPage() {
+export default async function AccessAnalyticsPage({ searchParams }: PageProps) {
+  const { range } = await searchParams;
+  const days = rangeToDays(range);
   const [rows, inactive] = await Promise.all([
-    fetchAccessVsUsage(30),
+    fetchAccessVsUsage(days),
     fetchInactiveWithAccess(50),
   ]);
 
@@ -70,7 +77,7 @@ export default async function AccessAnalyticsPage() {
       ) : (
         <ChartCard
           title="Adoption of access, by product"
-          description="How many people who can use each product actually did in the last 30 days"
+          description={`How many people who can use each product actually did — ${rangeLabel(range).toLowerCase()}`}
         >
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

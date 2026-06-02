@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { cn } from '@/lib/utils';
@@ -12,6 +13,8 @@ interface KpiCardProps {
   sparkline?: ReadonlyArray<{ value: number }>;
   sparklineColor?: string;
   invertTrend?: boolean; // when up = bad (e.g. error rate)
+  /** When set, the whole card becomes a link to this route (drill-down). */
+  href?: string;
 }
 
 export function KpiCard({
@@ -22,6 +25,7 @@ export function KpiCard({
   sparkline,
   sparklineColor,
   invertTrend,
+  href,
 }: KpiCardProps) {
   const trendColor =
     !trend || trend.direction === 'flat'
@@ -30,13 +34,22 @@ export function KpiCard({
         ? 'text-emerald-600 dark:text-emerald-400'
         : 'text-rose-600 dark:text-rose-400';
 
-  return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-md">
+  const card = (
+    <Card
+      className={cn(
+        'h-full overflow-hidden transition-shadow hover:shadow-md',
+        href && 'group cursor-pointer hover:border-primary/40',
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
         <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </CardTitle>
-        {Icon ? <Icon className="h-4 w-4 text-muted-foreground" /> : null}
+        {href ? (
+          <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+        ) : Icon ? (
+          <Icon className="h-4 w-4 text-muted-foreground" />
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-2 pb-4">
         <div className="text-2xl font-semibold tracking-tight">{value}</div>
@@ -62,4 +75,13 @@ export function KpiCard({
       </CardContent>
     </Card>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg">
+        {card}
+      </Link>
+    );
+  }
+  return card;
 }
