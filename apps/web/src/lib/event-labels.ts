@@ -288,9 +288,28 @@ export function eventDescription(
   name: string,
   meta?: Record<string, unknown> | null,
   url?: string | null,
+  userName?: string | null,
+  portalName?: string | null,
 ): string {
   if (!name) return '';
   const lname = name.toLowerCase();
+
+  const user = userName || 'A user';
+  const portal = portalName || 'the app';
+
+  // Auth events
+  if (lname === 'auth.login') {
+    return `${user} logged into ${portal}.`;
+  }
+  if (lname === 'auth.logout') {
+    return `${user} logged out of ${portal}.`;
+  }
+  if (lname === 'auth.login_failed') {
+    return `${user} failed to sign in to ${portal}.`;
+  }
+  if (lname === 'auth.signup') {
+    return `${user} signed up for ${portal}.`;
+  }
 
   // Navigation
   if (lname.startsWith('navigation.') || lname === 'performance.page_load' || lname === 'performance.engagement') {
@@ -305,52 +324,59 @@ export function eventDescription(
       const ms = meta?.duration_ms ?? meta?.durationMs ?? meta?.timeMs;
       if (typeof ms === 'number' && ms > 0) {
         const secs = Math.round(ms / 1000);
-        return `Actively used ${pageName ?? 'the page'} for ${secs}s.`;
+        return `${user} actively used ${pageName ?? 'the page'} for ${secs}s in ${portal}.`;
       }
-      return `How long the user actively spent on ${pageName ?? 'the page'}.`;
+      return `${user} actively spent time on ${pageName ?? 'the page'} in ${portal}.`;
     }
-    if (route) return `Navigated to ${route}.`;
-    return `They opened ${pageName ? `the ${pageName} page` : 'a page'} in the app.`;
+    if (route) return `${user} navigated to ${route} in ${portal}.`;
+    return `${user} opened ${pageName ? `the ${pageName} page` : 'a page'} in ${portal}.`;
   }
 
   // Feature
   if (lname === 'feature.used') {
     const feature = pick(meta, 'featureName', 'feature', 'label', 'name');
     const context = pick(meta, 'context', 'section', 'page', 'area');
-    if (feature && context) return `The "${feature}" feature was used in the ${context} section.`;
-    if (feature) return `The user activated the "${feature}" feature.`;
+    if (feature && context) return `${user} used the "${feature}" feature in the ${context} section of ${portal}.`;
+    if (feature) return `${user} activated the "${feature}" feature in ${portal}.`;
   }
 
   // Interaction
   if (lname.startsWith('interaction.')) {
     const label = pick(meta, 'label', 'text', 'buttonText', 'buttonLabel');
     const pageName = pageNameFromUrl(pick(meta, 'route', 'path') ?? url);
-    if (label && pageName) return `Clicked "${label}" on the ${pageName} page.`;
-    if (label) return `Clicked the "${label}" control.`;
-    return DESCRIPTIONS[lname] ?? 'They clicked a button, link, or control.';
+    if (label && pageName) return `${user} clicked "${label}" on the ${pageName} page in ${portal}.`;
+    if (label) return `${user} clicked the "${label}" control in ${portal}.`;
+    const defaultDesc = DESCRIPTIONS[lname] ? DESCRIPTIONS[lname].replace(/^They /, `${user} `).replace(/^A user /, `${user} `) : null;
+    return defaultDesc ?? `${user} clicked a button, link, or control in ${portal}.`;
   }
 
   // Error
   if (lname === 'error.captured') {
     const msg = pick(meta, 'message', 'errorMessage', 'description');
-    if (msg) return msg.length > 100 ? msg.slice(0, 100) + '…' : msg;
+    return `${user} encountered an error: ${msg ? (msg.length > 100 ? msg.slice(0, 100) + '…' : msg) : 'something went wrong'} in ${portal}.`;
   }
 
   // Search
   if (lname === 'search.performed') {
     const query = pick(meta, 'query', 'q', 'keyword', 'term');
-    if (query) return `Searched for "${query}".`;
+    if (query) return `${user} searched for "${query}" in ${portal}.`;
+  }
+
+  // Common or parsed feature actions, e.g. "candidate.created" -> "created Candidate"
+  const parts = name.split('.');
+  if (parts.length >= 2) {
+    const feature = parts[0]!;
+    const action = parts.slice(1).join(' ').replace(/[._]+/g, ' ').trim();
+    // Capitalize the feature name (e.g. candidate -> Candidate)
+    const capFeature = feature.charAt(0).toUpperCase() + feature.slice(1);
+    return `${user} ${action} ${capFeature} in ${portal}.`;
   }
 
   // Static fallback
   const known = DESCRIPTIONS[lname];
-  if (known) return known;
+  if (known) return known.replace(/^They /, `${user} `).replace(/^A user /, `${user} `).replace(/ the app\.$/, ` ${portal}.`);
 
-  // Generic
-  const [feature, ...rest] = name.split('.');
-  const action = rest.join(' ').replace(/[._]+/g, ' ').trim();
-  if (feature && action) return `A "${action}" action in the ${feature} area of the app.`;
-  return 'A tracked action in the app.';
+  return `${user} took action in ${portal}.`;
 }
 
 /** Plain-English label for an event category. */

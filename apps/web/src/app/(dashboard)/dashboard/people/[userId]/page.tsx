@@ -111,7 +111,7 @@ export default async function UserDetailPage({ params }: PageProps) {
 
         {/* Cross-app activity timeline */}
         <ChartCard title="Activity timeline" description="What this person did across every product, newest first">
-          <UserTimeline events={u.recent.slice(0, 40)} empty="No recent activity" />
+          <UserTimeline events={u.recent.slice(0, 40)} userName={name} empty="No recent activity" />
         </ChartCard>
       </section>
 

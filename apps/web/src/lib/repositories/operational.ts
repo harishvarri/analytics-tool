@@ -1,6 +1,7 @@
 import 'server-only';
 import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
+import type { DirectoryUser } from '../schemas/directory';
 
 /**
  * Operational read layer — per-app, event-driven. No SSO/directory concept:
@@ -397,4 +398,83 @@ export async function getDepartmentActivity(days = 30): Promise<DepartmentActivi
     acc.set(dept, cur);
   }
   return Array.from(acc.values()).sort((a, b) => b.events - a.events);
+}
+
+export async function syncDirectory(users: DirectoryUser[]): Promise<{ synced: number }> {
+  const admin = getSupabaseAdmin();
+  if (users.length === 0) return { synced: 0 };
+
+  // 1. Bulk upsert users into analytics_users
+  const userRows = users.map((u) => ({
+    id: u.id,
+    email: u.email.toLowerCase(),
+    display_name: u.displayName ?? null,
+    role: u.role ?? 'member',
+    department: u.department ?? null,
+    team: u.team ?? null,
+    title: u.title ?? null,
+    status: u.status ?? 'active',
+    is_internal: u.isInternal ?? true,
+    source: 'directory',
+    last_directory_sync_at: new Date().toISOString(),
+  }));
+
+  const { error: userError } = await admin
+    .from('analytics_users')
+    .upsert(userRows, { onConflict: 'id' });
+
+  if (userError) {
+    throw new AppError('DIRECTORY_SYNC_FAILED', `Failed to sync users: ${userError.message}`, 500);
+  }
+
+  // 2. Fetch valid projects to filter access grants (prevent FK violation)
+  const { data: projects, error: projectsError } = await admin
+    .from('analytics_projects')
+    .select('slug');
+  
+  if (projectsError) {
+    throw new AppError('DIRECTORY_SYNC_FAILED', `Failed to fetch projects: ${projectsError.message}`, 500);
+  }
+
+  const validSlugs = new Set(((projects ?? []) as { slug: string }[]).map((p) => p.slug));
+
+  // 3. Clear old directory access grants for these synced users
+  const userIds = users.map((u) => u.id);
+  const { error: deleteError } = await admin
+    .from('analytics_user_access')
+    .delete()
+    .in('user_id', userIds)
+    .eq('source', 'directory');
+
+  if (deleteError) {
+    throw new AppError('DIRECTORY_SYNC_FAILED', `Failed to clear old access grants: ${deleteError.message}`, 500);
+  }
+
+  // 4. Build and insert new access grants
+  const accessRows: { user_id: string; project_slug: string; source: string }[] = [];
+  for (const u of users) {
+    if (u.access) {
+      for (const slug of u.access) {
+        if (validSlugs.has(slug)) {
+          accessRows.push({
+            user_id: u.id,
+            project_slug: slug,
+            source: 'directory',
+          });
+        }
+      }
+    }
+  }
+
+  if (accessRows.length > 0) {
+    const { error: accessError } = await admin
+      .from('analytics_user_access')
+      .upsert(accessRows, { onConflict: 'user_id,project_slug' });
+
+    if (accessError) {
+      throw new AppError('DIRECTORY_SYNC_FAILED', `Failed to save access grants: ${accessError.message}`, 500);
+    }
+  }
+
+  return { synced: users.length };
 }

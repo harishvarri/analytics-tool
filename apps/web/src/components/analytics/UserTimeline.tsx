@@ -14,6 +14,7 @@ export interface TimelineEvent {
 
 interface UserTimelineProps {
   events: TimelineEvent[];
+  userName?: string | null;
   empty?: string;
 }
 
@@ -48,7 +49,7 @@ function dayLabel(iso: string): string {
  * dot), and time. Day separators and app-switch markers give context that the
  * old flat list lacked.
  */
-export function UserTimeline({ events, empty = 'No recent activity.' }: UserTimelineProps) {
+export function UserTimeline({ events, userName, empty = 'No recent activity.' }: UserTimelineProps) {
   if (events.length === 0) {
     return <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">{empty}</div>;
   }
@@ -100,7 +101,7 @@ export function UserTimeline({ events, empty = 'No recent activity.' }: UserTime
                   )}
                 </div>
                 <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground/80">
-                  {eventDescription(e.name, e.metadata, e.url)}
+                  {eventDescription(e.name, e.metadata, e.url, userName, portalName)}
                 </div>
               </div>
             </div>

@@ -123,8 +123,23 @@
     //   identify('<central-user-uuid>')        → central SSO apps
     //   identify(null, { email, name })        → independent apps (linked by email)
     var userId = ANON_ID;
+    try {
+      var storedUid = window.sessionStorage.getItem('ncpl_uid');
+      if (storedUid) userId = storedUid;
+    } catch (e) {}
+
     var identifiedEmail = null;
+    try {
+      var storedEmail = window.sessionStorage.getItem('ncpl_uemail');
+      if (storedEmail) identifiedEmail = storedEmail;
+    } catch (e) {}
+
     var identifiedName = null;
+    try {
+      var storedName = window.sessionStorage.getItem('ncpl_uname');
+      if (storedName) identifiedName = storedName;
+    } catch (e) {}
+
     function isUuid(s) {
       return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
     }
@@ -184,10 +199,35 @@
     };
     window.ncpl.identify = function (id, traits) {
       traits = traits || {};
-      if (typeof id === 'string' && isUuid(id)) userId = id;
-      else if (typeof id === 'string' && id.indexOf('@') > -1) identifiedEmail = id.toLowerCase();
-      if (traits.email) identifiedEmail = String(traits.email).toLowerCase();
-      if (traits.name) identifiedName = String(traits.name);
+      if (id === null && !traits.email && !traits.name) {
+        userId = ANON_ID;
+        identifiedEmail = null;
+        identifiedName = null;
+        try {
+          window.sessionStorage.removeItem('ncpl_uid');
+          window.sessionStorage.removeItem('ncpl_uemail');
+          window.sessionStorage.removeItem('ncpl_uname');
+        } catch (e) {}
+        return;
+      }
+      if (id === null) {
+        userId = ANON_ID;
+        try { window.sessionStorage.removeItem('ncpl_uid'); } catch (e) {}
+      } else if (typeof id === 'string' && isUuid(id)) {
+        userId = id;
+        try { window.sessionStorage.setItem('ncpl_uid', id); } catch (e) {}
+      } else if (typeof id === 'string' && id.indexOf('@') > -1) {
+        identifiedEmail = id.toLowerCase();
+        try { window.sessionStorage.setItem('ncpl_uemail', identifiedEmail); } catch (e) {}
+      }
+      if (traits.email) {
+        identifiedEmail = String(traits.email).toLowerCase();
+        try { window.sessionStorage.setItem('ncpl_uemail', identifiedEmail); } catch (e) {}
+      }
+      if (traits.name) {
+        identifiedName = String(traits.name);
+        try { window.sessionStorage.setItem('ncpl_uname', identifiedName); } catch (e) {}
+      }
     };
     window.ncpl.page = function () { trackPage(); };
 

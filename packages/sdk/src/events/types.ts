@@ -27,6 +27,8 @@ export interface TrackEventInput {
   name: string;
   source?: EventSource;
   userId?: string | null;
+  userEmail?: string | null;
+  userName?: string | null;
   sessionId?: string | null;
   url?: string | null;
   referrer?: string | null;
@@ -42,6 +44,8 @@ export interface AnalyticsEventPayload {
   name: string;
   source: EventSource;
   userId?: string | null;
+  userEmail?: string | null;
+  userName?: string | null;
   sessionId?: string | null;
   url?: string | null;
   referrer?: string | null;

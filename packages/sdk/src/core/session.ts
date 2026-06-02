@@ -4,6 +4,8 @@ import { uuid } from '../utils/uuid';
 const SESSION_KEY = 'ncpl_session_id';
 const SESSION_AT_KEY = 'ncpl_session_at';
 const USER_KEY = 'ncpl_user_id';
+const USER_EMAIL_KEY = 'ncpl_user_email';
+const USER_NAME_KEY = 'ncpl_user_name';
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000; // 30 min of inactivity ends a session
 
 export interface SessionManagerOptions {
@@ -51,5 +53,23 @@ export class SessionManager {
   setUserId(userId: string | null): void {
     if (userId) this.storage.set(USER_KEY, userId);
     else this.storage.remove(USER_KEY);
+  }
+
+  getUserEmail(): string | null {
+    return this.storage.get(USER_EMAIL_KEY);
+  }
+
+  setUserEmail(email: string | null): void {
+    if (email) this.storage.set(USER_EMAIL_KEY, email);
+    else this.storage.remove(USER_EMAIL_KEY);
+  }
+
+  getUserName(): string | null {
+    return this.storage.get(USER_NAME_KEY);
+  }
+
+  setUserName(name: string | null): void {
+    if (name) this.storage.set(USER_NAME_KEY, name);
+    else this.storage.remove(USER_NAME_KEY);
   }
 }

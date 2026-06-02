@@ -27,45 +27,48 @@ export function ActivityFeed({ items, empty = 'No activity in the last 5 minutes
   }
   return (
     <ul className="divide-y">
-      {items.map((item) => (
-        <li key={item.id} className="flex items-start gap-3 py-3">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-[10px]">
-              {initials(item.userDisplayName ?? item.userEmail ?? '??')}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-medium">
-                {item.userDisplayName ?? item.userEmail ?? 'Anonymous'}
-              </span>
-              <EventBadge category={item.category} />
-              {item.count && item.count > 1 ? (
-                <span className="rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-semibold tabular-nums text-primary">
-                  ×{item.count}
+      {items.map((item) => {
+        const userName = item.userDisplayName ?? item.userEmail ?? (item.userId ? item.userId.slice(0, 8) : 'Anonymous');
+        return (
+          <li key={item.id} className="flex items-start gap-3 py-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-[10px]">
+                {initials(userName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium">
+                  {userName}
                 </span>
-              ) : null}
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                {formatRelativeTime(item.occurredAt)}
-              </span>
+                <EventBadge category={item.category} />
+                {item.count && item.count > 1 ? (
+                  <span className="rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-semibold tabular-nums text-primary">
+                    ×{item.count}
+                  </span>
+                ) : null}
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  {formatRelativeTime(item.occurredAt)}
+                </span>
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground" title={item.eventName}>
+                  {friendlyEventName(item.eventName, item.metadata, item.url)}
+                </span>
+                <span className="mx-1.5">·</span>
+                {/* Cross-project emphasis: which product the action happened in */}
+                <span className="font-medium text-foreground/80">{item.portalName}</span>
+              </div>
+              {/* Plain-English note; for aggregated rows, show the occurrence summary */}
+              <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground/80">
+                {item.count && item.count > 1 && item.firstOccurredAt
+                  ? `${item.count} times ${spanLabel(item.firstOccurredAt, item.occurredAt)}`
+                  : eventDescription(item.eventName, item.metadata, item.url, userName, item.portalName)}
+              </div>
             </div>
-            <div className="mt-0.5 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground" title={item.eventName}>
-                {friendlyEventName(item.eventName, item.metadata, item.url)}
-              </span>
-              <span className="mx-1.5">·</span>
-              {/* Cross-project emphasis: which product the action happened in */}
-              <span className="font-medium text-foreground/80">{item.portalName}</span>
-            </div>
-            {/* Plain-English note; for aggregated rows, show the occurrence summary */}
-            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground/80">
-              {item.count && item.count > 1 && item.firstOccurredAt
-                ? `${item.count} times ${spanLabel(item.firstOccurredAt, item.occurredAt)}`
-                : eventDescription(item.eventName, item.metadata, item.url)}
-            </div>
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

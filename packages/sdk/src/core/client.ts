@@ -65,6 +65,8 @@ export class AnalyticsClient {
   private readonly queue: EventQueue | null;
   private defaults: Record<string, unknown>;
   private currentUserId: string | null = null;
+  private currentUserEmail: string | null = null;
+  private currentUserName: string | null = null;
 
   // Auto-tracking state
   private autoTrackInstalled = false;
@@ -80,6 +82,8 @@ export class AnalyticsClient {
     const storage = options.storage ?? detectStorage();
     this.session = new SessionManager({ storage });
     this.currentUserId = this.session.getUserId();
+    this.currentUserEmail = this.session.getUserEmail();
+    this.currentUserName = this.session.getUserName();
 
     if (options.disabled) {
       this.queue = null;
@@ -112,9 +116,24 @@ export class AnalyticsClient {
   // Identity
   // -------------------------------------------------------------------------
 
-  identify(userId: string | null): void {
+  identify(userId: string | null, traits?: { email?: string; name?: string }): void {
     this.currentUserId = userId;
     this.session.setUserId(userId);
+    if (traits) {
+      if (traits.email) {
+        this.currentUserEmail = traits.email;
+        this.session.setUserEmail(traits.email);
+      }
+      if (traits.name) {
+        this.currentUserName = traits.name;
+        this.session.setUserName(traits.name);
+      }
+    } else if (userId === null) {
+      this.currentUserEmail = null;
+      this.currentUserName = null;
+      this.session.setUserEmail(null);
+      this.session.setUserName(null);
+    }
   }
 
   reset(): void {
@@ -135,6 +154,8 @@ export class AnalyticsClient {
       name: event.name,
       source: event.source ?? 'web',
       userId: event.userId ?? this.currentUserId ?? null,
+      userEmail: event.userEmail ?? this.currentUserEmail ?? null,
+      userName: event.userName ?? this.currentUserName ?? null,
       sessionId: event.sessionId ?? this.session.getSessionId(),
       url: event.url ?? this.currentUrl(),
       referrer: event.referrer ?? this.currentReferrer(),
@@ -149,9 +170,16 @@ export class AnalyticsClient {
   // Helper trackers
   // -------------------------------------------------------------------------
 
-  trackLogin(userId: string, metadata: Record<string, unknown> = {}): void {
-    this.identify(userId);
-    this.track({ category: 'auth', name: EVENT_NAMES.auth.login, userId, metadata });
+  trackLogin(userId: string, metadata: Record<string, unknown> = {}, traits?: { email?: string; name?: string }): void {
+    this.identify(userId, traits);
+    this.track({
+      category: 'auth',
+      name: EVENT_NAMES.auth.login,
+      userId,
+      userEmail: traits?.email ?? null,
+      userName: traits?.name ?? null,
+      metadata,
+    });
   }
 
   trackLogout(metadata: Record<string, unknown> = {}): void {
