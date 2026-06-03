@@ -1,6 +1,7 @@
 import 'server-only';
 import { getProjectIntelligence, type ProjectIntelligence } from './projectIntelligence';
 import { getDepartmentRollup } from './operational';
+import { getErrorIntelligence } from './errorIntelligence';
 
 /**
  * Organization Health Engine — the single calculated score that answers
@@ -27,6 +28,19 @@ export interface AttentionItem {
   severity: 'critical' | 'warning' | 'info';
 }
 
+/** A "why" bullet explaining the organization status. */
+export interface WhyItem {
+  severity: 'critical' | 'warning' | 'ok';
+  text: string;
+}
+
+/** Named risk factors (0–100, higher = more risk). */
+export interface RiskFactor {
+  key: 'api' | 'authentication' | 'database' | 'adoption' | 'project';
+  label: string;
+  score: number;
+}
+
 export interface OrgHealth {
   score: number;
   tier: OrgTier;
@@ -41,6 +55,8 @@ export interface OrgHealth {
     userAdoption: number;
     departmentEngagement: number;
   };
+  why: WhyItem[];
+  riskFactors: RiskFactor[];
   attention: AttentionItem[];
   recommendations: string[];
   totals: { projects: number; healthy: number; warning: number; critical: number };
@@ -56,10 +72,16 @@ function tierOf(score: number): OrgTier {
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
 export async function getOrganizationHealth(): Promise<OrgHealth> {
-  const [projects, deptRollup] = await Promise.all([
+  const [projects, deptRollup, errors] = await Promise.all([
     getProjectIntelligence(),
     getDepartmentRollup().catch(() => []),
+    getErrorIntelligence(7).catch(() => null),
   ]);
+
+  const errCount = (cat: string) => errors?.categories.find((c) => c.category === cat)?.count ?? 0;
+  const apiErrors = errCount('api');
+  const dbErrors = errCount('database');
+  const authErrors = errCount('authentication');
 
   const n = projects.length;
   const healthy = projects.filter((p) => p.status === 'healthy').length;
@@ -159,6 +181,27 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
     .filter((p) => p.status !== 'healthy')
     .reduce((s, p) => s + p.activeUsers7d, 0);
 
+  // ── "Why?" summary — the contributing factors behind the status ─────────────
+  const why: WhyItem[] = [];
+  if (apiErrors > 0) why.push({ severity: apiErrors >= 10 ? 'critical' : 'warning', text: `${apiErrors} API ${apiErrors === 1 ? 'failure' : 'failures'} this week` });
+  if (critical + warning > 0) why.push({ severity: critical > 0 ? 'critical' : 'warning', text: `${critical + warning} ${critical + warning === 1 ? 'product' : 'products'} below health threshold` });
+  if (errors && errors.usersImpacted > 0) why.push({ severity: errors.usersImpacted >= 10 ? 'warning' : 'warning', text: `${errors.usersImpacted} users impacted by errors` });
+  if (authErrors > 0) why.push({ severity: authErrors >= 10 ? 'critical' : 'warning', text: `${authErrors} authentication ${authErrors === 1 ? 'failure' : 'failures'}` });
+  why.push(dbErrors > 0
+    ? { severity: 'critical', text: `${dbErrors} database ${dbErrors === 1 ? 'error' : 'errors'} detected` }
+    : { severity: 'ok', text: 'No critical database outage' });
+  if (why.filter((w) => w.severity !== 'ok').length === 0) why.unshift({ severity: 'ok', text: 'All products operating within healthy ranges' });
+
+  // ── Risk factor breakdown (0–100, higher = more risk) ───────────────────────
+  const riskFactors: RiskFactor[] = [
+    { key: 'api',            label: 'API stability risk',  score: Math.min(100, apiErrors * 6) },
+    { key: 'authentication', label: 'Authentication risk', score: Math.min(100, authErrors * 6) },
+    { key: 'database',       label: 'Database risk',       score: Math.min(100, dbErrors * 10) },
+    { key: 'adoption',       label: 'Adoption risk',       score: Math.max(0, 100 - components.userAdoption) },
+    { key: 'project',        label: 'Project risk',        score: Math.min(100, Math.round(((critical * 100 + warning * 50) / Math.max(1, n)))) },
+  ];
+  riskFactors.sort((a, b) => b.score - a.score);
+
   return {
     score,
     tier: tierOf(score),
@@ -167,6 +210,8 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
     activeIncidents: critical + projects.reduce((s, p) => s + p.alerts.length, 0),
     affectedUsers,
     components,
+    why,
+    riskFactors,
     attention: sortedAttention.slice(0, 20),
     recommendations: recommendations.slice(0, 8),
     totals: { projects: n, healthy, warning, critical },

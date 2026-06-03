@@ -95,6 +95,7 @@ import {
 } from '../repositories/access';
 import { getProjectHealth, type ProjectHealthRow } from '../repositories/health';
 import { getOrganizationHealth, type OrgHealth } from '../repositories/orgHealth';
+import { getErrorIntelligence, type ErrorIntelligence } from '../repositories/errorIntelligence';
 import { getCommandCenter, type CommandCenter } from '../repositories/analytics';
 import {
   getPlatformHealth,
@@ -361,11 +362,17 @@ export const fetchPlatformHealth = (): Promise<PlatformHealth> =>
 export const fetchProjectRecentActivity = (slug: string, limit = 150): Promise<RealtimeActivityItem[]> =>
   withMockFallback('projects.recent', () => getProjectRecentActivity(slug, limit), () => []);
 
+export const fetchErrorIntelligence = (days = 7): Promise<ErrorIntelligence> =>
+  withMockFallback('errors.intel', () => getErrorIntelligence(days), () => ({
+    windowDays: days, totalErrors: 0, criticalErrors: 0, usersImpacted: 0, projectsImpacted: 0,
+    activeIncidents: 0, categories: [], byProject: [], timeline: [],
+  }));
+
 export const fetchOrganizationHealth = (): Promise<OrgHealth> =>
   withMockFallback('org.health', getOrganizationHealth, () => ({
     score: 0, tier: 'critical' as const, riskScore: 100, criticalIssues: 0, activeIncidents: 0, affectedUsers: 0,
     components: { projectHealth: 0, incidentSeverity: 0, errorImpact: 0, userAdoption: 0, departmentEngagement: 0 },
-    attention: [], recommendations: [], totals: { projects: 0, healthy: 0, warning: 0, critical: 0 },
+    why: [], riskFactors: [], attention: [], recommendations: [], totals: { projects: 0, healthy: 0, warning: 0, critical: 0 },
   }));
 
 export const fetchSessionList = (opts: { appId?: string; days?: number; limit?: number } = {}): Promise<SessionRow[]> =>

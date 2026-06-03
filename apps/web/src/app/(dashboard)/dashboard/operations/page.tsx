@@ -84,6 +84,39 @@ export default async function ExecutiveOperationsCenter() {
         </div>
       </section>
 
+      {/* Why this status + risk factors */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <ChartCard title={`Why ${tier.label.toLowerCase()}?`} description="The factors driving today's organization status">
+          <ul className="space-y-2">
+            {h.why.map((w, i) => (
+              <li key={i} className="flex items-center gap-2 text-sm">
+                <span>{w.severity === 'critical' ? '🔴' : w.severity === 'warning' ? '🟡' : '🟢'}</span>
+                <span className={w.severity === 'ok' ? 'text-muted-foreground' : ''}>{w.text}</span>
+              </li>
+            ))}
+          </ul>
+        </ChartCard>
+
+        <ChartCard title="Risk factors" description="Where operational risk is concentrated (higher = riskier)">
+          <ul className="space-y-3 pt-1">
+            {h.riskFactors.map((r) => {
+              const tone = r.score >= 60 ? 'bg-rose-500' : r.score >= 30 ? 'bg-amber-500' : 'bg-emerald-500';
+              return (
+                <li key={r.key} className="text-xs">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="font-medium">{r.label}</span>
+                    <span className="tabular-nums text-muted-foreground">{r.score}/100</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.min(100, r.score)}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </ChartCard>
+      </section>
+
       {/* Health component breakdown */}
       <ChartCard title="How the score is built" description="Weighted blend across the five operational dimensions">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

@@ -10,7 +10,6 @@ import {
   Settings2,
   SlidersHorizontal,
   Sparkles,
-  Timer,
   TrendingUp,
   UserRound,
 } from 'lucide-react';
@@ -118,22 +117,16 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         description: 'Org health score, what needs attention today, and recommended actions',
       },
       {
-        label: 'System Errors',
+        label: 'Error Intelligence Center',
         href: ROUTES.reliability,
         icon: Bug,
-        description: 'Errors staff are hitting, their frequency, and quality targets',
+        description: 'Categorized errors, who they impact, and which products are worst hit',
       },
       {
-        label: 'Response Times',
-        href: ROUTES.performance,
-        icon: Timer,
-        description: 'How fast products load and which pages are slowest',
-      },
-      {
-        label: 'Unusual Activity',
+        label: 'Risk & Anomaly',
         href: ROUTES.anomalies,
         icon: BellRing,
-        description: 'Automatic alerts when any product behaves abnormally',
+        description: 'Error spikes, usage drops, and abnormal activity that need a look',
       },
       {
         label: 'Weekly Highlights',
