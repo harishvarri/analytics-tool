@@ -98,8 +98,13 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
   // Error impact: average error rate across products → invert.
   const errorImpact = Math.max(0, Math.round(100 - Math.min(100, avg(projects.map((p) => p.errorRatePct)) * 8)));
 
-  // User adoption: average adoption % across products.
-  const userAdoption = Math.round(avg(projects.map((p) => p.adoptionPct)));
+  // User adoption: average adoption % across products that actually have access
+  // grants synced. Unmeasured projects (no grants) are excluded rather than
+  // counted as 0 — otherwise a missing directory sync would falsely tank the
+  // org score and show 100/100 adoption risk.
+  const measured = projects.filter((p) => p.adoptionMeasured);
+  const adoptionUnmeasured = measured.length === 0;
+  const userAdoption = adoptionUnmeasured ? 60 : Math.round(avg(measured.map((p) => p.adoptionPct)));
 
   // Department engagement: % of directory staff that are active.
   const totalStaff = deptRollup.reduce((s, d) => s + d.totalUsers, 0);
@@ -126,15 +131,18 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
   const attention: AttentionItem[] = [];
 
   for (const p of projects) {
+    // Always lead with the concrete reason: alert → actionable issue → the
+    // biggest health driver → the first health-reason sentence.
+    const reason = p.alerts[0] ?? p.issues[0] ?? p.topHealthDriver ?? p.healthReasons[0] ?? `Health ${p.healthScore}/100`;
     if (p.status === 'critical') {
       attention.push({
         kind: 'project_at_risk', slug: p.slug, severity: 'critical',
-        title: `${p.name} is critical`, detail: p.alerts[0] ?? p.issues[0] ?? `Health ${p.healthScore}/100`,
+        title: `${p.name} is critical (health ${p.healthScore})`, detail: reason,
       });
     } else if (p.status === 'warning') {
       attention.push({
         kind: 'project_at_risk', slug: p.slug, severity: 'warning',
-        title: `${p.name} needs attention`, detail: p.issues[0] ?? `Health ${p.healthScore}/100`,
+        title: `${p.name} needs attention (health ${p.healthScore})`, detail: reason,
       });
     }
     if (p.errorRatePct >= 2) {
@@ -169,13 +177,21 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
 
   // ── Executive recommendations (actionable, plain English) ───────────────────
   const recommendations: string[] = [];
+  if (adoptionUnmeasured) recommendations.push('Sync your directory (POST /api/v1/directory) or grant project access so adoption can be measured — it is currently the biggest unknown dragging health.');
   for (const p of projects) {
     if (p.errorRatePct >= 2) recommendations.push(`Investigate errors in ${p.name} (${p.errorRatePct}% error rate).`);
     if (p.daysSinceActivity !== null && p.daysSinceActivity >= 14) recommendations.push(`Follow up on ${p.name} — unused for ${p.daysSinceActivity} days.`);
-    else if (p.adoptionPct > 0 && p.adoptionPct < 30) recommendations.push(`Drive adoption in ${p.name} — only ${p.adoptionPct}% of staff with access use it.`);
+    else if (p.adoptionMeasured && p.adoptionPct < 30) recommendations.push(`Drive adoption in ${p.name} — only ${p.adoptionPct}% of staff with access use it.`);
     if (p.failedLogins7d >= 10) recommendations.push(`Review authentication failures in ${p.name} (${p.failedLogins7d} failed logins this week).`);
+    // Surface the dominant health driver for non-healthy products.
+    if (p.status !== 'healthy' && p.topHealthDriver && p.errorRatePct < 2 && (p.daysSinceActivity ?? 0) < 14) {
+      recommendations.push(`Improve ${p.name} — biggest drag on its ${p.healthScore}/100 health is ${p.topHealthDriver}.`);
+    }
   }
-  if (recommendations.length === 0) recommendations.push('No urgent actions — all products are operating within healthy ranges.');
+  // De-dupe.
+  const recSeen = new Set<string>();
+  const dedupedRecs = recommendations.filter((r) => (recSeen.has(r) ? false : (recSeen.add(r), true)));
+  if (dedupedRecs.length === 0) dedupedRecs.push('No urgent actions — all products are operating within healthy ranges.');
 
   const affectedUsers = projects
     .filter((p) => p.status !== 'healthy')
@@ -184,8 +200,15 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
   // ── "Why?" summary — the contributing factors behind the status ─────────────
   const why: WhyItem[] = [];
   if (apiErrors > 0) why.push({ severity: apiErrors >= 10 ? 'critical' : 'warning', text: `${apiErrors} API ${apiErrors === 1 ? 'failure' : 'failures'} this week` });
-  if (critical + warning > 0) why.push({ severity: critical > 0 ? 'critical' : 'warning', text: `${critical + warning} ${critical + warning === 1 ? 'product' : 'products'} below health threshold` });
-  if (errors && errors.usersImpacted > 0) why.push({ severity: errors.usersImpacted >= 10 ? 'warning' : 'warning', text: `${errors.usersImpacted} users impacted by errors` });
+  // Name the products below threshold AND why each is down.
+  for (const p of projects.filter((x) => x.status !== 'healthy')) {
+    why.push({
+      severity: p.status === 'critical' ? 'critical' : 'warning',
+      text: `${p.name} health ${p.healthScore}/100 — ${p.topHealthDriver ?? p.issues[0] ?? p.healthReasons[0] ?? 'below target'}`,
+    });
+  }
+  if (adoptionUnmeasured) why.push({ severity: 'warning', text: 'Adoption can’t be measured — no access grants synced (drags the score)' });
+  if (errors && errors.usersImpacted > 0) why.push({ severity: 'warning', text: `${errors.usersImpacted} users impacted by errors` });
   if (authErrors > 0) why.push({ severity: authErrors >= 10 ? 'critical' : 'warning', text: `${authErrors} authentication ${authErrors === 1 ? 'failure' : 'failures'}` });
   why.push(dbErrors > 0
     ? { severity: 'critical', text: `${dbErrors} database ${dbErrors === 1 ? 'error' : 'errors'} detected` }
@@ -213,7 +236,7 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
     why,
     riskFactors,
     attention: sortedAttention.slice(0, 20),
-    recommendations: recommendations.slice(0, 8),
+    recommendations: dedupedRecs.slice(0, 8),
     totals: { projects: n, healthy, warning, critical },
   };
 }

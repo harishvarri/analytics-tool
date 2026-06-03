@@ -60,9 +60,12 @@ export interface ProjectIntelligence {
   // Derived operational intelligence
   status:          ProjectStatus;
   riskLevel:       RiskLevel;
-  issues:          string[];   // what's wrong (steady-state)
-  alerts:          string[];   // urgent, time-sensitive
-  operationalScore: number;    // 0–100 blend used for ranking
+  issues:          string[];        // actionable problems (steady-state)
+  alerts:          string[];        // urgent, time-sensitive
+  healthReasons:   string[];        // plain-English: WHY the health score is what it is
+  topHealthDriver: string | null;   // the single biggest drag on the score
+  adoptionMeasured: boolean;        // false when no access grants are synced
+  operationalScore: number;         // 0–100 blend used for ranking
 }
 
 function tierToStatus(tier: HealthTier): ProjectStatus {
@@ -115,19 +118,64 @@ export async function getProjectIntelligence(): Promise<ProjectIntelligence[]> {
     const businessEvents7d = n(act?.business_events_7d);
     const errorRatePct = c?.errorRatePct ?? 0;
     const adoptionPct = ac?.adoptionPct ?? 0;
+    const usersWithAccess = ac?.usersWithAccess ?? 0;
+    const adoptionMeasured = usersWithAccess > 0;
 
     const healthScore = h?.ghiScore ?? 50;
     const healthTier: HealthTier = h?.healthTier ?? 'at_risk';
+    const adoptionNorm = h?.adoptionNorm ?? 50;
+    const reliabilityNorm = h?.reliabilityNorm ?? 100;
+    const performanceNorm = h?.performanceNorm ?? 50;
+    const activityNorm = h?.activityNorm ?? 50;
 
-    // ── Derive issues (steady-state problems) ─────────────────────────────────
+    // ── Explain the health score (always — so a Warning project never says
+    //    "no issues"). Each component is weighted: adoption 40 / reliability 25
+    //    / performance 20 / momentum 15. We surface whichever are below target. ─
+    const healthReasons: string[] = [];
+    const drivers: { label: string; norm: number; weight: number; reason: string }[] = [];
+
+    if (!adoptionMeasured) {
+      healthReasons.push(`Adoption can't be measured yet — no access grants are synced, so it defaults to a neutral ${adoptionNorm}/100. Sync the directory (POST /api/v1/directory) or grant access to score it.`);
+      drivers.push({ label: 'adoption', norm: adoptionNorm, weight: 0.40, reason: 'adoption unmeasured (no access grants)' });
+    } else if (adoptionPct < 60) {
+      healthReasons.push(`Adoption is ${adoptionPct}% — only ${ac?.adoptedUsers ?? 0} of ${usersWithAccess} people with access actually use it.`);
+      drivers.push({ label: 'adoption', norm: adoptionNorm, weight: 0.40, reason: `low adoption (${adoptionPct}%)` });
+    }
+    if (reliabilityNorm < 90) {
+      healthReasons.push(`Reliability ${reliabilityNorm}/100 — ${errorRatePct}% error rate (${c?.errors30d ?? 0} errors in 30 days).`);
+      drivers.push({ label: 'reliability', norm: reliabilityNorm, weight: 0.25, reason: `${errorRatePct}% error rate` });
+    }
+    if (performanceNorm < 70) {
+      healthReasons.push(h?.p95LoadMs != null
+        ? `Performance ${performanceNorm}/100 — p95 page load is ${h.p95LoadMs}ms.`
+        : `Performance ${performanceNorm}/100 — limited performance data.`);
+      drivers.push({ label: 'performance', norm: performanceNorm, weight: 0.20, reason: 'slow performance' });
+    }
+    if (activityNorm < 70) {
+      healthReasons.push(`Momentum ${activityNorm}/100 — recent activity is flat or below the prior period.`);
+      drivers.push({ label: 'momentum', norm: activityNorm, weight: 0.15, reason: 'low momentum' });
+    }
+    if (daysSinceActivity !== null && daysSinceActivity >= 7) {
+      healthReasons.push(`No activity for ${daysSinceActivity} days.`);
+    }
+    if (failedLogins7d >= 5) {
+      healthReasons.push(`${failedLogins7d} failed logins this week.`);
+    }
+
+    // The single biggest drag = the component losing the most weighted points
+    // ( (100 − norm) × weight ), highest first.
+    drivers.sort((a, b) => ((100 - b.norm) * b.weight) - ((100 - a.norm) * a.weight));
+    const topHealthDriver = drivers[0]?.reason ?? null;
+
+    // ── Actionable issues (real problems worth a manager's time) ───────────────
     const issues: string[] = [];
     if (daysSinceActivity === null || daysSinceActivity >= 7) issues.push('No recent activity');
-    if (adoptionPct > 0 && adoptionPct < 30) issues.push('Low adoption');
-    if (errorRatePct >= 2) issues.push('High error rate');
-    if ((h?.performanceNorm ?? 100) < 50) issues.push('Slow performance');
-    if (failedLogins7d >= 5) issues.push('Failed logins');
+    if (adoptionMeasured && adoptionPct < 30) issues.push(`Low adoption (${adoptionPct}%)`);
+    if (errorRatePct >= 2) issues.push(`High error rate (${errorRatePct}%)`);
+    if (performanceNorm < 50) issues.push('Slow performance');
+    if (failedLogins7d >= 5) issues.push(`${failedLogins7d} failed logins`);
 
-    // ── Derive alerts (urgent, time-sensitive) ────────────────────────────────
+    // ── Alerts (urgent, time-sensitive) ───────────────────────────────────────
     const alerts: string[] = [];
     if (daysSinceActivity !== null && daysSinceActivity >= 7) {
       alerts.push(`Not used in ${daysSinceActivity} days`);
@@ -146,7 +194,7 @@ export async function getProjectIntelligence(): Promise<ProjectIntelligence[]> {
 
     // Operational score = activity-weighted blend (for ranking), 0–100.
     const operationalScore = Math.round(
-      0.5 * (h?.activityNorm ?? 50) + 0.3 * Math.min(100, activeUsers7d * 10) + 0.2 * (adoptionPct || 0),
+      0.5 * activityNorm + 0.3 * Math.min(100, activeUsers7d * 10) + 0.2 * (adoptionPct || 0),
     );
 
     return {
@@ -172,20 +220,23 @@ export async function getProjectIntelligence(): Promise<ProjectIntelligence[]> {
       errorRatePct,
 
       adoptionPct,
-      usersWithAccess: ac?.usersWithAccess ?? 0,
+      usersWithAccess,
 
       healthScore,
       healthTier,
-      reliabilityNorm: h?.reliabilityNorm ?? 100,
-      performanceNorm: h?.performanceNorm ?? 50,
-      adoptionNorm:    h?.adoptionNorm ?? 50,
-      activityNorm:    h?.activityNorm ?? 50,
+      reliabilityNorm,
+      performanceNorm,
+      adoptionNorm,
+      activityNorm,
       p95LoadMs:       h?.p95LoadMs ?? null,
 
       status,
       riskLevel,
       issues,
       alerts,
+      healthReasons,
+      topHealthDriver,
+      adoptionMeasured,
       operationalScore,
     };
   });
@@ -272,7 +323,7 @@ export async function getPlatformHealth(): Promise<PlatformHealth> {
         slug: p.slug,
         name: p.name,
         healthScore: p.healthScore,
-        problem: p.alerts[0] ?? p.issues[0] ?? 'Needs attention',
+        problem: p.alerts[0] ?? p.issues[0] ?? p.topHealthDriver ?? p.healthReasons[0] ?? 'Below health target',
         affectedUsers: p.activeUsers7d,
       })),
   };

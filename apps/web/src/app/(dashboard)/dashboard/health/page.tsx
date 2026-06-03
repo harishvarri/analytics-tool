@@ -136,17 +136,18 @@ export default async function PlatformHealthPage() {
                   ))}
                 </ul>
               )}
-              {p.issues.length > 0 ? (
+              {/* Why the score is what it is — always explain a non-healthy product. */}
+              {p.healthReasons.length > 0 ? (
                 <ul className="mt-2 space-y-1">
-                  {p.issues.map((i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{i}
+                  {p.healthReasons.slice(0, 3).map((r) => (
+                    <li key={r} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" /><span>{r}</span>
                     </li>
                   ))}
                 </ul>
-              ) : p.alerts.length === 0 ? (
-                <div className="mt-3 text-[11px] text-muted-foreground">No issues — operating normally.</div>
-              ) : null}
+              ) : (
+                <div className="mt-3 text-[11px] text-emerald-600 dark:text-emerald-400">Operating normally — all factors at target.</div>
+              )}
 
               <div className="mt-3 grid grid-cols-4 gap-2 border-t pt-2 text-center text-[10px] text-muted-foreground">
                 <div><div className="font-semibold text-foreground">{p.adoptionNorm}</div>adoption</div>

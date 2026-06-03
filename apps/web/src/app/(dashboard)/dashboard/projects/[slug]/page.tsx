@@ -93,6 +93,22 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
           href={`/dashboard/reliability?app=${p.slug}`} />
       </section>
 
+      {/* Why this health score — always explain a non-perfect score */}
+      {p.healthReasons.length > 0 && (
+        <ChartCard
+          title={`Why health is ${p.healthScore}/100`}
+          description={p.topHealthDriver ? `Biggest drag: ${p.topHealthDriver}` : 'What is pulling the score down'}
+        >
+          <ul className="space-y-2">
+            {p.healthReasons.map((r) => (
+              <li key={r} className="flex items-start gap-2 text-xs">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" /><span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </ChartCard>
+      )}
+
       {/* Issues + alerts */}
       {(p.issues.length > 0 || p.alerts.length > 0) && (
         <ChartCard title="What needs attention" description="Current issues and urgent alerts for this product">
