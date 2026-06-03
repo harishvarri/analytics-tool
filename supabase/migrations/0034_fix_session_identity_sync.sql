@@ -180,9 +180,9 @@ update public.analytics_sessions s
      s.user_id is null
      or exists (
        select 1
-       from public.analytics_users current_user
-       where current_user.id = s.user_id
-         and nullif(current_user.email, '') is null
+       from public.analytics_users existing_user
+       where existing_user.id = s.user_id
+         and nullif(existing_user.email, '') is null
      )
    );
 
@@ -205,8 +205,8 @@ update public.analytics_events e
      e.user_id is null
      or exists (
        select 1
-       from public.analytics_users current_user
-       where current_user.id = e.user_id
-         and nullif(current_user.email, '') is null
+       from public.analytics_users existing_user
+       where existing_user.id = e.user_id
+         and nullif(existing_user.email, '') is null
      )
    );
