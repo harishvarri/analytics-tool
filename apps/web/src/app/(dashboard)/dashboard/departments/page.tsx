@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Building2, TrendingUp, TrendingDown, Users } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
@@ -45,8 +46,8 @@ export default async function DepartmentAnalyticsPage({ searchParams }: PageProp
     <div className="space-y-6">
       <AutoRefresh intervalMs={120_000} />
       <PageHeader
-        title="Department Analytics"
-        description="How engagement and headcount break down across departments and teams."
+        title="Department Intelligence"
+        description="How engagement and headcount break down across departments — click a department for its full profile."
         actions={
           <ExportButton
             filename="department-activity"
@@ -99,7 +100,11 @@ export default async function DepartmentAnalyticsPage({ searchParams }: PageProp
                   <tbody>
                     {activity.map((d) => (
                       <tr key={d.department} className="border-b last:border-b-0 hover:bg-muted/40">
-                        <td className="px-2 py-2 font-medium">{d.department}</td>
+                        <td className="px-2 py-2 font-medium">
+                          <Link href={`/dashboard/departments/${encodeURIComponent(d.department)}`} className="hover:underline">
+                            {d.department}
+                          </Link>
+                        </td>
                         <td className="px-2 py-2 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-muted sm:block">

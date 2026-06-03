@@ -88,22 +88,22 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: 'People & Teams',
     items: [
       {
-        label: 'Staff Directory',
+        label: 'Staff Intelligence',
         href: ROUTES.people,
         icon: UserRound,
-        description: 'Who is using which products and when they were last active',
+        description: 'Who is working, what they do, and who has gone quiet',
       },
       {
-        label: 'Department Analytics',
+        label: 'Department Intelligence',
         href: ROUTES.departments,
         icon: Building2,
-        description: 'Engagement and headcount broken down by department and team',
+        description: 'Staff, apps, activities, and health per department',
       },
       {
-        label: 'Engagement Trends',
+        label: 'Engagement Intelligence',
         href: ROUTES.retention,
         icon: TrendingUp,
-        description: 'Are staff coming back? Daily, weekly, and monthly patterns',
+        description: 'Active vs quiet staff, growing vs declining products',
       },
     ],
   },

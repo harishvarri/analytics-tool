@@ -7,6 +7,7 @@ import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchAppUsers, fetchUserProfileSummaries } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
 import { formatRelativeTime } from '@/lib/utils';
+import { riskFromLastActive } from '@/lib/user-risk';
 import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
@@ -77,12 +78,17 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {users.map((u) => {
+                  const risk = riskFromLastActive(u.lastActiveAt);
+                  return (
                   <tr key={u.userId} className="border-b last:border-b-0 hover:bg-muted/40">
                     <td className="px-2 py-2">
-                      <Link href={`/dashboard/people/${u.userId}`} className="hover:underline">
-                        <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Unidentified visitor')}</div>
-                        <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                      <Link href={`/dashboard/people/${u.userId}`} className="flex items-center gap-2 hover:underline">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${risk.dot}`} title={risk.label} />
+                        <span>
+                          <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Unidentified visitor')}</div>
+                          <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                        </span>
                       </Link>
                     </td>
                     <td className="px-2 py-2 text-muted-foreground">{u.department ?? '—'}</td>
@@ -92,7 +98,8 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
                       {u.lastActiveAt ? formatRelativeTime(u.lastActiveAt) : '—'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -156,12 +163,17 @@ async function CrossAppDirectory() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {users.map((u) => {
+                  const risk = riskFromLastActive(u.lastActiveAt);
+                  return (
                   <tr key={u.userId} className="border-b last:border-b-0 hover:bg-muted/40">
                     <td className="px-2 py-2">
-                      <Link href={`/dashboard/people/${u.userId}`} className="hover:underline">
-                        <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Unidentified visitor')}</div>
-                        <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                      <Link href={`/dashboard/people/${u.userId}`} className="flex items-center gap-2 hover:underline">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${risk.dot}`} title={risk.label} />
+                        <span>
+                          <div className="font-medium">{u.displayName ?? (u.email ? u.email : 'Unidentified visitor')}</div>
+                          <div className="text-[10px] text-muted-foreground">{u.email ?? u.userId.slice(0, 8)}</div>
+                        </span>
                       </Link>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{u.appsUsed}</td>
@@ -171,7 +183,8 @@ async function CrossAppDirectory() {
                       {u.lastActiveAt ? formatRelativeTime(u.lastActiveAt) : '—'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

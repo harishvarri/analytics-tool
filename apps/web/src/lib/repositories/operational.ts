@@ -2,6 +2,7 @@ import 'server-only';
 import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
 import type { DirectoryUser } from '../schemas/directory';
+import type { RealtimeActivityItem, EventCategory } from '@/types/analytics';
 
 /**
  * Operational read layer — per-app, event-driven. No SSO/directory concept:
@@ -334,6 +335,160 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     logins,
     apps,
     recent,
+  };
+}
+
+// ── Department Intelligence (detail page) ────────────────────────────────────
+export interface DepartmentStaff {
+  userId: string;
+  name: string;
+  email: string | null;
+  lastActiveAt: string | null;
+  events: number;
+  sessions: number;
+}
+export interface DepartmentDetail {
+  department: string;
+  staffCount: number;
+  activeUsers7d: number;
+  totalEvents: number;
+  totalSessions: number;
+  staff: DepartmentStaff[];
+  topApps: { slug: string; events: number; users: number }[];
+  activities: { name: string; count: number }[];          // business actions only
+  timeline: RealtimeActivityItem[]; // operational events, enriched
+  health: { activityScore: number; adoptionScore: number; engagementScore: number; riskScore: number };
+}
+
+export async function getDepartmentDetail(dept: string, days = 30): Promise<DepartmentDetail | null> {
+  const admin = getSupabaseAdmin();
+  const since = new Date(Date.now() - days * 86400_000).toISOString();
+
+  // Staff in this department.
+  const { data: users, error: usersErr } = await admin
+    .from('analytics_users')
+    .select('id, email, display_name, last_seen_at')
+    .eq('department', dept);
+  if (usersErr) throw new AppError('DEPT_DETAIL_FAILED', usersErr.message, 500);
+  const userRows = (users ?? []) as Record<string, unknown>[];
+  if (userRows.length === 0) {
+    return {
+      department: dept, staffCount: 0, activeUsers7d: 0, totalEvents: 0, totalSessions: 0,
+      staff: [], topApps: [], activities: [], timeline: [],
+      health: { activityScore: 0, adoptionScore: 0, engagementScore: 0, riskScore: 100 },
+    };
+  }
+  const ids = userRows.map((u) => String(u.id));
+  const nameById = new Map(userRows.map((u) => [String(u.id), {
+    name: (u.display_name as string | null) ?? (u.email as string | null) ?? String(u.id).slice(0, 8),
+    email: (u.email as string | null) ?? null,
+  }]));
+
+  // Recent events for these users.
+  const { data: evs, error: evErr } = await admin
+    .from('analytics_events')
+    .select('portal_id, name, category, user_id, session_id, url, metadata, occurred_at')
+    .in('user_id', ids)
+    .gte('occurred_at', since)
+    .order('occurred_at', { ascending: false })
+    .limit(2000);
+  if (evErr) throw new AppError('DEPT_DETAIL_FAILED', evErr.message, 500);
+  const events = (evs ?? []) as Record<string, unknown>[];
+
+  // Aggregate per-user, per-app, per-activity.
+  const perUser = new Map<string, { events: number; sessions: Set<string>; last: string | null }>();
+  const perApp = new Map<string, { events: number; users: Set<string> }>();
+  const perActivity = new Map<string, number>();
+  const sessionsAll = new Set<string>();
+  const active7d = new Set<string>();
+  const sevenAgo = Date.now() - 7 * 86400_000;
+
+  const isOp = (cat: string, name: string) => {
+    const n = (name || '').toLowerCase();
+    if (cat === 'error') return true;
+    if (n.startsWith('auth.')) return true;
+    return !(cat === 'navigation' || cat === 'interaction' || n.startsWith('performance.'));
+  };
+
+  for (const e of events) {
+    const uid = String(e.user_id);
+    const cat = String(e.category);
+    const name = String(e.name);
+    const sid = e.session_id ? String(e.session_id) : null;
+    const pu = perUser.get(uid) ?? { events: 0, sessions: new Set<string>(), last: null };
+    pu.events += 1;
+    if (sid) pu.sessions.add(sid);
+    if (!pu.last || String(e.occurred_at) > pu.last) pu.last = String(e.occurred_at);
+    perUser.set(uid, pu);
+    if (sid) sessionsAll.add(sid);
+    if (new Date(String(e.occurred_at)).getTime() >= sevenAgo) active7d.add(uid);
+    const pa = perApp.get(String(e.portal_id)) ?? { events: 0, users: new Set<string>() };
+    pa.events += 1; pa.users.add(uid); perApp.set(String(e.portal_id), pa);
+    if (isOp(cat, name)) perActivity.set(name, (perActivity.get(name) ?? 0) + 1);
+  }
+
+  const staff: DepartmentStaff[] = userRows.map((u) => {
+    const id = String(u.id);
+    const pu = perUser.get(id);
+    return {
+      userId: id,
+      name: nameById.get(id)!.name,
+      email: nameById.get(id)!.email,
+      lastActiveAt: pu?.last ?? (u.last_seen_at as string | null) ?? null,
+      events: pu?.events ?? 0,
+      sessions: pu?.sessions.size ?? 0,
+    };
+  }).sort((a, b) => b.events - a.events);
+
+  const topApps = Array.from(perApp.entries())
+    .map(([slug, v]) => ({ slug, events: v.events, users: v.users.size }))
+    .sort((a, b) => b.events - a.events).slice(0, 8);
+
+  const activities = Array.from(perActivity.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count).slice(0, 10);
+
+  // Operational timeline (enriched names).
+  const timeline = events
+    .filter((e) => isOp(String(e.category), String(e.name)))
+    .slice(0, 60)
+    .map((e) => {
+      const id = String(e.user_id);
+      const u = nameById.get(id);
+      return {
+        id: `${id}-${String(e.occurred_at)}`,
+        portalId: String(e.portal_id),
+        portalName: String(e.portal_id),
+        category: e.category as EventCategory,
+        eventName: String(e.name),
+        userId: id,
+        userEmail: u?.email ?? null,
+        userDisplayName: u?.name ?? null,
+        sessionId: e.session_id ? String(e.session_id) : null,
+        url: (e.url as string | null) ?? null,
+        occurredAt: String(e.occurred_at),
+        metadata: (e.metadata as Record<string, unknown> | null) ?? null,
+      };
+    });
+
+  const totalEvents = events.length;
+  const staffCount = userRows.length;
+  const activeUsers7d = active7d.size;
+  // Heuristic 0–100 health scores.
+  const activityScore = Math.min(100, Math.round((totalEvents / staffCount) || 0));
+  const adoptionScore = Math.round((activeUsers7d / staffCount) * 100);
+  const avgSessions = staff.length ? staff.reduce((s, u) => s + u.sessions, 0) / staff.length : 0;
+  const engagementScore = Math.min(100, Math.round(avgSessions * 20));
+  const inactive = staff.filter((u) => {
+    const d = u.lastActiveAt ? (Date.now() - new Date(u.lastActiveAt).getTime()) / 86400_000 : 999;
+    return d >= 30;
+  }).length;
+  const riskScore = Math.round((inactive / staffCount) * 100);
+
+  return {
+    department: dept, staffCount, activeUsers7d, totalEvents, totalSessions: sessionsAll.size,
+    staff, topApps, activities, timeline,
+    health: { activityScore, adoptionScore, engagementScore, riskScore },
   };
 }
 
