@@ -96,6 +96,7 @@ import {
 import { getProjectHealth, type ProjectHealthRow } from '../repositories/health';
 import { getOrganizationHealth, type OrgHealth } from '../repositories/orgHealth';
 import { getErrorIntelligence, type ErrorIntelligence } from '../repositories/errorIntelligence';
+import { getIncidents, type IncidentBoard } from '../repositories/incidents';
 import { getCommandCenter, type CommandCenter } from '../repositories/analytics';
 import {
   getPlatformHealth,
@@ -366,6 +367,11 @@ export const fetchErrorIntelligence = (days = 7): Promise<ErrorIntelligence> =>
   withMockFallback('errors.intel', () => getErrorIntelligence(days), () => ({
     windowDays: days, totalErrors: 0, criticalErrors: 0, usersImpacted: 0, projectsImpacted: 0,
     activeIncidents: 0, categories: [], byProject: [], timeline: [],
+  }));
+
+export const fetchIncidents = (): Promise<IncidentBoard> =>
+  withMockFallback('ops.incidents', getIncidents, () => ({
+    open: 0, critical: 0, projectsAtRisk: 0, usersAffected: 0, resolvedToday: null, mttrMinutes: null, incidents: [],
   }));
 
 export const fetchOrganizationHealth = (): Promise<OrgHealth> =>

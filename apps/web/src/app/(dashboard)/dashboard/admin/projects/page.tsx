@@ -3,8 +3,9 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { AddProjectForm } from '@/components/admin/AddProjectForm';
-import { ProjectSnippetRow } from '@/components/admin/ProjectSnippetRow';
+import { ProjectSnippetRow, type ProjectStatusInfo } from '@/components/admin/ProjectSnippetRow';
 import { listProjectsRegistry, type Project } from '@/lib/repositories/projects';
+import { fetchProjectIntelligence } from '@/lib/data/fetchers';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,16 @@ function envTone(env: string): string {
 export default async function ManageProjectsPage() {
   let projects: Project[] = [];
   let loadError: string | null = null;
+  const statusBySlug = new Map<string, ProjectStatusInfo>();
   try {
     projects = await listProjectsRegistry();
+    const intel = await fetchProjectIntelligence();
+    for (const p of intel) {
+      statusBySlug.set(p.slug, {
+        status: p.status, healthScore: p.healthScore,
+        lastActivityAt: p.lastActivityAt, activeUsers7d: p.activeUsers7d,
+      });
+    }
   } catch (err) {
     loadError = err instanceof Error ? err.message : 'Failed to load projects.';
   }
@@ -53,7 +62,7 @@ export default async function ManageProjectsPage() {
         ) : (
           <div className="space-y-1">
             {projects.map((p) => (
-              <ProjectSnippetRow key={p.slug} project={p} envToneClass={envTone(p.environment)} />
+              <ProjectSnippetRow key={p.slug} project={p} envToneClass={envTone(p.environment)} status={statusBySlug.get(p.slug) ?? null} />
             ))}
           </div>
         )}

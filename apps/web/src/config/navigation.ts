@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  AlertOctagon,
   AppWindow,
   BellRing,
   Bug,
@@ -121,6 +122,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: ROUTES.reliability,
         icon: Bug,
         description: 'Categorized errors, who they impact, and which products are worst hit',
+      },
+      {
+        label: 'Incident Management',
+        href: ROUTES.incidents,
+        icon: AlertOctagon,
+        description: 'Auto-detected incidents with impact and recommended action',
       },
       {
         label: 'Risk & Anomaly',

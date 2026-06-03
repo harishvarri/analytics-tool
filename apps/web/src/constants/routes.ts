@@ -18,6 +18,7 @@ export const ROUTES = {
   health:    '/dashboard/health',
   departments: '/dashboard/departments',
   operations: '/dashboard/operations',
+  incidents: '/dashboard/incidents',
   manageProjects: '/dashboard/admin/projects',
   login: '/login',
   // Legacy aliases — kept for any external links/bookmarks
