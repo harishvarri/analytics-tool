@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AlertOctagon, Bug, Boxes, Users } from 'lucide-react';
+import { AlertOctagon, Bug, Boxes, ChevronDown, Clock3, Code2, Database, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
@@ -22,6 +22,20 @@ const CAT_TONE: Record<ErrorCategory, string> = {
 
 function relTime(iso: string): string {
   return formatRelativeTime(iso);
+}
+
+function dateTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(iso));
+}
+
+function formatMetadataValue(value: unknown): string {
+  if (value === null || value === undefined) return 'null';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
 }
 
 export default async function ErrorIntelligencePage() {
@@ -149,30 +163,108 @@ export default async function ErrorIntelligencePage() {
       {/* Error groups (deduped by fingerprint) */}
       {groups.length > 0 && (
         <ChartCard title="Grouped errors" description="Distinct error signatures, ranked by impact (last 30 days)">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="text-muted-foreground">
-                <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Error</th>
-                  <th className="px-2 py-2 text-right font-medium">Occurrences</th>
-                  <th className="px-2 py-2 text-right font-medium">Users</th>
-                  <th className="px-2 py-2 text-right font-medium">Last seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((g) => (
-                  <tr key={g.fingerprint} className="border-b last:border-b-0 hover:bg-muted/40">
-                    <td className="px-2 py-2">
-                      <div className="max-w-[420px] truncate font-medium" title={g.sampleMessage}>{g.sampleMessage || g.errorName || 'Unknown error'}</div>
-                      {g.isNew && <Badge variant="outline" className="mt-0.5 border-rose-500/40 text-[9px] text-rose-600 dark:text-rose-400">NEW</Badge>}
-                    </td>
-                    <td className="px-2 py-2 text-right tabular-nums">{fmt.format(g.totalOccurrences)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{fmt.format(g.affectedUsers)}</td>
-                    <td className="px-2 py-2 text-right text-muted-foreground">{relTime(g.lastSeen)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {groups.map((g) => {
+              const metadataEntries = Object.entries(g.sampleMetadata ?? {});
+              return (
+                <details key={g.fingerprint} className="group rounded-md border bg-background">
+                  <summary className="flex cursor-pointer list-none items-start gap-3 px-3 py-3 text-xs hover:bg-muted/40">
+                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition group-open:rotate-180" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-medium" title={g.sampleMessage}>
+                          {g.sampleMessage || g.errorName || 'Unknown error'}
+                        </span>
+                        {g.errorName && <Badge variant="secondary" className="text-[10px]">{g.errorName}</Badge>}
+                        {g.isNew && <Badge variant="outline" className="border-rose-500/40 text-[9px] text-rose-600 dark:text-rose-400">NEW</Badge>}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                        <span>{fmt.format(g.totalOccurrences)} occurrences</span>
+                        <span>{fmt.format(g.affectedUsers)} users</span>
+                        <span>{fmt.format(g.affectedSessions)} sessions</span>
+                        <span>Last seen {relTime(g.lastSeen)}</span>
+                      </div>
+                    </div>
+                    <div className="hidden text-right tabular-nums text-muted-foreground sm:block">
+                      <div>{fmt.format(g.occurrences24h)} / 24h</div>
+                      <div>{fmt.format(g.occurrences7d)} / 7d</div>
+                    </div>
+                  </summary>
+
+                  <div className="border-t px-3 py-4 text-xs">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
+                      <div className="space-y-4">
+                        <section>
+                          <div className="mb-2 flex items-center gap-2 font-medium">
+                            <Bug className="h-3.5 w-3.5 text-rose-500" />
+                            Sample message
+                          </div>
+                          <div className="rounded-md bg-muted/50 p-3 text-muted-foreground">
+                            {g.sampleMessage || 'No sample message recorded.'}
+                          </div>
+                        </section>
+
+                        <section>
+                          <div className="mb-2 flex items-center gap-2 font-medium">
+                            <Code2 className="h-3.5 w-3.5 text-sky-500" />
+                            Stack trace
+                          </div>
+                          {g.sampleStack ? (
+                            <pre className="max-h-72 overflow-auto rounded-md bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-100">
+                              <code>{g.sampleStack}</code>
+                            </pre>
+                          ) : (
+                            <div className="rounded-md border border-dashed p-3 text-muted-foreground">
+                              No stack trace was captured for this sample.
+                            </div>
+                          )}
+                        </section>
+                      </div>
+
+                      <div className="space-y-4">
+                        <section>
+                          <div className="mb-2 flex items-center gap-2 font-medium">
+                            <Clock3 className="h-3.5 w-3.5 text-amber-500" />
+                            Timing and impact
+                          </div>
+                          <dl className="grid grid-cols-2 gap-2 rounded-md bg-muted/50 p-3">
+                            <dt className="text-muted-foreground">First seen</dt>
+                            <dd className="text-right">{dateTime(g.firstSeen)}</dd>
+                            <dt className="text-muted-foreground">Last seen</dt>
+                            <dd className="text-right">{dateTime(g.lastSeen)}</dd>
+                            <dt className="text-muted-foreground">Occurrences</dt>
+                            <dd className="text-right tabular-nums">{fmt.format(g.totalOccurrences)}</dd>
+                            <dt className="text-muted-foreground">Products</dt>
+                            <dd className="text-right tabular-nums">{fmt.format(g.appCount)}</dd>
+                          </dl>
+                        </section>
+
+                        <section>
+                          <div className="mb-2 flex items-center gap-2 font-medium">
+                            <Database className="h-3.5 w-3.5 text-emerald-500" />
+                            Metadata
+                          </div>
+                          {metadataEntries.length > 0 ? (
+                            <dl className="max-h-72 overflow-auto rounded-md border">
+                              {metadataEntries.map(([key, value]) => (
+                                <div key={key} className="grid grid-cols-[120px_minmax(0,1fr)] gap-2 border-b px-3 py-2 last:border-b-0">
+                                  <dt className="truncate font-mono text-[11px] text-muted-foreground" title={key}>{key}</dt>
+                                  <dd className="break-words font-mono text-[11px]">{formatMetadataValue(value)}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          ) : (
+                            <div className="rounded-md border border-dashed p-3 text-muted-foreground">
+                              No metadata was captured for this sample.
+                            </div>
+                          )}
+                        </section>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              );
+            })}
           </div>
         </ChartCard>
       )}

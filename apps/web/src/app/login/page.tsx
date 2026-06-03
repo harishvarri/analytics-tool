@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, Suspense } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import { AlertTriangle } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 
 // Demo accounts — shown in development or when NEXT_PUBLIC_SHOW_DEMO=true
@@ -34,16 +35,23 @@ function LoginForm() {
   async function signIn(signInEmail: string, signInPassword: string) {
     setLoading(true);
     setError(null);
-    const { error: err } = await supabase.auth.signInWithPassword({
-      email: signInEmail,
-      password: signInPassword,
-    });
-    if (err) {
-      setError(err.message);
-      setLoading(false);
-    } else {
+    try {
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: signInEmail,
+        password: signInPassword,
+      });
+
+      if (err) {
+        setError(err.message || 'Invalid email or password.');
+        return;
+      }
+
       router.replace(redirect);
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -73,8 +81,12 @@ function LoginForm() {
           <p className="mb-6 text-sm text-gray-500">Use your NCPL credentials to continue.</p>
 
           {error && (
-            <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-              <span className="mt-0.5 shrink-0">⚠</span>
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="relative z-10 mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-800 shadow-sm"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </div>
           )}
@@ -100,7 +112,7 @@ function LoginForm() {
                 required
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(null); }}
-                placeholder="••••••••"
+                placeholder="********"
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-400/20"
               />
             </div>
@@ -109,7 +121,7 @@ function LoginForm() {
               disabled={loading}
               className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
             >
-              {loading ? 'Signing in…' : 'Continue'}
+              {loading ? 'Signing in...' : 'Continue'}
             </button>
           </form>
 

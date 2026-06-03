@@ -14,6 +14,8 @@ import { AppError } from '../api/errors';
 export interface ErrorGroup {
   fingerprint:      string;
   sampleMessage:    string;
+  sampleStack:      string | null;
+  sampleMetadata:   Record<string, unknown> | null;
   errorTypes:       string[];
   errorName:        string | null;
   totalOccurrences: number;
@@ -58,12 +60,16 @@ export async function getErrorGroups(limit = 50): Promise<ErrorGroup[]> {
 
   return ((data ?? []) as Array<{
     fingerprint: string; sample_message: string; error_types: string[] | null;
-    error_name: string | null; total_occurrences: number; affected_users: number;
+    error_name: string | null; sample_stack: string | null;
+    sample_metadata: Record<string, unknown> | null;
+    total_occurrences: number; affected_users: number;
     affected_sessions: number; app_count: number; first_seen: string; last_seen: string;
     occurrences_24h: number; occurrences_7d: number; is_new: boolean;
   }>).map((r) => ({
     fingerprint:      r.fingerprint,
     sampleMessage:    r.sample_message,
+    sampleStack:      r.sample_stack,
+    sampleMetadata:   r.sample_metadata,
     errorTypes:       Array.from(new Set(r.error_types ?? [])),
     errorName:        r.error_name,
     totalOccurrences: Number(r.total_occurrences),
