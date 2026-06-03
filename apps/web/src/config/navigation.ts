@@ -4,6 +4,7 @@ import {
   BellRing,
   Bug,
   Building2,
+  Gauge,
   HeartPulse,
   Radio,
   Settings2,
@@ -110,6 +111,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   {
     label: 'Operations',
     items: [
+      {
+        label: 'Executive Operations Center',
+        href: ROUTES.operations,
+        icon: Gauge,
+        description: 'Org health score, what needs attention today, and recommended actions',
+      },
       {
         label: 'System Errors',
         href: ROUTES.reliability,
