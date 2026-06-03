@@ -62,11 +62,13 @@ export async function getErrorIntelligence(days = 7): Promise<ErrorIntelligence>
   const admin = getSupabaseAdmin();
   const since = new Date(Date.now() - days * DAY).toISOString();
 
-  // Errors + auth failures (auth.login_failed is an auth error operationally).
+  // Errors + auth failures. Match by category='error' OR an error.* event name
+  // (so manual ncpl.track('error.captured', …) — which sends category 'custom' —
+  // is still counted), plus auth.login_failed which is an auth error.
   const { data, error } = await admin
     .from('analytics_events')
     .select('id, portal_id, category, name, user_id, session_id, url, metadata, occurred_at')
-    .or('category.eq.error,name.eq.auth.login_failed')
+    .or('category.eq.error,name.like.error*,name.eq.auth.login_failed')
     .gte('occurred_at', since)
     .order('occurred_at', { ascending: false })
     .limit(3000);
