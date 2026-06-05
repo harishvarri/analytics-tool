@@ -156,8 +156,8 @@ CREATE OR REPLACE FUNCTION public.create_project_atomic(
   p_api_key      text    DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-  INSERT INTO public.analytics_portals (id)
-  VALUES (p_slug)
+  INSERT INTO public.analytics_portals (id, name)
+  VALUES (p_slug, p_name)
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO public.analytics_projects (

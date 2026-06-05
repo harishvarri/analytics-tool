@@ -56,7 +56,7 @@ import {
 } from '../repositories/audience';
 import { getJourneyGraph, type JourneyGraph } from '../repositories/journeys';
 import { getProjectComparison, type ProjectComparisonRow } from '../repositories/crossProject';
-import { getInsights, type InsightsBundle } from '../repositories/insights';
+import { getInsights, type ExecutiveOperationsReport } from '../repositories/insights';
 import {
   getActiveUserCounts,
   getPerformanceByRoute,
@@ -277,10 +277,34 @@ export const fetchProjectComparison = (): Promise<ProjectComparisonRow[]> =>
 
 // ── Smart Insights (Module L) ────────────────────────────────────────────────
 
-export const fetchInsights = (): Promise<InsightsBundle> =>
+export const fetchInsights = (): Promise<ExecutiveOperationsReport> =>
   withMockFallback('insights', getInsights, () => ({
-    insights: [],
-    intelligence: { mostAdopted: null, fastestGrowing: null, leastUsed: null, churnRisk: null },
+    week: {
+      startDate: new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10),
+      endDate: new Date().toISOString().slice(0, 10),
+      previousStartDate: new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10),
+      previousEndDate: new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10),
+    },
+    platformStatus: 'warning',
+    executiveSummary: ['Live analytics data is currently unavailable.'],
+    productRanking: [],
+    productIntelligence: [],
+    adoption: { mostUsed: null, leastUsed: null, fastestGrowing: null, declining: null, newlyAdopted: [] },
+    engagement: {
+      activeUsers: { value: 0, previous: 0, deltaPct: 0, direction: 'flat' },
+      sessions: { value: 0, previous: 0, deltaPct: 0, direction: 'flat' },
+      logins: { value: 0, previous: 0, deltaPct: 0, direction: 'flat' },
+      avgSessionsPerUser: 0,
+      avgLoginsPerUser: 0,
+      returningUsers: 0,
+      newUsers: 0,
+      trend: 'No measurable engagement',
+    },
+    departments: { mostActive: null, leastActive: null, rows: [] },
+    risks: [],
+    incidents: { created: 0, resolved: null, open: 0, critical: 0, summary: 'Incident data is currently unavailable.' },
+    recommendations: [{ priority: 'low', title: 'Restore analytics connection', detail: 'Reconnect the database to generate the executive operations report.' }],
+    scorecard: { platformHealth: 0, engagement: 0, reliability: 0, adoption: 0, risk: 'Low', overallStatus: 'warning' },
   }));
 
 // ── Performance (Module #8) ──────────────────────────────────────────────────
