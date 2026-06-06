@@ -98,7 +98,7 @@ export async function getIntegrationHealth(): Promise<IntegrationHealth> {
     const missing: string[] = [];
     if (!checks.scriptInstalled) missing.push('Tracking script not detected (no events ever received)');
     else if (!checks.eventsFlowing) missing.push('No events in the last 7 days');
-    if (!checks.usersIdentified) missing.push('No identified users — call ncpl.identify(null, { email, name }) on login');
+    if (!checks.usersIdentified) missing.push('No identified users yet — the SDK auto-detects Supabase/Clerk/Firebase/Auth0/JWT on sign-in; for custom auth call ncpl.identify(null, { email, name })');
     if (!checks.businessEvents) missing.push('No business events — track key actions (e.g. ncpl.track("ticket.created"))');
     if (!checks.errorsCaptured) missing.push('No errors captured yet (fine if none occurred; tag with errorType when they do)');
 

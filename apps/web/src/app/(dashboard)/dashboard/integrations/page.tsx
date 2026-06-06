@@ -19,7 +19,7 @@ function scoreTone(s: number): string {
 const CHECK_LABELS: { key: keyof IntegrationChecks; label: string }[] = [
   { key: 'scriptInstalled', label: 'Script' },
   { key: 'eventsFlowing', label: 'Events' },
-  { key: 'usersIdentified', label: 'Users' },
+  { key: 'usersIdentified', label: 'Auto users' },
   { key: 'errorsCaptured', label: 'Errors' },
   { key: 'businessEvents', label: 'Business' },
 ];

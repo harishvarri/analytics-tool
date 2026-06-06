@@ -133,39 +133,67 @@ analytics.track('candidate.created', { candidateId });`;
   }),
 });`;
 
+  const AUTO_CAPTURES = [
+    'Sessions (start, end, duration)',
+    'Logins & logouts (auto-detected user)',
+    'Real user names & emails (Supabase, Clerk, Firebase, Auth0, JWT)',
+    'Page views & SPA navigation',
+    'Clicks & form submits',
+    'JavaScript & network errors',
+    'Page-load performance',
+    'Device, browser, OS',
+  ];
+
   return (
     <div className="space-y-5">
-      <Step n={1} title="Install the tracker (one tag, zero code)">
+      {/* Quick start — the only required step */}
+      <Step n={1} title="Quick start — paste one tag, done">
         <p className="text-[11px] text-muted-foreground">
-          Paste into the app&apos;s <code className="rounded bg-muted px-1">&lt;head&gt;</code>. Auto-captures page
-          views, sessions, clicks, performance, and errors.
+          Add this to the app&apos;s <code className="rounded bg-muted px-1">&lt;head&gt;</code>. No login code,
+          no identify call, no event code — it auto-detects the signed-in user and captures everything below.
         </p>
-        <CopyBlock title="Script tag (recommended)" code={scriptSnippet} recommended />
+        <CopyBlock title="The only script you need" code={scriptSnippet} recommended />
+        <div className="rounded-md border bg-muted/30 p-3">
+          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Automatically captures</div>
+          <ul className="grid gap-1 sm:grid-cols-2">
+            {AUTO_CAPTURES.map((c) => (
+              <li key={c} className="flex items-start gap-1.5 text-[11px]">
+                <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" /><span>{c}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </Step>
 
-      <Step n={2} title="Identify users on login (gets real names)">
-        <p className="text-[11px] text-muted-foreground">
-          Without this, everyone shows as &quot;Unidentified visitor.&quot; This single call links activity to the real person.
-        </p>
-        <CopyBlock title="Identify on login" code={identifySnippet} recommended />
-      </Step>
-
-      <Step n={3} title="Track business events">
-        <p className="text-[11px] text-muted-foreground">
-          The operational dashboards surface these — not page views. Fire one wherever a meaningful action happens.
-        </p>
-        <CopyBlock title="Business events" code={businessEventsSnippet} />
-      </Step>
-
-      <Step n={4} title="Tag errors (optional, sharpens Error Intelligence)">
-        <CopyBlock title="Error tagging" code={errorSnippet} />
-      </Step>
-
+      {/* Everything else is optional */}
       <details className="rounded-md border bg-muted/20">
         <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
-          Environment variables, SDK &amp; server-side options
+          Advanced (optional) — business events, custom auth, SDK
         </summary>
-        <div className="space-y-3 p-3 pt-0">
+        <div className="space-y-4 p-3 pt-1">
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold">Track business events</div>
+            <p className="text-[11px] text-muted-foreground">
+              The only thing the script can&apos;t infer. Fire one wherever a meaningful action happens to power the
+              operational feed, user/project intelligence, and reports.
+            </p>
+            <CopyBlock title="Business events" code={businessEventsSnippet} />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold">Custom auth? Identify manually</div>
+            <p className="text-[11px] text-muted-foreground">
+              Only needed if your app uses an auth system the SDK can&apos;t auto-detect. A manual call always takes
+              precedence over auto-detection.
+            </p>
+            <CopyBlock title="Identify on login (custom auth only)" code={identifySnippet} />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold">Tag errors for sharper categorization</div>
+            <CopyBlock title="Error tagging" code={errorSnippet} />
+          </div>
+
           <CopyBlock title="Environment variables" code={envSnippet} />
           <CopyBlock title="SDK (React / Next.js / Node)" code={sdkSnippet} />
           <CopyBlock title="Plain fetch (any runtime / language)" code={fetchSnippet} />
@@ -175,15 +203,15 @@ analytics.track('candidate.created', { candidateId });`;
       <div className="rounded-md border border-dashed bg-muted/30 p-3 text-[11px]">
         <div className="mb-1 font-medium">Verify it&apos;s working</div>
         <ol className="list-decimal space-y-0.5 pl-4 text-muted-foreground">
-          <li>Load the app, then sign in (fires identify + auth.login).</li>
+          <li>Load the app and sign in — the SDK auto-detects the user and fires a login.</li>
           <li>Open this product&apos;s <strong>Project Intelligence</strong> page — activity appears within ~1 minute.</li>
-          <li>Check <strong>Staff Intelligence</strong> — your name should replace &quot;Unidentified.&quot;</li>
+          <li>Check <strong>Staff Intelligence</strong> — the real name should replace &quot;Unidentified.&quot;</li>
         </ol>
       </div>
 
       <p className="text-[11px] text-muted-foreground">
         This key authenticates ingestion for <code className="rounded bg-muted px-1">{slug}</code> only — it can create
-        events, nothing else. Keep it in the app&apos;s env, not in client-visible source where possible.
+        events, nothing else. Auto user discovery reads only email/name locally; the raw auth token is never sent.
       </p>
     </div>
   );

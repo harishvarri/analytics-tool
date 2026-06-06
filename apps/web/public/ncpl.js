@@ -1,24 +1,26 @@
 /*!
- * ncpl.js — NCPL Analytics auto-capture script (v1)
+ * ncpl.js — NCPL Analytics auto-capture script (v2)
  *
  * Zero-dependency, framework-agnostic. Add ONE tag to any web app and it
  * automatically captures page views, SPA route changes, sessions, clicks,
- * form submits, device/browser/OS, performance, and JS errors — no developer
- * code required.
+ * form submits, device/browser/OS, performance, JS errors — AND the signed-in
+ * user (auto-detected from Supabase, Clerk, Firebase, Auth0, or a JWT), with
+ * auto login/logout events. No developer code required.
  *
  *   <script defer src="https://<your-analytics-host>/ncpl.js"
  *           data-project="crm" data-key="ncpl_pk_xxxxx"></script>
  *
  * Optional manual events (the app MAY call these, but isn't required to):
  *   window.ncpl.track('payment.completed', { amount: 4200 });
- *   window.ncpl.identify('<uuid>');   // a real user UUID, if you have one
+ *   window.ncpl.identify('<uuid>');   // override auto-detection if you prefer
  *   window.ncpl.page();               // force a page view
  *
  * Attributes:
- *   data-project   (required)  project slug, e.g. "crm"
- *   data-key       (required)  public ingest key, e.g. "ncpl_pk_..."
- *   data-endpoint  (optional)  override ingest URL (defaults to this script's origin)
- *   data-debug     (optional)  log captured events to the console
+ *   data-project       (required)  project slug, e.g. "crm"
+ *   data-key           (required)  public ingest key, e.g. "ncpl_pk_..."
+ *   data-endpoint      (optional)  override ingest URL (defaults to script origin)
+ *   data-debug         (optional)  log captured events to the console
+ *   data-autoidentify  (optional)  set to "false" to disable auto user discovery
  */
 (function () {
   'use strict';
@@ -35,6 +37,7 @@
     var PROJECT = script.getAttribute('data-project');
     var KEY = script.getAttribute('data-key');
     var DEBUG = script.hasAttribute('data-debug');
+    var AUTO_IDENTIFY = (script.getAttribute('data-autoidentify') || '').toLowerCase() !== 'false';
     if (!PROJECT || !KEY) {
       if (DEBUG) console.warn('[ncpl] missing data-project or data-key — not tracking');
       return;
@@ -144,6 +147,13 @@
       return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
     }
 
+    // Auto user-discovery state. manualSet = the app called identify() itself
+    // (takes precedence — we stop auto-detecting). autoKey = the identity we
+    // auto-detected, so we don't re-fire auth.login on every reload/poll.
+    var manualSet = false;
+    var autoIdentified = !!identifiedEmail;
+    var autoKey = identifiedEmail || (isUuid(userId) ? userId : null);
+
     // ---- event queue (batch + retry-safe unload flush) ---------------------
     var queue = [];
     var FLUSH_MS = 4000;
@@ -197,7 +207,12 @@
     window.ncpl.track = function (name, metadata) {
       if (typeof name === 'string' && name) enqueue('custom', name, metadata);
     };
+    // Public identify() — flags a manual override so auto-discovery defers to it.
     window.ncpl.identify = function (id, traits) {
+      manualSet = true;
+      doIdentify(id, traits);
+    };
+    function doIdentify(id, traits) {
       traits = traits || {};
       if (id === null && !traits.email && !traits.name) {
         userId = ANON_ID;
@@ -354,6 +369,153 @@
       if (document.visibilityState === 'hidden') { flushEngagement(); flush(true); }
     });
     window.addEventListener('pagehide', function () { flushEngagement(); flush(true); });
+
+    // ---- AUTO USER DISCOVERY (v2) ------------------------------------------
+    // Detect the signed-in user from common auth providers and identify them
+    // with no developer code. Only email/name/sub are read; the raw token is
+    // never stored or transmitted. Every probe is wrapped so it can't throw.
+    function b64urlDecode(s) {
+      try {
+        s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+        while (s.length % 4) s += '=';
+        var raw = atob(s);
+        try {
+          return decodeURIComponent(raw.split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+        } catch (e) { return raw; }
+      } catch (e) { return null; }
+    }
+    function jwtPayload(tok) {
+      if (typeof tok !== 'string') return null;
+      var parts = tok.split('.');
+      if (parts.length !== 3) return null;
+      var json = b64urlDecode(parts[1]);
+      if (!json) return null;
+      try { return JSON.parse(json); } catch (e) { return null; }
+    }
+    function looksJwt(s) {
+      return typeof s === 'string' && s.length < 4096 &&
+        /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(s);
+    }
+    function pickName(o) {
+      if (!o) return null;
+      if (o.full_name) return o.full_name;
+      if (o.name) return o.name;
+      if (o.fullName) return o.fullName;
+      if (o.displayName) return o.displayName;
+      var combo = ((o.given_name || '') + ' ' + (o.family_name || '')).trim();
+      return combo || null;
+    }
+    function fromUser(u, provider) {
+      if (!u || typeof u !== 'object') return null;
+      var email = u.email ||
+        (u.primaryEmailAddress && u.primaryEmailAddress.emailAddress) || null;
+      var name = pickName(u) || (u.user_metadata ? pickName(u.user_metadata) : null);
+      var id = u.id || u.uid || u.sub || null;
+      if (!email && !id) return null;
+      return { id: id, email: email ? String(email).toLowerCase() : null, name: name || null, provider: provider };
+    }
+    function fromClaims(c, provider) {
+      if (!c || typeof c !== 'object') return null;
+      var email = c.email || null;
+      if (!email && !c.sub) return null;
+      return { id: c.sub || null, email: email ? String(email).toLowerCase() : null, name: pickName(c), provider: provider };
+    }
+    function lsKeys() {
+      var out = [];
+      try { for (var i = 0; i < localStorage.length; i++) out.push(localStorage.key(i)); } catch (e) {}
+      return out;
+    }
+    function discoverUser() {
+      // 1. Supabase — session JSON under sb-<ref>-auth-token in localStorage.
+      try {
+        var keys = lsKeys();
+        for (var i = 0; i < keys.length; i++) {
+          if (!/^sb-.*-auth-token$/.test(keys[i])) continue;
+          var parsed = JSON.parse(localStorage.getItem(keys[i]));
+          if (Array.isArray(parsed)) parsed = parsed[0];
+          var sUser = (parsed && (parsed.user || (parsed.currentSession && parsed.currentSession.user))) || null;
+          var got = fromUser(sUser, 'supabase');
+          if (got && (got.email || got.id)) return got;
+          var at = parsed && (parsed.access_token || (parsed.currentSession && parsed.currentSession.access_token));
+          if (at) { var c = fromClaims(jwtPayload(at), 'supabase'); if (c && c.email) return c; }
+        }
+      } catch (e) {}
+      // 2. Clerk
+      try { if (window.Clerk && window.Clerk.user) { var g = fromUser(window.Clerk.user, 'clerk'); if (g) return g; } } catch (e) {}
+      // 3. Firebase
+      try {
+        var fb = window.firebase && window.firebase.auth && window.firebase.auth();
+        if (fb && fb.currentUser) { var gf = fromUser(fb.currentUser, 'firebase'); if (gf) return gf; }
+      } catch (e) {}
+      // 4. Auth0 (SPA SDK stores id_token in an @@auth0spajs@@ cache entry)
+      try {
+        var ks = lsKeys();
+        for (var j = 0; j < ks.length; j++) {
+          if (ks[j].indexOf('@@auth0spajs@@') === -1) continue;
+          var a = JSON.parse(localStorage.getItem(ks[j]));
+          var body = a && (a.body || a);
+          var idt = body && (body.id_token || (body.decodedToken && body.decodedToken.encoded && body.decodedToken.encoded.id_token));
+          var u0 = body && body.decodedToken && body.decodedToken.user;
+          if (u0) { var gu = fromUser(u0, 'auth0'); if (gu) return gu; }
+          if (idt) { var ca = fromClaims(jwtPayload(idt), 'auth0'); if (ca && ca.email) return ca; }
+        }
+      } catch (e) {}
+      // 5. Generic JWT — scan storage for an access/id token with an email claim.
+      try {
+        var stores = [window.localStorage, window.sessionStorage];
+        for (var s = 0; s < stores.length; s++) {
+          var st = stores[s]; if (!st) continue;
+          for (var k = 0; k < st.length; k++) {
+            var val = st.getItem(st.key(k));
+            if (!looksJwt(val)) continue;
+            var cg = fromClaims(jwtPayload(val), 'jwt');
+            if (cg && cg.email) return cg;
+          }
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function applyDiscovery() {
+      if (!AUTO_IDENTIFY || manualSet) return;
+      var d = null;
+      try { d = discoverUser(); } catch (e) { d = null; }
+      if (d && (d.email || (d.id && isUuid(d.id)))) {
+        var key = d.email || d.id;
+        if (key !== autoKey) {
+          if (d.id && isUuid(d.id)) doIdentify(d.id, d.name ? { name: d.name } : {});
+          else doIdentify(null, d.name ? { email: d.email, name: d.name } : { email: d.email });
+          autoKey = key;
+          autoIdentified = true;
+          enqueue('auth', 'auth.login', { method: 'auto', provider: d.provider });
+          if (DEBUG) console.log('[ncpl] auto-identified via ' + d.provider, d.email || d.id);
+        }
+      } else if (autoIdentified) {
+        // Identity was auto-detected and is now gone → treat as sign-out.
+        enqueue('auth', 'auth.logout', { method: 'auto' });
+        doIdentify(null);
+        autoKey = null;
+        autoIdentified = false;
+        if (DEBUG) console.log('[ncpl] auto sign-out detected');
+      }
+    }
+
+    if (AUTO_IDENTIFY) {
+      applyDiscovery();
+      // Providers may hydrate after load — re-check a few times, then on signals.
+      [800, 2500, 6000, 15000].forEach(function (ms) { setTimeout(applyDiscovery, ms); });
+      try {
+        window.addEventListener('storage', applyDiscovery);
+        window.addEventListener('focus', applyDiscovery);
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') applyDiscovery();
+        });
+        window.addEventListener('popstate', applyDiscovery);
+        window.addEventListener('hashchange', applyDiscovery);
+      } catch (e) {}
+    }
 
     if (DEBUG) console.log('[ncpl] initialised for project "' + PROJECT + '" → ' + ENDPOINT);
   } catch (fatal) {
