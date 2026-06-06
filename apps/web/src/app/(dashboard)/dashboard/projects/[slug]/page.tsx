@@ -74,8 +74,8 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
           trend={{ direction: 'flat', label: `${fmt.format(p.activeUsersToday)} today` }} />
         <KpiCard label="Sessions (7d)" value={fmt.format(p.sessions7d)} icon={Zap}
           trend={{ direction: 'flat', label: 'work sessions' }} />
-        <KpiCard label="Adoption" value={`${p.adoptionPct}%`} icon={Activity}
-          trend={{ direction: 'flat', label: `${fmt.format(p.usersWithAccess)} with access` }} />
+        <KpiCard label="Usage / engagement" value={String(p.adoptionNorm)} icon={Activity}
+          trend={{ direction: 'flat', label: `${fmt.format(p.activeUsers7d)} active users (7d)` }} />
         <KpiCard label="Business activity (7d)" value={fmt.format(p.businessEvents7d)} icon={Activity}
           trend={{ direction: 'flat', label: 'operational actions' }} />
       </section>
@@ -189,7 +189,7 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
       </section>
 
       <div className={`text-[11px] ${scoreTone(p.healthScore)}`}>
-        Health {p.healthScore}/100 — adoption {p.adoptionNorm}, reliability {p.reliabilityNorm}, performance {p.performanceNorm}, momentum {p.activityNorm}.
+        Health {p.healthScore}/100 — usage {p.adoptionNorm}, reliability {p.reliabilityNorm}, performance {p.performanceNorm}, momentum {p.activityNorm}.
       </div>
     </div>
   );

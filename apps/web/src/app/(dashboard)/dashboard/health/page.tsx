@@ -150,7 +150,7 @@ export default async function PlatformHealthPage() {
               )}
 
               <div className="mt-3 grid grid-cols-4 gap-2 border-t pt-2 text-center text-[10px] text-muted-foreground">
-                <div><div className="font-semibold text-foreground">{p.adoptionNorm}</div>adoption</div>
+                <div><div className="font-semibold text-foreground">{p.adoptionNorm}</div>usage</div>
                 <div><div className="font-semibold text-foreground">{p.reliabilityNorm}</div>reliability</div>
                 <div><div className="font-semibold text-foreground">{p.performanceNorm}</div>speed</div>
                 <div><div className="font-semibold text-foreground">{p.activityNorm}</div>momentum</div>

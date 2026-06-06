@@ -98,13 +98,9 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
   // Error impact: average error rate across products → invert.
   const errorImpact = Math.max(0, Math.round(100 - Math.min(100, avg(projects.map((p) => p.errorRatePct)) * 8)));
 
-  // User adoption: average adoption % across products that actually have access
-  // grants synced. Unmeasured projects (no grants) are excluded rather than
-  // counted as 0 — otherwise a missing directory sync would falsely tank the
-  // org score and show 100/100 adoption risk.
-  const measured = projects.filter((p) => p.adoptionMeasured);
-  const adoptionUnmeasured = measured.length === 0;
-  const userAdoption = adoptionUnmeasured ? 60 : Math.round(avg(measured.map((p) => p.adoptionPct)));
+  // Usage/engagement: average of each product's engagement score (active users,
+  // from 0035). No access grants required — always measurable from real activity.
+  const userAdoption = Math.round(avg(projects.map((p) => p.adoptionNorm)));
 
   // Department engagement: % of directory staff that are active.
   const totalStaff = deptRollup.reduce((s, d) => s + d.totalUsers, 0);
@@ -177,11 +173,10 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
 
   // ── Executive recommendations (actionable, plain English) ───────────────────
   const recommendations: string[] = [];
-  if (adoptionUnmeasured) recommendations.push('Sync your directory (POST /api/v1/directory) or grant project access so adoption can be measured — it is currently the biggest unknown dragging health.');
   for (const p of projects) {
     if (p.errorRatePct >= 2) recommendations.push(`Investigate errors in ${p.name} (${p.errorRatePct}% error rate).`);
     if (p.daysSinceActivity !== null && p.daysSinceActivity >= 14) recommendations.push(`Follow up on ${p.name} — unused for ${p.daysSinceActivity} days.`);
-    else if (p.adoptionMeasured && p.adoptionPct < 30) recommendations.push(`Drive adoption in ${p.name} — only ${p.adoptionPct}% of staff with access use it.`);
+    else if (p.adoptionNorm < 40) recommendations.push(`Grow usage of ${p.name} — only ${p.activeUsers7d} active users this week.`);
     if (p.failedLogins7d >= 10) recommendations.push(`Review authentication failures in ${p.name} (${p.failedLogins7d} failed logins this week).`);
     // Surface the dominant health driver for non-healthy products.
     if (p.status !== 'healthy' && p.topHealthDriver && p.errorRatePct < 2 && (p.daysSinceActivity ?? 0) < 14) {
@@ -207,7 +202,7 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
       text: `${p.name} health ${p.healthScore}/100 — ${p.topHealthDriver ?? p.issues[0] ?? p.healthReasons[0] ?? 'below target'}`,
     });
   }
-  if (adoptionUnmeasured) why.push({ severity: 'warning', text: 'Adoption can’t be measured — no access grants synced (drags the score)' });
+  if (userAdoption < 50) why.push({ severity: 'warning', text: `Low usage across products — engagement averaging ${userAdoption}/100` });
   if (errors && errors.usersImpacted > 0) why.push({ severity: 'warning', text: `${errors.usersImpacted} users impacted by errors` });
   if (authErrors > 0) why.push({ severity: authErrors >= 10 ? 'critical' : 'warning', text: `${authErrors} authentication ${authErrors === 1 ? 'failure' : 'failures'}` });
   why.push(dbErrors > 0
@@ -220,7 +215,7 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
     { key: 'api',            label: 'API stability risk',  score: Math.min(100, apiErrors * 6) },
     { key: 'authentication', label: 'Authentication risk', score: Math.min(100, authErrors * 6) },
     { key: 'database',       label: 'Database risk',       score: Math.min(100, dbErrors * 10) },
-    { key: 'adoption',       label: 'Adoption risk',       score: Math.max(0, 100 - components.userAdoption) },
+    { key: 'adoption',       label: 'Usage risk',          score: Math.max(0, 100 - components.userAdoption) },
     { key: 'project',        label: 'Project risk',        score: Math.min(100, Math.round(((critical * 100 + warning * 50) / Math.max(1, n)))) },
   ];
   riskFactors.sort((a, b) => b.score - a.score);

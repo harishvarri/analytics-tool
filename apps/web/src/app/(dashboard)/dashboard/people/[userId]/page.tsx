@@ -9,6 +9,7 @@ import { fetchUserDetail } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
 import { isOperationalEvent } from '@/lib/importance';
 import { riskFromLastActive } from '@/lib/user-risk';
+import { computeProductivity } from '@/lib/productivity';
 import { formatRelativeTime } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,20 @@ export default async function UserDetailPage({ params }: PageProps) {
     .map((a) => ({ slug: a.projectSlug, name: getPortalConfig(a.projectSlug).name, events: a.events, pct: Math.round((a.events / totalAppEvents) * 100), lastActive: a.lastActive }));
   const mostUsed = appUsage[0]?.name ?? '—';
 
+  // Productivity score (0–100) from real activity signals.
+  const productivity = computeProductivity({
+    activeMinutes: u.totalSessionMinutes,
+    businessActions,
+    sessions: u.totalSessions,
+    productsUsed: u.apps.length,
+    errors: errorsTriggered,
+  });
+  const prodTone = productivity.band === 'high'
+    ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+    : productivity.band === 'medium'
+      ? 'border-amber-500/40 text-amber-600 dark:text-amber-400'
+      : 'border-rose-500/40 text-rose-600 dark:text-rose-400';
+
   return (
     <div className="space-y-6">
       <Link href="/dashboard/people" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
@@ -74,6 +89,7 @@ export default async function UserDetailPage({ params }: PageProps) {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className={prodTone}>Productivity {productivity.score}</Badge>
             <Badge variant="outline" className={risk.tone}>
               <span className={`mr-1 inline-block h-2 w-2 rounded-full ${risk.dot}`} />{risk.label}
             </Badge>
@@ -84,6 +100,8 @@ export default async function UserDetailPage({ params }: PageProps) {
 
       {/* Productivity snapshot */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Productivity score" value={String(productivity.score)} icon={Activity}
+          trend={{ direction: productivity.band === 'high' ? 'up' : productivity.band === 'low' ? 'down' : 'flat', label: `${productivity.band} — time+actions+sessions−errors` }} />
         <KpiCard label="Most used product" value={mostUsed} icon={Boxes}
           trend={{ direction: 'flat', label: `${u.apps.length} product(s) used` }} />
         <KpiCard label="Active time" value={fmtDuration(u.totalSessionMinutes)} icon={Clock}

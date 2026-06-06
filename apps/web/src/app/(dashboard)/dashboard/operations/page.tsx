@@ -40,7 +40,7 @@ export default async function ExecutiveOperationsCenter() {
     { label: 'Project health', v: h.components.projectHealth, weight: '30%' },
     { label: 'Incident severity', v: h.components.incidentSeverity, weight: '25%' },
     { label: 'Error impact', v: h.components.errorImpact, weight: '20%' },
-    { label: 'User adoption', v: h.components.userAdoption, weight: '15%' },
+    { label: 'Usage / engagement', v: h.components.userAdoption, weight: '15%' },
     { label: 'Dept engagement', v: h.components.departmentEngagement, weight: '10%' },
   ];
 
@@ -183,7 +183,7 @@ export default async function ExecutiveOperationsCenter() {
       </section>
 
       <div className="text-[11px] text-muted-foreground">
-        Health = 30% project health + 25% incident severity + 20% error impact + 15% adoption + 10% department engagement.
+        Health = 30% project health + 25% incident severity + 20% error impact + 15% usage/engagement + 10% department engagement.
         Incident severity is currently derived from project status; a dedicated Incident Management module is the next step.
       </div>
     </div>

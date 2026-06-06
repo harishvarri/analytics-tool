@@ -7,6 +7,7 @@ import {
   Building2,
   Gauge,
   HeartPulse,
+  Plug,
   Radio,
   Settings2,
   SlidersHorizontal,
@@ -95,12 +96,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         description: 'Who is working, what they do, and who has gone quiet',
       },
       {
-        label: 'Department Intelligence',
-        href: ROUTES.departments,
-        icon: Building2,
-        description: 'Staff, apps, activities, and health per department',
-      },
-      {
         label: 'Engagement Intelligence',
         href: ROUTES.retention,
         icon: TrendingUp,
@@ -144,13 +139,19 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     ],
   },
   {
-    label: 'Admin',
+    label: 'Integrations',
     items: [
       {
         label: 'Connected Products',
         href: ROUTES.manageProjects,
         icon: Settings2,
         description: 'Onboard products and manage their tracking keys',
+      },
+      {
+        label: 'Integration Health',
+        href: ROUTES.integrations,
+        icon: Plug,
+        description: 'Is each product tracking script, events, users, errors, and business events',
       },
     ],
   },
