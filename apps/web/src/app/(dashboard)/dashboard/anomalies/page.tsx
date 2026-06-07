@@ -1,15 +1,24 @@
-import { AlertTriangle, ArrowDown, ArrowUp, ShieldAlert, Sigma } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowDown, ArrowUp, Bug, Clock, Gauge, LogIn, ShieldAlert, Sigma, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
-import { fetchAnomalySignals, fetchAnomalySummary } from '@/lib/data/fetchers';
+import { fetchAnomalySignals, fetchAnomalySummary, fetchOperationalRisks } from '@/lib/data/fetchers';
 import { friendlyEventName } from '@/lib/event-labels';
 import { getPortalConfig } from '@/config/portals';
-import type { AnomalySignal } from '@/lib/repositories/anomalies';
+import type { AnomalySignal, RiskKind, RiskSignal } from '@/lib/repositories/anomalies';
 import { AutoRefresh } from '@/components/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
+
+const RISK_ICON: Record<RiskKind, typeof Bug> = {
+  login_failures: LogIn, usage_drop: TrendingDown, error_spike: Bug, inactivity: Clock, performance: Gauge,
+};
+const RISK_HREF: Record<RiskKind, string> = {
+  login_failures: '/dashboard/logins', usage_drop: '/dashboard/retention', error_spike: '/dashboard/reliability',
+  inactivity: '/dashboard/health', performance: '/dashboard/health',
+};
 
 const SEVERITY_PILL: Record<AnomalySignal['severity'], string> = {
   warning:  'border-amber-500/50 text-amber-700 dark:text-amber-400 bg-amber-500/5',
@@ -38,7 +47,8 @@ function fmtHour(iso: string | null): string {
 }
 
 export default async function AnomaliesPage() {
-  const [signals, summary] = await Promise.all([
+  const [risks, signals, summary] = await Promise.all([
+    fetchOperationalRisks(),
     fetchAnomalySignals(),
     fetchAnomalySummary(),
   ]);
@@ -47,79 +57,88 @@ export default async function AnomaliesPage() {
     <div className="space-y-6">
       <AutoRefresh intervalMs={60_000} />
       <PageHeader
-        title="Unusual Activity"
-        description="Automatic alerts when activity suddenly spikes or drops compared to what's normal."
+        title="Risk & Anomaly"
+        description="Concrete operational risks across products — login failures, usage drops, error spikes, inactivity and slow performance — plus statistical activity anomalies."
         actions={
-          <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
-            ● Statistical baseline
+          <Badge variant="outline" className={risks.total > 0
+            ? 'border-rose-500/40 text-rose-600 dark:text-rose-400'
+            : 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'}>
+            {risks.total > 0 ? `${risks.total} active risk${risks.total === 1 ? '' : 's'}` : 'No active risks'}
           </Badge>
         }
       />
 
       {/* KPI strip */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="Active alerts"
-          value={String(summary.totalActive)}
-          icon={AlertTriangle}
-          trend={{
-            direction: summary.totalActive > 0 ? 'up' : 'flat',
-            label: summary.totalActive === 0 ? 'All metrics within bounds' : 'Above baseline 2σ',
-          }}
-          invertTrend
-        />
-        <KpiCard
-          label="Urgent alerts"
-          value={String(summary.critical)}
-          icon={ShieldAlert}
-          trend={{
-            direction: summary.critical > 0 ? 'up' : 'flat',
-            label: 'Much more than usual',
-          }}
-          invertTrend
-        />
-        <KpiCard
-          label="Cautions"
-          value={String(summary.warning)}
-          icon={AlertTriangle}
-          trend={{
-            direction: summary.warning > 0 ? 'up' : 'flat',
-            label: 'Noticeably more than usual',
-          }}
-          invertTrend
-        />
-        <KpiCard
-          label="Detection method"
-          value="Statistical baseline"
-          icon={Sigma}
-          trend={{ direction: 'flat', label: 'Compared against the last 7 days' }}
-        />
+        <KpiCard label="Active risks" value={String(risks.total)} icon={AlertTriangle}
+          trend={{ direction: risks.total > 0 ? 'up' : 'flat', label: risks.total === 0 ? 'all products healthy' : 'need a look' }} invertTrend />
+        <KpiCard label="Urgent" value={String(risks.critical)} icon={ShieldAlert}
+          trend={{ direction: risks.critical > 0 ? 'up' : 'flat', label: 'act now' }} invertTrend />
+        <KpiCard label="Cautions" value={String(risks.warning)} icon={AlertTriangle}
+          trend={{ direction: risks.warning > 0 ? 'up' : 'flat', label: 'keep an eye on' }} invertTrend />
+        <KpiCard label="Activity anomalies" value={String(summary.totalActive)} icon={Sigma}
+          trend={{ direction: summary.totalActive > 0 ? 'up' : 'flat', label: 'statistical spikes / dips' }} invertTrend />
       </section>
 
-      {/* Signals */}
-      {signals.length === 0 ? (
+      {/* Operational risks — the useful, explainable signals */}
+      {risks.signals.length === 0 ? (
         <div className="rounded-md border border-dashed bg-muted/30 p-8 text-center">
           <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15">
-            <Sigma className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <ShieldAlert className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-sm font-medium">All products are behaving normally</div>
+          <div className="text-sm font-medium">No operational risks right now</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            No product&apos;s activity is currently outside normal patterns. Alerts appear automatically when something is much busier or quieter than usual.
+            No product currently has elevated login failures, error spikes, usage drops, prolonged inactivity, or slow
+            performance. Risks appear here automatically the moment any of those cross a threshold.
           </p>
         </div>
       ) : (
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {signals.map((s, i) => (
-            <AnomalyCard key={`${s.portalId}-${s.eventName}-${i}`} signal={s} />
+          {risks.signals.map((s, i) => (
+            <RiskCard key={`${s.kind}-${s.portalId}-${i}`} signal={s} />
           ))}
         </section>
       )}
 
-      {/* Method footer */}
-      <div className="rounded-md border p-4">
-        <p className="text-xs text-muted-foreground mt-2">The platform tracks typical hourly activity in each product. When something is much busier or quieter than usual, it raises an alert automatically — no configuration required.</p>
-      </div>
+      {/* Statistical anomalies — secondary */}
+      {signals.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Statistical activity anomalies</h2>
+          <p className="text-xs text-muted-foreground">Hours where a product was much busier or quieter than its 7-day norm.</p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {signals.map((s, i) => (
+              <AnomalyCard key={`${s.portalId}-${s.eventName}-${i}`} signal={s} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
+  );
+}
+
+function RiskCard({ signal: s }: { signal: RiskSignal }) {
+  const Icon = RISK_ICON[s.kind];
+  const tone = s.severity === 'critical'
+    ? 'border-rose-500/50 bg-rose-500/5'
+    : 'border-amber-500/50 bg-amber-500/5';
+  const sevTone = s.severity === 'critical' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400';
+  return (
+    <Card className={`overflow-hidden ${tone}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="flex items-center gap-1.5 text-xs font-semibold">
+            <Icon className={`h-3.5 w-3.5 ${sevTone}`} />{s.title}
+          </CardTitle>
+          <Badge variant="outline" className={`shrink-0 ${sevTone}`}>{s.severity === 'critical' ? 'Urgent' : 'Caution'}</Badge>
+        </div>
+        <div className={`text-sm font-bold tabular-nums ${sevTone}`}>{s.metric}</div>
+      </CardHeader>
+      <CardContent className="space-y-2 pb-4 text-[11px]">
+        <p className="text-muted-foreground">{s.detail}</p>
+        <p><span className="font-medium text-amber-600 dark:text-amber-400">Action: </span><span className="text-muted-foreground">{s.action}</span></p>
+        <Link href={RISK_HREF[s.kind]} className="inline-block text-primary hover:underline">Investigate →</Link>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -27,8 +27,10 @@ import {
 import {
   getAnomalySignals,
   getAnomalySummary,
+  getOperationalRisks,
   type AnomalySignal,
   type AnomalySummary,
+  type RiskBoard,
 } from '../repositories/anomalies';
 import {
   getFeatureActions,
@@ -214,6 +216,9 @@ export const fetchAnomalySignals = (): Promise<AnomalySignal[]> =>
 
 export const fetchAnomalySummary = (): Promise<AnomalySummary> =>
   withMockFallback('anomalies.summary', getAnomalySummary, () => emptyAnomalySummary);
+
+export const fetchOperationalRisks = (): Promise<RiskBoard> =>
+  withMockFallback('anomalies.risks', getOperationalRisks, () => ({ critical: 0, warning: 0, total: 0, signals: [] }));
 
 // ── Feature Adoption (Module F) ──────────────────────────────────────────────
 
