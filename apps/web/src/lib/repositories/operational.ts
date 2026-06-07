@@ -285,7 +285,7 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
       .select('name, category, portal_id, occurred_at, url, metadata')
       .eq('user_id', userId)
       .order('occurred_at', { ascending: false })
-      .limit(50),
+      .limit(500), // enough history to power the Today/Week/Month activity filters
   ]);
 
   const apps = ((appRows ?? []) as Record<string, unknown>[]).map((r) => ({

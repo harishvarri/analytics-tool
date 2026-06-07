@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
-import { UserTimeline } from '@/components/analytics/UserTimeline';
+import { UserActivityPanel } from './UserActivityPanel';
 import { fetchUserDetail } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
 import { isOperationalEvent } from '@/lib/importance';
@@ -61,6 +61,9 @@ export default async function UserDetailPage({ params }: PageProps) {
     .map((a) => ({ slug: a.projectSlug, name: getPortalConfig(a.projectSlug).name, events: a.events, pct: Math.round((a.events / totalAppEvents) * 100), lastActive: a.lastActive }));
   const mostUsed = appUsage[0]?.name ?? '—';
 
+  // Average working session length (total active time ÷ sessions).
+  const avgSessionMin = u.totalSessions > 0 ? Math.round(u.totalSessionMinutes / u.totalSessions) : 0;
+
   // Productivity score (0–100) from real activity signals.
   const productivity = computeProductivity({
     activeMinutes: u.totalSessionMinutes,
@@ -112,11 +115,13 @@ export default async function UserDetailPage({ params }: PageProps) {
           trend={{ direction: errorsTriggered > 0 ? 'up' : 'flat', label: 'recent' }} invertTrend />
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         <KpiCard label="Logins" value={fmt.format(u.logins)} icon={LogIn}
           trend={{ direction: 'flat', label: 'recent sign-ins' }} />
         <KpiCard label="Sessions" value={fmt.format(u.totalSessions)} icon={Zap}
           trend={{ direction: 'flat', label: 'total visits' }} />
+        <KpiCard label="Avg session" value={fmtDuration(avgSessionMin)} icon={Clock}
+          trend={{ direction: 'flat', label: 'average time per visit' }} />
         <KpiCard label="Total actions" value={fmt.format(u.totalEvents)} icon={Activity}
           trend={{ direction: 'flat', label: 'all events' }} />
         <KpiCard label="Last active" value={u.lastActiveAt ? formatRelativeTime(u.lastActiveAt) : '—'} icon={Clock}
@@ -145,9 +150,9 @@ export default async function UserDetailPage({ params }: PageProps) {
           )}
         </ChartCard>
 
-        {/* Important activities timeline (operational only, across apps) */}
-        <ChartCard title="Important activities" description="Business actions across every product — newest first (page views & clicks hidden)">
-          <UserTimeline events={opEvents.slice(0, 40)} userName={name} empty="No business activity recorded yet." />
+        {/* Important activities timeline — filter by Today / Week / Month */}
+        <ChartCard title="Important activities" description="Business actions across every product — filter by period (page views & clicks hidden)">
+          <UserActivityPanel events={opEvents} userName={name} />
         </ChartCard>
       </section>
 
