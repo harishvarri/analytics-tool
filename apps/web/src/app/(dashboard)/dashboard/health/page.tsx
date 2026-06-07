@@ -109,19 +109,20 @@ export default async function PlatformHealthPage() {
         {projects.map((p) => {
           const meta = STATUS_META[p.status];
           return (
-            <Link
+            <div
               key={p.slug}
-              href={`/dashboard/projects/${p.slug}`}
-              className="group rounded-lg border bg-card p-4 transition-shadow hover:shadow-md hover:border-primary/40"
+              className="rounded-lg border bg-card p-4 transition-shadow hover:shadow-md"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{p.name}</div>
+                  <Link href={`/dashboard/projects/${p.slug}`} className="block truncate text-sm font-semibold hover:underline">{p.name}</Link>
                   <div className="mt-0.5 flex items-center gap-1.5 text-xs">
                     <span className={`inline-flex items-center gap-1 ${meta.tone}`}>
                       <span className={`h-2 w-2 rounded-full ${meta.dot}`} />{meta.label}
                     </span>
-                    <Badge variant="outline" className={`${RISK_TONE[p.riskLevel]} text-[10px]`}>{p.riskLevel} risk</Badge>
+                    <Link href="/dashboard/anomalies" title="Open Risk & Anomaly">
+                      <Badge variant="outline" className={`${RISK_TONE[p.riskLevel]} text-[10px] hover:opacity-80`}>{p.riskLevel} risk</Badge>
+                    </Link>
                   </div>
                 </div>
                 <div className={`text-2xl font-bold tabular-nums ${scoreTone(p.healthScore)}`}>{p.healthScore}</div>
@@ -136,6 +137,15 @@ export default async function PlatformHealthPage() {
                   ))}
                 </ul>
               )}
+
+              {/* The single biggest factor pulling the score down. */}
+              {p.status !== 'healthy' && p.topHealthDriver && (
+                <div className="mt-2 rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px]">
+                  <span className="font-medium text-amber-600 dark:text-amber-400">Biggest drag:</span>{' '}
+                  <span className="text-muted-foreground">{p.topHealthDriver}</span>
+                </div>
+              )}
+
               {/* Why the score is what it is — always explain a non-healthy product. */}
               {p.healthReasons.length > 0 ? (
                 <ul className="mt-2 space-y-1">
@@ -149,13 +159,22 @@ export default async function PlatformHealthPage() {
                 <div className="mt-3 text-[11px] text-emerald-600 dark:text-emerald-400">Operating normally — all factors at target.</div>
               )}
 
+              {/* Topic drill-down — each factor opens the page that owns it. */}
               <div className="mt-3 grid grid-cols-4 gap-2 border-t pt-2 text-center text-[10px] text-muted-foreground">
-                <div><div className="font-semibold text-foreground">{p.adoptionNorm}</div>usage</div>
-                <div><div className="font-semibold text-foreground">{p.reliabilityNorm}</div>reliability</div>
-                <div><div className="font-semibold text-foreground">{p.performanceNorm}</div>speed</div>
-                <div><div className="font-semibold text-foreground">{p.activityNorm}</div>momentum</div>
+                <Link href={`/dashboard/projects/${p.slug}`} className="rounded py-1 hover:bg-muted hover:text-foreground">
+                  <div className="font-semibold text-foreground">{p.adoptionNorm}</div>usage
+                </Link>
+                <Link href="/dashboard/reliability" className="rounded py-1 hover:bg-muted hover:text-foreground">
+                  <div className="font-semibold text-foreground">{p.reliabilityNorm}</div>reliability
+                </Link>
+                <Link href={`/dashboard/projects/${p.slug}`} className="rounded py-1 hover:bg-muted hover:text-foreground">
+                  <div className="font-semibold text-foreground">{p.performanceNorm}</div>speed
+                </Link>
+                <Link href={`/dashboard/projects/${p.slug}`} className="rounded py-1 hover:bg-muted hover:text-foreground">
+                  <div className="font-semibold text-foreground">{p.activityNorm}</div>momentum
+                </Link>
               </div>
-            </Link>
+            </div>
           );
         })}
       </section>
