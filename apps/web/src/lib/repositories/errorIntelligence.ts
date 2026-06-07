@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
 import type { RealtimeActivityItem, EventCategory } from '@/types/analytics';
@@ -58,7 +59,7 @@ export interface ErrorIntelligence {
 
 const DAY = 86_400_000;
 
-export async function getErrorIntelligence(days = 7): Promise<ErrorIntelligence> {
+export const getErrorIntelligence = cache(async (days = 7): Promise<ErrorIntelligence> => {
   const admin = getSupabaseAdmin();
   const since = new Date(Date.now() - days * DAY).toISOString();
 
@@ -145,6 +146,6 @@ export async function getErrorIntelligence(days = 7): Promise<ErrorIntelligence>
     byProject,
     timeline,
   };
-}
+});
 
 export { CATEGORY_LABEL };

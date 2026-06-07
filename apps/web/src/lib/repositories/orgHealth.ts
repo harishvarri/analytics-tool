@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { getProjectIntelligence, type ProjectIntelligence } from './projectIntelligence';
 import { getDepartmentRollup } from './operational';
 import { getErrorIntelligence } from './errorIntelligence';
@@ -71,7 +72,7 @@ function tierOf(score: number): OrgTier {
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
-export async function getOrganizationHealth(): Promise<OrgHealth> {
+export const getOrganizationHealth = cache(async (): Promise<OrgHealth> => {
   const [projects, deptRollup, errors] = await Promise.all([
     getProjectIntelligence(),
     getDepartmentRollup().catch(() => []),
@@ -234,6 +235,6 @@ export async function getOrganizationHealth(): Promise<OrgHealth> {
     recommendations: dedupedRecs.slice(0, 8),
     totals: { projects: n, healthy, warning, critical },
   };
-}
+});
 
 export type { ProjectIntelligence };

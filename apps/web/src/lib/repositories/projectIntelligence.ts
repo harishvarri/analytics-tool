@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
 import { getProjectHealth, type HealthTier } from './health';
@@ -74,7 +75,10 @@ function tierToStatus(tier: HealthTier): ProjectStatus {
   return 'warning';
 }
 
-export async function getProjectIntelligence(): Promise<ProjectIntelligence[]> {
+// Wrapped in React cache() so repeated calls within a single request render
+// (e.g. a page that reads both getPlatformHealth and getProjectIntelligence, or
+// getOrganizationHealth which composes it) execute the 5-query fan-out ONCE.
+export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligence[]> => {
   const admin = getSupabaseAdmin();
 
   const [projectsRes, activityRes, health, access, comparison] = await Promise.all([
@@ -241,7 +245,7 @@ export async function getProjectIntelligence(): Promise<ProjectIntelligence[]> {
 
   // Worst health first so problems surface at the top.
   return rows.sort((a, b) => a.healthScore - b.healthScore);
-}
+});
 
 /** Single project by slug (for the Project Intelligence detail page). */
 export async function getProjectIntelligenceBySlug(slug: string): Promise<ProjectIntelligence | null> {
@@ -305,7 +309,7 @@ export interface PlatformHealth {
   critical_projects: Array<{ slug: string; name: string; healthScore: number; problem: string; affectedUsers: number }>;
 }
 
-export async function getPlatformHealth(): Promise<PlatformHealth> {
+export const getPlatformHealth = cache(async (): Promise<PlatformHealth> => {
   const projects = await getProjectIntelligence();
   const total = projects.length;
   const overallScore = total ? Math.round(projects.reduce((s, p) => s + p.healthScore, 0) / total) : 0;
@@ -325,4 +329,4 @@ export async function getPlatformHealth(): Promise<PlatformHealth> {
         affectedUsers: p.activeUsers7d,
       })),
   };
-}
+});

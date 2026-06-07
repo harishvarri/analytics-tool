@@ -4,7 +4,6 @@ import {
   AppWindow,
   BellRing,
   Bug,
-  Building2,
   Gauge,
   HeartPulse,
   Plug,
@@ -50,10 +49,10 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: null,
     items: [
       {
-        label: 'Org Overview',
+        label: 'Executive Dashboard',
         href: ROUTES.dashboard,
-        icon: Building2,
-        description: 'All products at a glance — activity, sign-ins, errors, and health',
+        icon: Gauge,
+        description: 'Org health, what needs attention today, risks, and recommended actions',
       },
       {
         label: 'Live Activity',
@@ -106,12 +105,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   {
     label: 'Operations',
     items: [
-      {
-        label: 'Executive Operations Center',
-        href: ROUTES.operations,
-        icon: Gauge,
-        description: 'Org health score, what needs attention today, and recommended actions',
-      },
       {
         label: 'Error Intelligence Center',
         href: ROUTES.reliability,
