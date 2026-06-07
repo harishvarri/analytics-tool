@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import {
   Activity, AlertOctagon, AlertTriangle, Bug, CheckCircle2, ChevronRight,
-  Crown, Gauge, ShieldAlert, TrendingDown, TrendingUp, UserMinus,
-  UserPlus, Users, Zap,
+  Crown, Gauge, ShieldAlert, TrendingDown, TrendingUp, Users, Zap,
 } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
@@ -93,7 +92,6 @@ export default async function ExecutiveDashboard() {
   const leaderboard = ranked.slice(0, 8);
   const topPerformers = [...ranked].sort((a, b) => b.prod.score - a.prod.score).slice(0, 5);
   const needsAttention = ranked.filter((r) => r.risk.level !== 'green').sort((a, b) => (b.days ?? 0) - (a.days ?? 0)).slice(0, 5);
-  const churnRisk = ranked.filter((r) => r.risk.level === 'yellow').length; // were active, now quiet 7–30d
 
   // ── Live operational feed (business actions only) ────────────────────────────
   const liveActivity = aggregateActivity(rawActivity.filter((a) => isOperationalEvent(a.category, a.eventName))).slice(0, 10);
@@ -200,22 +198,7 @@ export default async function ExecutiveDashboard() {
         </ChartCard>
       </Section>
 
-      {/* ─── SECTION 3 · User Activity Intelligence ────────────────────────── */}
-      <Section title="User Activity Intelligence" subtitle="How the user base is moving — new, returning, and at-risk staff">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="New users" value={fmt.format(eng.newUsers)} icon={UserPlus}
-            trend={{ direction: 'flat', label: 'first seen this week' }} href="/dashboard/people" />
-          <KpiCard label="Returning users" value={fmt.format(eng.returningUsers)} icon={Users}
-            trend={deltaTrend(eng.activeUsers)} href="/dashboard/people" />
-          <KpiCard label="Inactive (have access)" value={fmt.format(command.inactiveUsersCount)} icon={UserMinus}
-            trend={{ direction: 'flat', label: 'gone quiet' }} href="/dashboard/retention" />
-          <KpiCard label="Churn-risk users" value={fmt.format(churnRisk)} icon={AlertTriangle} invertTrend
-            trend={{ direction: churnRisk > 0 ? 'up' : 'flat', label: 'active → quiet 7d+' }} href="/dashboard/retention" />
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">{eng.trend}.</p>
-      </Section>
-
-      {/* ─── SECTION 4 · Live Operations Feed ──────────────────────────────── */}
+      {/* ─── SECTION 3 · Live Operations Feed ──────────────────────────────── */}
       <Section title="Live Operations Feed" subtitle="What people are doing right now — page views and clicks hidden"
         href="/dashboard/realtime" linkLabel="Full live stream">
         <ChartCard title="Recent business activity" description="Meaningful actions across every product">

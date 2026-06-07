@@ -61,16 +61,20 @@ export default async function ErrorIntelligencePage() {
         }
       />
 
-      {/* Top cards */}
+      {/* Top cards — each drills into the matching detail below */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Critical errors" value={fmt.format(intel.criticalErrors)} icon={AlertOctagon}
-          trend={{ direction: intel.criticalErrors > 0 ? 'up' : 'flat', label: 'API / DB / auth' }} invertTrend />
+          trend={{ direction: intel.criticalErrors > 0 ? 'up' : 'flat', label: 'API / DB / auth' }} invertTrend
+          href="#grouped-errors" />
         <KpiCard label="Active incidents" value={fmt.format(intel.activeIncidents)} icon={Bug}
-          trend={{ direction: intel.activeIncidents > 0 ? 'up' : 'flat', label: 'critical, last 24h' }} invertTrend />
+          trend={{ direction: intel.activeIncidents > 0 ? 'up' : 'flat', label: 'critical, last 24h' }} invertTrend
+          href="/dashboard/incidents" />
         <KpiCard label="Users impacted" value={fmt.format(intel.usersImpacted)} icon={Users}
-          trend={{ direction: 'flat', label: 'distinct people hitting errors' }} invertTrend />
+          trend={{ direction: 'flat', label: 'distinct people hitting errors' }} invertTrend
+          href="#error-timeline" />
         <KpiCard label="Products impacted" value={fmt.format(intel.projectsImpacted)} icon={Boxes}
-          trend={{ direction: 'flat', label: 'with errors this week' }} invertTrend />
+          trend={{ direction: 'flat', label: 'with errors this week' }} invertTrend
+          href="#affected-products" />
       </section>
 
       {!hasErrors ? (
@@ -86,7 +90,7 @@ export default async function ErrorIntelligencePage() {
           </p>
         </div>
       ) : (
-        <section className="grid gap-4 xl:grid-cols-2">
+        <section id="affected-products" className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
           {/* Category breakdown */}
           <ChartCard title="Error categories" description="Where the failures are concentrated">
             <ul className="space-y-3 pt-1">
@@ -138,6 +142,7 @@ export default async function ErrorIntelligencePage() {
 
       {/* Error timeline */}
       {hasErrors && (
+        <div id="error-timeline" className="scroll-mt-20">
         <ChartCard title="Error timeline" description="Most recent failures — type, product, person, and when">
           <ul className="divide-y">
             {intel.timeline.slice(0, 25).map((e) => (
@@ -158,10 +163,12 @@ export default async function ErrorIntelligencePage() {
             ))}
           </ul>
         </ChartCard>
+        </div>
       )}
 
       {/* Error groups (deduped by fingerprint) */}
       {groups.length > 0 && (
+        <div id="grouped-errors" className="scroll-mt-20">
         <ChartCard title="Grouped errors" description="Distinct error signatures, ranked by impact (last 30 days)">
           <div className="space-y-2">
             {groups.map((g) => {
@@ -267,6 +274,7 @@ export default async function ErrorIntelligencePage() {
             })}
           </div>
         </ChartCard>
+        </div>
       )}
     </div>
   );
