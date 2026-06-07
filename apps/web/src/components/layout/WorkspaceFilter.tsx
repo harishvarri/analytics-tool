@@ -33,7 +33,7 @@ export function WorkspaceFilter({ applications }: Props) {
           aria-label="Application filter"
           value={app ?? ''}
           onChange={(e) => setFilters({ app: e.target.value || null })}
-          className="bg-transparent text-xs font-medium outline-none"
+          className="bg-transparent text-xs font-medium text-foreground outline-none [&>option]:bg-popover [&>option]:text-popover-foreground"
         >
           <option value="">All products</option>
           {applications.map((a) => (

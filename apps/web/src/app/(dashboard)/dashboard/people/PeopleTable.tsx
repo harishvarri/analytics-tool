@@ -78,7 +78,7 @@ export function PeopleTable({ rows, mode }: { rows: PersonRow[]; mode: Mode }) {
             Named only
           </label>
           <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
-            className="rounded-md border bg-background px-2 py-1.5 text-xs outline-none focus:border-primary/50">
+            className="rounded-md border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 [&>option]:bg-popover [&>option]:text-popover-foreground">
             <option value="recent">Most recent</option>
             <option value="actions">Most actions</option>
             <option value="sessions">Most sessions</option>

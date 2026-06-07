@@ -26,7 +26,7 @@ export function RangePicker() {
         aria-label="Date range"
         value={current}
         onChange={(e) => setFilters({ range: e.target.value })}
-        className="bg-transparent text-xs font-medium outline-none"
+        className="bg-transparent text-xs font-medium text-foreground outline-none [&>option]:bg-popover [&>option]:text-popover-foreground"
       >
         {RANGE_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>

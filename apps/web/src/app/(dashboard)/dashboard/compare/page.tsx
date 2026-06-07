@@ -36,13 +36,13 @@ export default async function ComparePage() {
     <div className="space-y-6">
       <PageHeader
         title="Product Comparison"
-        description="Compare products on what matters operationally — staff, adoption, health, and reliability. Click any product for its intelligence page."
+        description="Compare products on what matters operationally — staff, health, and reliability. Click any product for its intelligence page."
         actions={
           <ExportButton
             filename="product-comparison"
-            headers={['Product', 'Active users 7d', 'Sessions 7d', 'Adoption %', 'Health', 'Status', 'Errors 30d', 'Error rate %', 'Operational score', 'Last activity']}
+            headers={['Product', 'Active users 7d', 'Sessions 7d', 'Health', 'Status', 'Errors 30d', 'Error rate %', 'Operational score', 'Last activity']}
             rows={rows.map((r) => [
-              r.name, r.activeUsers7d, r.sessions7d, r.adoptionPct, r.healthScore, r.status,
+              r.name, r.activeUsers7d, r.sessions7d, r.healthScore, r.status,
               r.errors30d, r.errorRatePct, r.operationalScore, r.lastActivityAt ?? 'never',
             ])}
           />
@@ -61,7 +61,7 @@ export default async function ComparePage() {
 
       <ChartCard
         title="How each product is doing"
-        description="Operational comparison — active staff, adoption, health, and reliability. No raw event counts."
+        description="Operational comparison — active staff, health, and reliability. No raw event counts."
       >
         {rows.length === 0 ? (
           <div className="flex h-[160px] items-center justify-center text-sm text-muted-foreground">No products connected yet.</div>
@@ -74,7 +74,6 @@ export default async function ComparePage() {
                   <th className="px-2 py-2 text-left font-medium">Status</th>
                   <th className="px-2 py-2 text-right font-medium">Active users (7d)</th>
                   <th className="px-2 py-2 text-right font-medium">Sessions</th>
-                  <th className="px-2 py-2 text-right font-medium">Adoption</th>
                   <th className="px-2 py-2 text-right font-medium">Health</th>
                   <th className="px-2 py-2 text-right font-medium">Errors (30d)</th>
                   <th className="px-2 py-2 text-right font-medium">Ops activity</th>
@@ -103,7 +102,6 @@ export default async function ComparePage() {
                         </div>
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums">{fmt.format(r.sessions7d)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{r.adoptionPct}%</td>
                       <td className={`px-2 py-2 text-right font-semibold tabular-nums ${scoreTone(r.healthScore)}`}>{r.healthScore}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{fmt.format(r.errors30d)}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{r.operationalScore}</td>

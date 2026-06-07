@@ -127,11 +127,9 @@ export default async function ExecutiveDashboard() {
 
       {/* ─── SECTION 1 · Organization Pulse ─────────────────────────────────── */}
       <Section title="Organization Pulse" subtitle="Today across every connected product — click any metric to drill in">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <KpiCard label="Active today" value={fmt.format(active.dau)} icon={Users}
             trend={deltaTrend(eng.activeUsers)} href="/dashboard/people" />
-          <KpiCard label="Active this week" value={fmt.format(active.wau)} icon={Users}
-            trend={{ direction: 'flat', label: `${active.stickinessPct}% stickiness` }} href="/dashboard/people" />
           <KpiCard label="Sessions today" value={fmt.format(command.sessionsToday)} icon={Zap}
             trend={deltaTrend(eng.sessions)} href="/dashboard/sessions" />
           <KpiCard label="Actions today" value={fmt.format(command.eventsToday)} icon={Activity}
