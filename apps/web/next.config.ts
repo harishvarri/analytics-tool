@@ -24,6 +24,14 @@ const nextConfig: NextConfig = {
   // unstyled HTML). Production/Vercel builds leave it unset → default `.next`.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   outputFileTracingRoot: path.join(__dirname, '../..'),
+  // IA cleanup (P1): redundant/renamed routes redirect to their canonical page
+  // so old bookmarks and in-app links keep working.
+  async redirects() {
+    return [
+      // "Users" was a strict subset of Staff Intelligence.
+      { source: '/dashboard/users', destination: '/dashboard/people', permanent: true },
+    ];
+  },
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders },
