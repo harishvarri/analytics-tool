@@ -100,6 +100,7 @@ import {
   type AccessVsUsageRow,
   type InactiveWithAccessRow,
 } from '../repositories/access';
+import { getIssueStatuses, type IssueStatus } from '../repositories/issues';
 import { getProjectHealth, type ProjectHealthRow } from '../repositories/health';
 import { getOrganizationHealth, type OrgHealth } from '../repositories/orgHealth';
 import { getErrorIntelligence, type ErrorIntelligence } from '../repositories/errorIntelligence';
@@ -376,6 +377,9 @@ export const fetchInactiveWithAccess = (limit = 100): Promise<InactiveWithAccess
 
 export const fetchProjectHealth = (): Promise<ProjectHealthRow[]> =>
   withMockFallback('health.projects', getProjectHealth, () => []);
+
+export const fetchIssueStatuses = (keys: string[]): Promise<Map<string, { status: IssueStatus; updatedAt: string }>> =>
+  withMockFallback('issues.statuses', () => getIssueStatuses(keys), () => new Map());
 
 export const fetchDepartmentRollup = (): Promise<DepartmentRollupRow[]> =>
   withMockFallback('dept.rollup', getDepartmentRollup, () => []);

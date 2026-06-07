@@ -6,7 +6,9 @@ import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { ActivityFeed } from '@/components/analytics/ActivityFeed';
-import { fetchProjectIntelligenceBySlug, fetchProjectRecentActivity, fetchAppUsers } from '@/lib/data/fetchers';
+import { fetchProjectIntelligenceBySlug, fetchProjectRecentActivity, fetchAppUsers, fetchIssueStatuses } from '@/lib/data/fetchers';
+import { issueKey, ACTIVE_ISSUE_STATUSES, type IssueStatus } from '@/lib/repositories/issues';
+import { IssueStatusControl } from './IssueStatusControl';
 import { isOperationalEvent } from '@/lib/importance';
 import { aggregateActivity } from '@/features/realtime-feed/aggregate';
 import { formatRelativeTime } from '@/lib/utils';
@@ -50,6 +52,13 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
   const recent = aggregateActivity(rawActivity.filter((a) => isOperationalEvent(a.category, a.eventName))).slice(0, 15);
   const status = STATUS_META[p.status];
   const risk = RISK_META[p.riskLevel];
+
+  // Attach lifecycle status to each derived issue; hide resolved/closed from active.
+  const issueItems = p.issues.map((text) => ({ text, key: issueKey(p.slug, text) }));
+  const issueStatusMap = await fetchIssueStatuses(issueItems.map((i) => i.key));
+  const issuesWithStatus = issueItems.map((i) => ({ ...i, status: (issueStatusMap.get(i.key)?.status ?? 'open') as IssueStatus }));
+  const activeIssues = issuesWithStatus.filter((i) => ACTIVE_ISSUE_STATUSES.has(i.status));
+  const resolvedIssues = issuesWithStatus.filter((i) => !ACTIVE_ISSUE_STATUSES.has(i.status));
 
   return (
     <div className="space-y-6">
@@ -116,16 +125,30 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Issues</div>
-              {p.issues.length === 0 ? (
+              {activeIssues.length === 0 ? (
                 <div className="text-xs text-muted-foreground">No standing issues.</div>
               ) : (
-                <ul className="space-y-1.5">
-                  {p.issues.map((i) => (
-                    <li key={i} className="flex items-center gap-2 text-xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{i}
+                <ul className="space-y-2">
+                  {activeIssues.map((i) => (
+                    <li key={i.key} className="flex items-start justify-between gap-2 text-xs">
+                      <span className="flex items-start gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />{i.text}</span>
+                      <IssueStatusControl slug={p.slug} issueKey={i.key} current={i.status} />
                     </li>
                   ))}
                 </ul>
+              )}
+              {resolvedIssues.length > 0 && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-[11px] text-muted-foreground">Resolved &amp; closed ({resolvedIssues.length})</summary>
+                  <ul className="mt-2 space-y-2">
+                    {resolvedIssues.map((i) => (
+                      <li key={i.key} className="flex items-start justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className="line-through">{i.text}</span>
+                        <IssueStatusControl slug={p.slug} issueKey={i.key} current={i.status} />
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               )}
             </div>
             <div>
