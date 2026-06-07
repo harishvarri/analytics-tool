@@ -18,6 +18,8 @@ export interface AppFilters {
   app:     string | null;
   project: string | null;
   range:   string | null;
+  start:   string | null;
+  end:     string | null;
 }
 
 export function useFilters() {
@@ -28,6 +30,8 @@ export function useFilters() {
   const app     = search.get('app');
   const project = search.get('project');
   const range   = search.get('range');
+  const start   = search.get('start');
+  const end     = search.get('end');
 
   const setFilters = useCallback(
     (patch: Partial<AppFilters>) => {
@@ -40,11 +44,16 @@ export function useFilters() {
       if (patch.app !== undefined && patch.project === undefined) {
         params.delete('project');
       }
+      // Leaving the custom range drops the custom start/end dates.
+      if (patch.range !== undefined && patch.range !== 'custom') {
+        params.delete('start');
+        params.delete('end');
+      }
       const qs = params.toString();
       router.push(qs ? `${pathname}?${qs}` : pathname);
     },
     [router, pathname, search],
   );
 
-  return { app, project, range, setFilters };
+  return { app, project, range, start, end, setFilters };
 }

@@ -6,14 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { fetchSessionList } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
 import { formatRelativeTime } from '@/lib/utils';
-import { rangeToDays, rangeLabel } from '@/lib/range';
+import { rangeToBounds, rangeLabel } from '@/lib/range';
 
 export const dynamic = 'force-dynamic';
 
 const fmt = new Intl.NumberFormat('en-US');
 
 interface PageProps {
-  searchParams: Promise<{ app?: string; range?: string }>;
+  searchParams: Promise<{ app?: string; range?: string; start?: string; end?: string }>;
 }
 
 function fmtDuration(min: number): string {
@@ -25,9 +25,9 @@ function fmtDuration(min: number): string {
 }
 
 export default async function SessionsPage({ searchParams }: PageProps) {
-  const { app, range } = await searchParams;
-  const days = rangeToDays(range);
-  const rows = await fetchSessionList({ ...(app ? { appId: app } : {}), days, limit: 200 });
+  const { app, range, start, end } = await searchParams;
+  const { since, until } = rangeToBounds(range, start, end);
+  const rows = await fetchSessionList({ ...(app ? { appId: app } : {}), since, ...(until ? { until } : {}), limit: 200 });
 
   const totalMin = rows.reduce((s, r) => s + r.durationMin, 0);
   const avgMin = rows.length ? Math.round(totalMin / rows.length) : 0;

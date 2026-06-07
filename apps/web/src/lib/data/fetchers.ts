@@ -379,7 +379,7 @@ export const fetchDepartmentActivity = (days = 30): Promise<DepartmentActivityRo
 export const fetchDepartmentDetail = (dept: string, days = 30): Promise<DepartmentDetail | null> =>
   withMockFallback('dept.detail', () => getDepartmentDetail(dept, days), () => null);
 
-export const fetchLoginHistory = (opts: { appId?: string; days?: number; limit?: number } = {}): Promise<LoginRow[]> =>
+export const fetchLoginHistory = (opts: { appId?: string; days?: number; since?: string; until?: string; limit?: number } = {}): Promise<LoginRow[]> =>
   withMockFallback('ops.logins', () => getLoginHistory(opts), () => []);
 
 // ── Project Intelligence (registry-driven Products section) ──────────────────
@@ -421,5 +421,5 @@ export const fetchOrganizationHealth = (): Promise<OrgHealth> =>
     why: [], riskFactors: [], attention: [], recommendations: [], totals: { projects: 0, healthy: 0, warning: 0, critical: 0 },
   }));
 
-export const fetchSessionList = (opts: { appId?: string; days?: number; limit?: number } = {}): Promise<SessionRow[]> =>
+export const fetchSessionList = (opts: { appId?: string; days?: number; since?: string; until?: string; limit?: number } = {}): Promise<SessionRow[]> =>
   withMockFallback('ops.sessions', () => getSessionList(opts), () => []);

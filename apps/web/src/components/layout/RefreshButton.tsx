@@ -32,11 +32,21 @@ export function RefreshButton({ autoMs = 60_000 }: { autoMs?: number }) {
     });
   }, [router]);
 
-  // Auto-refresh on an interval (visible — the timestamp updates).
+  // Auto-refresh on an interval, but ONLY while the tab is visible. When the
+  // user leaves we stop the timer (no wasted queries); when they return we
+  // refresh immediately and resume — so they always see current data.
   useEffect(() => {
     if (!autoMs) return;
-    const id = setInterval(doRefresh, autoMs);
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setInterval> | null = null;
+    const start = () => { if (id === null) id = setInterval(() => { if (document.visibilityState === 'visible') doRefresh(); }, autoMs); };
+    const stop = () => { if (id !== null) { clearInterval(id); id = null; } };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { doRefresh(); start(); }
+      else stop();
+    };
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
   }, [autoMs, doRefresh]);
 
   // Tick once a second so the "x ago" label stays live.

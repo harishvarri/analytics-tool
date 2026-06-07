@@ -6,14 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { fetchLoginHistory } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
 import { formatRelativeTime } from '@/lib/utils';
-import { rangeToDays, rangeLabel } from '@/lib/range';
+import { rangeToBounds, rangeLabel } from '@/lib/range';
 
 export const dynamic = 'force-dynamic';
 
 const fmt = new Intl.NumberFormat('en-US');
 
 interface PageProps {
-  searchParams: Promise<{ app?: string; range?: string }>;
+  searchParams: Promise<{ app?: string; range?: string; start?: string; end?: string }>;
 }
 
 const KIND_META = {
@@ -24,9 +24,9 @@ const KIND_META = {
 } as const;
 
 export default async function LoginsPage({ searchParams }: PageProps) {
-  const { app, range } = await searchParams;
-  const days = rangeToDays(range);
-  const rows = await fetchLoginHistory({ ...(app ? { appId: app } : {}), days, limit: 200 });
+  const { app, range, start, end } = await searchParams;
+  const { since, until } = rangeToBounds(range, start, end);
+  const rows = await fetchLoginHistory({ ...(app ? { appId: app } : {}), since, ...(until ? { until } : {}), limit: 200 });
 
   const logins = rows.filter((r) => r.kind === 'login').length;
   const logouts = rows.filter((r) => r.kind === 'logout').length;

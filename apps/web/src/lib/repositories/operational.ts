@@ -78,9 +78,9 @@ function loginKind(name: string): LoginRow['kind'] {
 }
 
 /** Login/logout/failure history with device context, newest first. */
-export async function getLoginHistory(opts: { appId?: string; days?: number; limit?: number } = {}): Promise<LoginRow[]> {
-  const { appId, days = 7, limit = 100 } = opts;
-  const since = new Date(Date.now() - days * 86400_000).toISOString();
+export async function getLoginHistory(opts: { appId?: string; days?: number; since?: string; until?: string; limit?: number } = {}): Promise<LoginRow[]> {
+  const { appId, days = 7, since: sinceOpt, until, limit = 100 } = opts;
+  const since = sinceOpt ?? new Date(Date.now() - days * 86400_000).toISOString();
   let q = getSupabaseAdmin()
     .from('analytics_events')
     .select('occurred_at, name, portal_id, user_id, metadata')
@@ -88,6 +88,7 @@ export async function getLoginHistory(opts: { appId?: string; days?: number; lim
     .gte('occurred_at', since)
     .order('occurred_at', { ascending: false })
     .limit(limit);
+  if (until) q = q.lt('occurred_at', until);
   if (appId) q = q.eq('portal_id', appId);
   const { data, error } = await q;
   if (error) throw new AppError('LOGIN_HISTORY_FAILED', error.message, 500);
@@ -135,15 +136,16 @@ export interface SessionRow {
 }
 
 /** Recent sessions with computed duration, newest first. */
-export async function getSessionList(opts: { appId?: string; days?: number; limit?: number } = {}): Promise<SessionRow[]> {
-  const { appId, days = 7, limit = 100 } = opts;
-  const since = new Date(Date.now() - days * 86400_000).toISOString();
+export async function getSessionList(opts: { appId?: string; days?: number; since?: string; until?: string; limit?: number } = {}): Promise<SessionRow[]> {
+  const { appId, days = 7, since: sinceOpt, until, limit = 100 } = opts;
+  const since = sinceOpt ?? new Date(Date.now() - days * 86400_000).toISOString();
   let q = getSupabaseAdmin()
     .from('analytics_sessions')
     .select('id, user_id, portal_id, started_at, last_seen_at, ended_at, event_count')
     .gte('started_at', since)
     .order('started_at', { ascending: false })
     .limit(limit);
+  if (until) q = q.lt('started_at', until);
   if (appId) q = q.eq('portal_id', appId);
   const { data, error } = await q;
   if (error) throw new AppError('SESSION_LIST_FAILED', error.message, 500);
