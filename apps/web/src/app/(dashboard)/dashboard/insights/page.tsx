@@ -15,8 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { AutoRefresh } from '@/components/AutoRefresh';
+import Link from 'next/link';
 import { ReportExport } from '@/components/shared/ReportExport';
-import { fetchInsights, isUsingMockData } from '@/lib/data/fetchers';
+import { fetchInsights, fetchUserProfileSummaries, isUsingMockData } from '@/lib/data/fetchers';
+import { computeProductivity } from '@/lib/productivity';
 import type { ExecutiveOperationsReport, MetricDelta } from '@/lib/repositories/insights';
 
 export const dynamic = 'force-dynamic';
@@ -75,8 +77,21 @@ function hasReportSignals(report: ExecutiveOperationsReport): boolean {
 }
 
 export default async function InsightsPage() {
-  const report = await fetchInsights();
+  const [report, people] = await Promise.all([fetchInsights(), fetchUserProfileSummaries(300)]);
   const hasData = hasReportSignals(report);
+
+  // User Intelligence — top performers by productivity (from real activity).
+  const topUsers = people
+    .filter((u) => u.totalEvents > 0)
+    .map((u) => ({
+      u,
+      prod: computeProductivity({
+        activeMinutes: u.totalSessions * 8, businessActions: u.totalEvents,
+        sessions: u.totalSessions, productsUsed: u.appsUsed, errors: 0,
+      }).score,
+    }))
+    .sort((a, b) => b.prod - a.prod || b.u.totalEvents - a.u.totalEvents)
+    .slice(0, 8);
 
   return (
     <div className="space-y-6">
@@ -186,6 +201,51 @@ export default async function InsightsPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* User Intelligence — who's driving the work this week */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            User Intelligence — most productive staff
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {topUsers.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">No user activity recorded this week.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="px-2 py-2 text-left font-medium">User</th>
+                    <th className="px-2 py-2 text-right font-medium">Actions</th>
+                    <th className="px-2 py-2 text-right font-medium">Sessions</th>
+                    <th className="px-2 py-2 text-right font-medium">Products</th>
+                    <th className="px-2 py-2 text-right font-medium">Productivity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topUsers.map(({ u, prod }, i) => (
+                    <tr key={u.userId} className="border-b last:border-b-0 hover:bg-muted/40">
+                      <td className="px-2 py-2">
+                        <Link href={`/dashboard/people/${u.userId}`} className="font-medium hover:underline">
+                          {i === 0 ? '🏆 ' : ''}{u.displayName ?? u.email ?? u.userId.slice(0, 8)}
+                        </Link>
+                        {u.department && <span className="ml-2 text-[10px] text-muted-foreground">{u.department}</span>}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums">{fmt.format(u.totalEvents)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{fmt.format(u.totalSessions)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{fmt.format(u.appsUsed)}</td>
+                      <td className={`px-2 py-2 text-right font-semibold tabular-nums ${scoreTone(prod)}`}>{prod}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <Card>
