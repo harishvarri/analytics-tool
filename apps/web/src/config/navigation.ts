@@ -52,7 +52,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: 'Executive Dashboard',
         href: ROUTES.dashboard,
         icon: Gauge,
-        description: 'Org health, what needs attention today, risks, and recommended actions',
+        description: 'Command center — who is active, top users, product health, risks, and recommended actions',
       },
       {
         label: 'Live Activity',
