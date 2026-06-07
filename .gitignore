@@ -43,3 +43,11 @@ supabase/.temp
 .cache/
 .turbo/
 .qa-output*
+
+# Local QA artifacts & ad-hoc DB scripts (never commit)
+qa_results/
+query_db.mjs
+query_email.mjs
+query_user.mjs
+check_*.mjs
+get_user_info_from_db.mjs
