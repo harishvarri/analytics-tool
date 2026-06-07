@@ -1,6 +1,7 @@
 import 'server-only';
 import { getErrorIntelligence, type ErrorCategory } from './errorIntelligence';
 import { getProjectIntelligence } from './projectIntelligence';
+import { getSupabaseAdmin } from '../supabase/admin';
 import { getPortalConfig } from '@/config/portals';
 
 /**
@@ -17,12 +18,17 @@ import { getPortalConfig } from '@/config/portals';
  */
 
 export type IncidentSeverity = 'critical' | 'high' | 'medium';
+export type IncidentStatus = 'open' | 'investigating' | 'resolved' | 'closed';
+
+export const INCIDENT_STATUSES: IncidentStatus[] = ['open', 'investigating', 'resolved', 'closed'];
+/** Statuses that still count as an active problem. */
+const ACTIVE_STATUSES = new Set<IncidentStatus>(['open', 'investigating']);
 
 export interface Incident {
   id: string;
   title: string;
   severity: IncidentSeverity;
-  status: 'open';
+  status: IncidentStatus;
   projectSlug: string;
   projectName: string;
   usersAffected: number;
@@ -31,6 +37,7 @@ export interface Incident {
   rootCause: string;
   recommendedAction: string;
   detectedAt: string;
+  statusUpdatedAt: string | null;
 }
 
 export interface IncidentBoard {
@@ -38,9 +45,32 @@ export interface IncidentBoard {
   critical: number;
   projectsAtRisk: number;
   usersAffected: number;
-  resolvedToday: number | null; // needs persistence
-  mttrMinutes: number | null;   // needs persistence
-  incidents: Incident[];
+  resolvedToday: number | null;
+  mttrMinutes: number | null;   // needs full event log; still null
+  incidents: Incident[];        // active (open + investigating)
+  resolved: Incident[];         // resolved + closed
+}
+
+/**
+ * Read persisted statuses for the given incident keys. Defensive: if the
+ * incident_status table does not exist yet (migration 0036 not applied), this
+ * returns an empty map so every incident simply shows as "open" and the page
+ * keeps working.
+ */
+async function readIncidentStatuses(keys: string[]): Promise<Map<string, { status: IncidentStatus; updatedAt: string }>> {
+  const map = new Map<string, { status: IncidentStatus; updatedAt: string }>();
+  if (keys.length === 0) return map;
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('incident_status')
+      .select('incident_key, status, updated_at')
+      .in('incident_key', keys);
+    if (error) return map;
+    for (const r of (data ?? []) as Record<string, unknown>[]) {
+      map.set(String(r.incident_key), { status: String(r.status) as IncidentStatus, updatedAt: String(r.updated_at) });
+    }
+  } catch { /* table missing — treat all as open */ }
+  return map;
 }
 
 const CATEGORY_SEVERITY: Record<ErrorCategory, IncidentSeverity> = {
@@ -94,6 +124,7 @@ export async function getIncidents(): Promise<IncidentBoard> {
         rootCause: rootCause.slice(0, 160),
         recommendedAction: CATEGORY_ACTION[cat],
         detectedAt: sample?.occurredAt ?? new Date().toISOString(),
+        statusUpdatedAt: null,
       });
     }
   }
@@ -119,19 +150,50 @@ export async function getIncidents(): Promise<IncidentBoard> {
         ? 'Confirm the product is reachable and that tracking is still installed.'
         : 'Open the project intelligence page to review health drivers.',
       detectedAt: p.lastActivityAt ?? new Date().toISOString(),
+      statusUpdatedAt: null,
     });
   }
 
+  // Merge persisted lifecycle status (defensive — empty if migration not applied).
+  const statuses = await readIncidentStatuses(incidents.map((i) => i.id));
+  for (const inc of incidents) {
+    const s = statuses.get(inc.id);
+    if (s) { inc.status = s.status; inc.statusUpdatedAt = s.updatedAt; }
+  }
+
   const sevRank = { critical: 0, high: 1, medium: 2 } as const;
-  incidents.sort((a, b) => sevRank[a.severity] - sevRank[b.severity] || b.usersAffected - a.usersAffected);
+  const bySeverity = (a: Incident, b: Incident) => sevRank[a.severity] - sevRank[b.severity] || b.usersAffected - a.usersAffected;
+
+  const active = incidents.filter((i) => ACTIVE_STATUSES.has(i.status)).sort(bySeverity);
+  const resolved = incidents.filter((i) => !ACTIVE_STATUSES.has(i.status))
+    .sort((a, b) => new Date(b.statusUpdatedAt ?? 0).getTime() - new Date(a.statusUpdatedAt ?? 0).getTime());
+
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const resolvedToday = resolved.filter((i) => i.statusUpdatedAt && new Date(i.statusUpdatedAt).getTime() >= startOfToday.getTime()).length;
 
   return {
-    open: incidents.length,
-    critical: incidents.filter((i) => i.severity === 'critical').length,
-    projectsAtRisk: new Set(incidents.map((i) => i.projectSlug)).size,
-    usersAffected: incidents.reduce((s, i) => s + i.usersAffected, 0),
-    resolvedToday: null,
+    open: active.length,
+    critical: active.filter((i) => i.severity === 'critical').length,
+    projectsAtRisk: new Set(active.map((i) => i.projectSlug)).size,
+    usersAffected: active.reduce((s, i) => s + i.usersAffected, 0),
+    resolvedToday: statuses.size > 0 ? resolvedToday : null,
     mttrMinutes: null,
-    incidents,
+    incidents: active,
+    resolved,
   };
+}
+
+/**
+ * Set an incident's lifecycle status. Returns false if persistence isn't
+ * available yet (migration 0036 not applied) so the caller can surface it.
+ */
+export async function setIncidentStatus(incidentKey: string, status: IncidentStatus, note?: string): Promise<boolean> {
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('incident_status')
+      .upsert({ incident_key: incidentKey, status, note: note ?? null, updated_at: new Date().toISOString() }, { onConflict: 'incident_key' });
+    return !error;
+  } catch {
+    return false;
+  }
 }

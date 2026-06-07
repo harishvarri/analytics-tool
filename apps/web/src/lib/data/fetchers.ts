@@ -413,7 +413,7 @@ export const fetchIntegrationHealth = (): Promise<IntegrationHealth> =>
 
 export const fetchIncidents = (): Promise<IncidentBoard> =>
   withMockFallback('ops.incidents', getIncidents, () => ({
-    open: 0, critical: 0, projectsAtRisk: 0, usersAffected: 0, resolvedToday: null, mttrMinutes: null, incidents: [],
+    open: 0, critical: 0, projectsAtRisk: 0, usersAffected: 0, resolvedToday: null, mttrMinutes: null, incidents: [], resolved: [],
   }));
 
 export const fetchOrganizationHealth = (): Promise<OrgHealth> =>

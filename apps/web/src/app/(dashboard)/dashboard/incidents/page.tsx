@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { fetchIncidents } from '@/lib/data/fetchers';
 import { formatRelativeTime } from '@/lib/utils';
 import type { IncidentSeverity } from '@/lib/repositories/incidents';
+import { IncidentStatusControl } from './IncidentStatusControl';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,8 +36,8 @@ export default async function IncidentManagementPage() {
           trend={{ direction: board.critical > 0 ? 'up' : 'flat', label: 'need immediate action' }} invertTrend />
         <KpiCard label="Products at risk" value={fmt.format(board.projectsAtRisk)} icon={ShieldAlert}
           trend={{ direction: 'flat', label: 'with active incidents' }} href="/dashboard/health" />
-        <KpiCard label="Users affected" value={fmt.format(board.usersAffected)} icon={Users}
-          trend={{ direction: 'flat', label: 'across open incidents' }} />
+        <KpiCard label="Resolved today" value={board.resolvedToday === null ? '—' : fmt.format(board.resolvedToday)} icon={Users}
+          trend={{ direction: 'flat', label: board.resolvedToday === null ? 'lifecycle not enabled' : 'closed out today' }} />
       </section>
 
       {board.incidents.length === 0 ? (
@@ -64,7 +65,6 @@ export default async function IncidentManagementPage() {
                         <code className="text-[10px] text-muted-foreground">{inc.id}</code>
                         <span className="text-sm font-semibold">{inc.title}</span>
                         <Badge variant="outline" className={`text-[10px] ${sev.tone}`}>{sev.label}</Badge>
-                        <Badge variant="outline" className="text-[10px]">Open</Badge>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">{inc.rootCause}</div>
                       <div className="mt-1.5 text-xs">
@@ -77,6 +77,7 @@ export default async function IncidentManagementPage() {
                     <Link href={`/dashboard/projects/${inc.projectSlug}`} className="font-medium text-foreground hover:underline">{inc.projectName}</Link>
                     <div className="mt-0.5 flex items-center justify-end gap-1"><Users className="h-3 w-3" /> {fmt.format(inc.usersAffected)} affected</div>
                     <div className="mt-0.5 flex items-center justify-end gap-1"><Clock className="h-3 w-3" /> {formatRelativeTime(inc.detectedAt)}</div>
+                    <div className="mt-2 flex justify-end"><IncidentStatusControl incidentKey={inc.id} current={inc.status} /></div>
                   </div>
                 </div>
               </div>
@@ -85,9 +86,34 @@ export default async function IncidentManagementPage() {
         </div>
       )}
 
+      {/* Resolved / closed — kept for the record, not shown as active problems */}
+      {board.resolved.length > 0 && (
+        <details className="rounded-lg border bg-card">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+            Resolved &amp; closed <span className="text-muted-foreground">({board.resolved.length})</span>
+          </summary>
+          <div className="space-y-2 border-t px-4 py-3">
+            {board.resolved.map((inc) => (
+              <div key={inc.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex min-w-0 items-center gap-2">
+                  <code className="text-[10px] text-muted-foreground">{inc.id}</code>
+                  <span className="truncate font-medium text-muted-foreground line-through">{inc.title}</span>
+                  <Badge variant="outline" className="text-[10px] capitalize">{inc.status}</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  {inc.statusUpdatedAt && <span className="text-muted-foreground">{formatRelativeTime(inc.statusUpdatedAt)}</span>}
+                  <IncidentStatusControl incidentKey={inc.id} current={inc.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
       <div className="text-[11px] text-muted-foreground">
-        Incidents are auto-detected (read-only) from current signals. Assigning owners, acknowledging, and resolving
-        with MTTR tracking requires a persisted incident log — the planned next step.
+        Incidents are auto-detected from current signals. Set each one&apos;s status (Open → Investigating → Resolved →
+        Closed); resolved and closed incidents drop off the active board. Re-detected signals reopen as new only if the
+        underlying problem returns.
       </div>
     </div>
   );
