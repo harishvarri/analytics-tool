@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import {
-  Activity, AlertOctagon, AlertTriangle, ArrowRight, Bug, CheckCircle2, ChevronRight,
+  Activity, AlertOctagon, AlertTriangle, Bug, CheckCircle2, ChevronRight,
   Crown, Gauge, ShieldAlert, TrendingDown, TrendingUp, UserMinus,
   UserPlus, Users, Zap,
 } from 'lucide-react';
@@ -22,9 +22,7 @@ import { isOperationalEvent } from '@/lib/importance';
 import { aggregateActivity } from '@/features/realtime-feed/aggregate';
 import { riskFromLastActive, daysSince } from '@/lib/user-risk';
 import { computeProductivity } from '@/lib/productivity';
-import { friendlyEventName } from '@/lib/event-labels';
 import type { UserProfileSummary } from '@/lib/repositories/operational';
-import type { RealtimeActivityItem } from '@/types/analytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,37 +52,6 @@ const bandTone: Record<'high' | 'medium' | 'low', string> = {
   medium: 'border-amber-500/40 text-amber-600 dark:text-amber-400',
   low: 'border-rose-500/40 text-rose-600 dark:text-rose-400',
 };
-
-/** Lightweight per-user journeys from the live activity stream (no extra queries). */
-function buildJourneys(activity: RealtimeActivityItem[], max = 3) {
-  const byUser = new Map<string, RealtimeActivityItem[]>();
-  for (const a of activity) {
-    if (!a.userId || !(a.userDisplayName || a.userEmail)) continue;
-    const arr = byUser.get(a.userId) ?? [];
-    arr.push(a);
-    byUser.set(a.userId, arr);
-  }
-  return Array.from(byUser.entries())
-    .map(([userId, items]) => {
-      // activity arrives newest-first → reverse for chronological journey
-      const chron = [...items].reverse();
-      const steps: string[] = [];
-      for (const it of chron) {
-        const label = friendlyEventName(it.eventName, it.metadata, it.url);
-        if (steps[steps.length - 1] !== label) steps.push(label);
-      }
-      const head = chron[0];
-      return {
-        userId,
-        name: head?.userDisplayName ?? head?.userEmail ?? userId.slice(0, 8),
-        product: head?.portalName ?? '',
-        steps: steps.slice(0, 6),
-      };
-    })
-    .filter((j) => j.steps.length >= 3)
-    .sort((a, b) => b.steps.length - a.steps.length)
-    .slice(0, max);
-}
 
 function productRisk(row: { healthScore: number; errorCount: number; trend: string }): { label: string; tone: string } {
   if (row.healthScore < 60 || row.errorCount > 20) return { label: 'High', tone: 'text-rose-600 dark:text-rose-400' };
@@ -130,7 +97,6 @@ export default async function ExecutiveDashboard() {
 
   // ── Live operational feed (business actions only) ────────────────────────────
   const liveActivity = aggregateActivity(rawActivity.filter((a) => isOperationalEvent(a.category, a.eventName))).slice(0, 10);
-  const journeys = buildJourneys(rawActivity);
 
   // ── Product intelligence (from the weekly report) ────────────────────────────
   const products = report.productRanking;
@@ -307,34 +273,7 @@ export default async function ExecutiveDashboard() {
         </ChartCard>
       </Section>
 
-      {/* ─── SECTION 6 · User Journey Intelligence ─────────────────────────── */}
-      <Section title="User Journey Intelligence" subtitle="How people are moving through the products right now">
-        <div className="grid gap-4 lg:grid-cols-3">
-          {journeys.length === 0 ? (
-            <div className="lg:col-span-3"><Empty hint="Not enough recent multi-step activity to chart journeys." /></div>
-          ) : (
-            journeys.map((j) => (
-              <Link key={j.userId} href={`/dashboard/people/${j.userId}`}
-                className="rounded-lg border bg-card p-4 transition-shadow hover:border-primary/40 hover:shadow-md">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="truncate text-sm font-medium">{j.name}</span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">{j.product}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1 text-[11px]">
-                  {j.steps.map((s, i) => (
-                    <span key={i} className="flex items-center gap-1">
-                      <span className="rounded bg-muted px-1.5 py-0.5">{s}</span>
-                      {i < j.steps.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground/60" />}
-                    </span>
-                  ))}
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
-      </Section>
-
-      {/* ─── SECTION 7 · Executive Insights ────────────────────────────────── */}
+      {/* ─── SECTION 6 · Executive Insights ────────────────────────────────── */}
       <Section title="Executive Insights" subtitle="What changed and what to watch this week"
         href="/dashboard/insights" linkLabel="Weekly report">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -375,7 +314,7 @@ export default async function ExecutiveDashboard() {
         </div>
       </Section>
 
-      {/* ─── SECTION 8 · Productivity Intelligence ─────────────────────────── */}
+      {/* ─── SECTION 7 · Productivity Intelligence ─────────────────────────── */}
       <Section title="Productivity Intelligence" subtitle="Who is performing and who needs a check-in"
         href="/dashboard/people" linkLabel="All staff">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -411,7 +350,7 @@ export default async function ExecutiveDashboard() {
         </div>
       </Section>
 
-      {/* ─── SECTION 9 · Operational Intelligence ──────────────────────────── */}
+      {/* ─── SECTION 8 · Operational Intelligence ──────────────────────────── */}
       <Section title="Operational Intelligence" subtitle="Incidents, errors and risks — supporting view">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard label="Open incidents" value={fmt.format(openIncidents)} icon={AlertOctagon} invertTrend
@@ -425,7 +364,7 @@ export default async function ExecutiveDashboard() {
         </div>
       </Section>
 
-      {/* ─── SECTION 10 · Recommended Actions ──────────────────────────────── */}
+      {/* ─── SECTION 9 · Recommended Actions ───────────────────────────────── */}
       <Section title="Recommended Actions" subtitle="What management should do next"
         href="/dashboard/insights" linkLabel="Full report">
         <div className="grid gap-4 lg:grid-cols-3">

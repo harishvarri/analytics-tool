@@ -154,7 +154,7 @@ export default async function EngagementIntelligencePage() {
             <ul className="space-y-2 pt-1">
               {deptTrend.map((d) => (
                 <li key={d.department} className="flex items-center justify-between text-xs">
-                  <Link href={`/dashboard/departments/${encodeURIComponent(d.department)}`} className="font-medium hover:underline">{d.department}</Link>
+                  <span className="font-medium">{d.department}</span>
                   <span className="flex items-center gap-2">
                     <span className="tabular-nums text-muted-foreground">{fmt.format(d.thisWeek)} this wk</span>
                     {d.dir === 'up' ? <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
