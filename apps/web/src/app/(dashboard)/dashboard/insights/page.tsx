@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   BarChart3,
-  Building2,
   CheckCircle2,
   Gauge,
   HeartPulse,
@@ -9,7 +8,6 @@ import {
   LineChart,
   ShieldAlert,
   Sparkles,
-  TrendingUp,
   Users,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { AutoRefresh } from '@/components/AutoRefresh';
+import { ReportExport } from '@/components/shared/ReportExport';
 import { fetchInsights, isUsingMockData } from '@/lib/data/fetchers';
 import type { ExecutiveOperationsReport, MetricDelta } from '@/lib/repositories/insights';
 
@@ -63,12 +62,6 @@ function scoreTone(score: number): string {
   return 'text-rose-600 dark:text-rose-400';
 }
 
-function metricTone(value: number): string {
-  if (value >= 80) return 'text-emerald-600 dark:text-emerald-400';
-  if (value >= 60) return 'text-amber-600 dark:text-amber-400';
-  return 'text-rose-600 dark:text-rose-400';
-}
-
 function hasReportSignals(report: ExecutiveOperationsReport): boolean {
   return (
     report.productRanking.length > 0 ||
@@ -90,11 +83,22 @@ export default async function InsightsPage() {
       <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="Executive Operations Report"
-        description="Weekly operational intelligence across products, departments, adoption, reliability, and risk."
+        description="Weekly operational intelligence — user activity, product performance, reliability, and risk."
         actions={
-          <Badge variant="outline" className={STATUS_STYLE[report.platformStatus]}>
-            {statusLabel(report.platformStatus)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={STATUS_STYLE[report.platformStatus]}>
+              {statusLabel(report.platformStatus)}
+            </Badge>
+            <ReportExport
+              filename="executive-operations-report"
+              title="Executive Operations Report"
+              headers={['Product', 'Active users', 'Sessions', 'Health', 'Trend', 'Weekly growth %', 'Errors', 'Reliability']}
+              rows={report.productRanking.map((r) => [
+                r.name, r.activeUsers, r.sessions, r.healthScore, r.trend,
+                r.weeklyGrowthPct ?? '', r.errorCount, r.reliabilityScore,
+              ])}
+            />
+          </div>
         }
       />
 
@@ -245,32 +249,7 @@ export default async function InsightsPage() {
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              Adoption Intelligence
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-2">
-            <CapabilityCard title="Most Used Capability" item={report.adoption.mostUsed} />
-            <CapabilityCard title="Fastest Growing Capability" item={report.adoption.fastestGrowing} />
-            <CapabilityCard title="Least Used Capability" item={report.adoption.leastUsed} />
-            <CapabilityCard title="Declining Capability" item={report.adoption.declining} />
-            {report.adoption.newlyAdopted.length > 0 ? (
-              <div className="rounded-md border p-3 md:col-span-2">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Newly Adopted Features</div>
-                <div className="flex flex-wrap gap-2">
-                  {report.adoption.newlyAdopted.map((item) => (
-                    <Badge key={item.feature} variant="secondary">{item.feature}: {item.usersThisWeek} users</Badge>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
+      <section className="grid gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -291,51 +270,12 @@ export default async function InsightsPage() {
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              Department Intelligence
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <DepartmentHighlight
-                title="Most Active Department"
-                item={report.departments.mostActive}
-                tone="emerald"
-              />
-              <DepartmentHighlight
-                title="Least Active Department"
-                item={report.departments.leastActive}
-                tone="amber"
-              />
-            </div>
-            {report.departments.rows.length ? report.departments.rows.map((department) => (
-              <div key={department.department} className="rounded-md border p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium">{department.department}</div>
-                    <div className="text-xs text-muted-foreground">{department.summary}</div>
-                  </div>
-                  <div className="text-right text-xs">
-                    <div className="font-semibold tabular-nums">{percent(department.growthPct)}</div>
-                    <div className="text-muted-foreground">{department.adoptionLabel}</div>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">Department data is not available yet.</div>
-            )}
-          </CardContent>
-        </Card>
-
+      <section className="grid gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-              Risk Intelligence
+              Operational Risk Intelligence
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -432,25 +372,6 @@ export default async function InsightsPage() {
   );
 }
 
-function CapabilityCard({ title, item }: { title: string; item: ExecutiveOperationsReport['adoption']['mostUsed'] }) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
-      {item ? (
-        <>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold capitalize">{item.feature}</div>
-            <Badge variant="outline">{percent(item.growthPct)}</Badge>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">{item.narrative}</p>
-        </>
-      ) : (
-        <p className="mt-2 text-xs text-muted-foreground">No signal detected this week.</p>
-      )}
-    </div>
-  );
-}
-
 function MetricLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between rounded-md border px-3 py-2">
@@ -470,41 +391,6 @@ function ScoreLine({ label, value }: { label: string; value: number }) {
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
       </div>
-    </div>
-  );
-}
-
-function DepartmentHighlight({
-  title,
-  item,
-  tone,
-}: {
-  title: string;
-  item: ExecutiveOperationsReport['departments']['mostActive'];
-  tone: 'emerald' | 'amber';
-}) {
-  const colorClass =
-    tone === 'emerald'
-      ? 'border-emerald-500/20 bg-emerald-500/5'
-      : 'border-amber-500/20 bg-amber-500/5';
-
-  return (
-    <div className={`rounded-md border p-3 ${colorClass}`}>
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
-      {item ? (
-        <div className="mt-2 flex items-end justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">{item.department}</div>
-            <div className="text-xs text-muted-foreground">{item.summary}</div>
-          </div>
-          <div className="text-right">
-            <div className={`text-lg font-semibold tabular-nums ${metricTone(item.activeUsers)}`}>{fmt.format(item.activeUsers)}</div>
-            <div className="text-xs text-muted-foreground">{item.adoptionLabel}</div>
-          </div>
-        </div>
-      ) : (
-        <p className="mt-2 text-xs text-muted-foreground">No department activity captured yet.</p>
-      )}
     </div>
   );
 }
