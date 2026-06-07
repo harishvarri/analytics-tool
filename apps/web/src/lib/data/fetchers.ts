@@ -74,6 +74,7 @@ import {
   getDepartmentRollup,
   getLoginHistory,
   getOrgPulse,
+  getSessionDetail,
   getSessionList,
   getUserActivityWindow,
   getUserDetail,
@@ -85,6 +86,7 @@ import {
   type DepartmentRollupRow,
   type LoginRow,
   type OrgPulse,
+  type SessionDetail,
   type SessionRow,
   type UserActivityWindow,
   type UserDetail,
@@ -423,3 +425,6 @@ export const fetchOrganizationHealth = (): Promise<OrgHealth> =>
 
 export const fetchSessionList = (opts: { appId?: string; days?: number; since?: string; until?: string; limit?: number } = {}): Promise<SessionRow[]> =>
   withMockFallback('ops.sessions', () => getSessionList(opts), () => []);
+
+export const fetchSessionDetail = (sessionId: string): Promise<SessionDetail | null> =>
+  withMockFallback('ops.sessionDetail', () => getSessionDetail(sessionId), () => null);

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Clock, Timer, Users, Zap } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
@@ -81,11 +82,17 @@ export default async function SessionsPage({ searchParams }: PageProps) {
                 <tbody>
                   {rows.slice(0, 100).map((r) => (
                     <tr key={r.sessionId} className="border-b last:border-b-0 hover:bg-muted/40">
-                      <td className="px-2 py-2 font-medium">{r.displayName ?? r.email ?? (r.userId ? r.userId.slice(0, 8) : 'Anonymous')}</td>
+                      <td className="px-2 py-2 font-medium">
+                        <Link href={`/dashboard/sessions/${r.sessionId}`} className="hover:underline">
+                          {r.displayName ?? r.email ?? (r.userId ? r.userId.slice(0, 8) : 'Guest')}
+                        </Link>
+                      </td>
                       <td className="px-2 py-2">{portalName(r.portalId)}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{fmtDuration(r.durationMin)}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{fmt.format(r.eventCount)}</td>
-                      <td className="px-2 py-2 text-right text-muted-foreground">{formatRelativeTime(r.startedAt)}</td>
+                      <td className="px-2 py-2 text-right text-muted-foreground">
+                        <Link href={`/dashboard/sessions/${r.sessionId}`} className="hover:underline">{formatRelativeTime(r.startedAt)}</Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -341,6 +341,93 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
   };
 }
 
+// ── Session drill-down (single session detail) ───────────────────────────────
+export interface SessionEvent {
+  name: string; category: string; portalId: string; occurredAt: string; url: string | null; metadata: Record<string, unknown> | null;
+}
+export interface SessionDetail {
+  sessionId:    string;
+  userId:       string | null;
+  email:        string | null;
+  displayName:  string | null;
+  portalId:     string;
+  startedAt:    string;
+  lastSeenAt:   string;
+  endedAt:      string | null;
+  durationMin:  number;
+  eventCount:   number;
+  businessActions: number;
+  errors:       number;
+  pagesVisited: number;
+  logins:       number;
+  topActions:   { label: string; count: number }[];
+  events:       SessionEvent[]; // chronological
+}
+
+export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
+  const admin = getSupabaseAdmin();
+  const { data: s } = await admin
+    .from('analytics_sessions')
+    .select('id, user_id, portal_id, started_at, last_seen_at, ended_at, event_count')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (!s) return null;
+  const sess = s as Record<string, unknown>;
+
+  const [{ data: evRows }, userRes] = await Promise.all([
+    admin.from('analytics_events')
+      .select('name, category, portal_id, occurred_at, url, metadata')
+      .eq('session_id', sessionId)
+      .order('occurred_at', { ascending: true })
+      .limit(2000),
+    sess.user_id
+      ? admin.from('analytics_users').select('email, display_name').eq('id', String(sess.user_id)).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const events: SessionEvent[] = ((evRows ?? []) as Record<string, unknown>[]).map((r) => ({
+    name: String(r.name), category: String(r.category), portalId: String(r.portal_id),
+    occurredAt: String(r.occurred_at), url: (r.url as string | null) ?? null,
+    metadata: (r.metadata as Record<string, unknown> | null) ?? null,
+  }));
+
+  const pages = new Set<string>();
+  const nameCount = new Map<string, number>();
+  let businessActions = 0, errors = 0, logins = 0;
+  for (const e of events) {
+    if (e.url) pages.add(e.url);
+    if (e.category === 'error') errors += 1;
+    if (e.name === 'auth.login') logins += 1;
+    if (isOperationalEvent(e.category, e.name)) {
+      businessActions += 1;
+      nameCount.set(e.name, (nameCount.get(e.name) ?? 0) + 1);
+    }
+  }
+
+  const start = new Date(String(sess.started_at)).getTime();
+  const end = new Date(String(sess.ended_at ?? sess.last_seen_at)).getTime();
+  const u = (userRes?.data ?? null) as { email?: string | null; display_name?: string | null } | null;
+
+  return {
+    sessionId,
+    userId:       (sess.user_id as string | null) ?? null,
+    email:        u?.email ?? null,
+    displayName:  u?.display_name ?? null,
+    portalId:     String(sess.portal_id),
+    startedAt:    String(sess.started_at),
+    lastSeenAt:   String(sess.last_seen_at),
+    endedAt:      (sess.ended_at as string | null) ?? null,
+    durationMin:  end > start ? Math.round((end - start) / 60000) : 0,
+    eventCount:   n(sess.event_count) || events.length,
+    businessActions,
+    errors,
+    pagesVisited: pages.size,
+    logins,
+    topActions:   [...nameCount.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 6),
+    events,
+  };
+}
+
 // ── Per-user activity window (page-level period filter) ──────────────────────
 export type ActivityRange = 'today' | 'yesterday' | 'week' | 'month' | 'all';
 
