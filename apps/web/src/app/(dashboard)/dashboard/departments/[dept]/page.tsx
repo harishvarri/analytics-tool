@@ -34,8 +34,8 @@ export default async function DepartmentDetailPage({ params }: PageProps) {
   if (!d || d.staffCount === 0) {
     return (
       <div className="space-y-6">
-        <Link href="/dashboard/departments" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> Department Analytics
+        <Link href="/dashboard/retention?tab=departments" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-3.5 w-3.5" /> Departments
         </Link>
         <PageHeader title={decoded} description="No staff are assigned to this department yet." />
       </div>

@@ -1,20 +1,11 @@
 import { KeyRound, UserCheck, UserX, Percent } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
-import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { ExportButton } from '@/components/shared/ExportButton';
-import { AutoRefresh } from '@/components/AutoRefresh';
 import { fetchAccessVsUsage, fetchInactiveWithAccess } from '@/lib/data/fetchers';
 import { formatRelativeTime } from '@/lib/utils';
-import { rangeToDays, rangeLabel } from '@/lib/range';
-
-export const dynamic = 'force-dynamic';
 
 const fmt = new Intl.NumberFormat('en-US');
-
-interface PageProps {
-  searchParams: Promise<{ range?: string }>;
-}
 
 function adoptionTone(pct: number): string {
   if (pct >= 60) return 'text-emerald-600 dark:text-emerald-400';
@@ -22,9 +13,8 @@ function adoptionTone(pct: number): string {
   return 'text-rose-600 dark:text-rose-400';
 }
 
-export default async function AccessAnalyticsPage({ searchParams }: PageProps) {
-  const { range } = await searchParams;
-  const days = rangeToDays(range);
+/** Access-vs-usage — the "Adoption" tab of Product Analytics. */
+export async function AdoptionPanel({ days = 30 }: { days?: number }) {
   const [rows, inactive] = await Promise.all([
     fetchAccessVsUsage(days),
     fetchInactiveWithAccess(50),
@@ -39,19 +29,6 @@ export default async function AccessAnalyticsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <AutoRefresh intervalMs={60_000} />
-      <PageHeader
-        title="Access Analytics"
-        description="Who has access to each product versus who actually uses it — and where licenses are going to waste."
-        actions={
-          <ExportButton
-            filename="access-vs-usage"
-            headers={['Product', 'Users with access', 'Adopted (30d)', 'Never used', 'Adoption %']}
-            rows={rows.map((r) => [r.projectName, r.usersWithAccess, r.adoptedUsers, r.accessNeverUsed, r.adoptionPct])}
-          />
-        }
-      />
-
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Total access grants" value={fmt.format(totalAccess)} icon={KeyRound}
           trend={{ direction: 'flat', label: `${rows.length} products` }} />
@@ -71,13 +48,20 @@ export default async function AccessAnalyticsPage({ searchParams }: PageProps) {
           <div className="text-sm font-medium">No access grants recorded yet</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
             Access data flows from your SSO/directory sync into <code>analytics_user_access</code>.
-            Once products report who can access them, this page shows adoption of that access.
+            Once products report who can access them, this tab shows adoption of that access.
           </p>
         </div>
       ) : (
         <ChartCard
           title="Adoption of access, by product"
-          description={`How many people who can use each product actually did — ${rangeLabel(range).toLowerCase()}`}
+          description="How many people who can use each product actually did — last 30 days"
+          actions={
+            <ExportButton
+              filename="access-vs-usage"
+              headers={['Product', 'Users with access', 'Adopted (30d)', 'Never used', 'Adoption %']}
+              rows={rows.map((r) => [r.projectName, r.usersWithAccess, r.adoptedUsers, r.accessNeverUsed, r.adoptionPct])}
+            />
+          }
         >
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -137,9 +121,7 @@ export default async function AccessAnalyticsPage({ searchParams }: PageProps) {
                     </td>
                     <td className="px-2 py-2 text-muted-foreground">{u.department ?? '—'}{u.team ? ` · ${u.team}` : ''}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{u.projectsWithAccess}</td>
-                    <td className="px-2 py-2 text-right text-muted-foreground">
-                      {u.lastActiveAt ? formatRelativeTime(u.lastActiveAt) : 'never'}
-                    </td>
+                    <td className="px-2 py-2 text-right text-muted-foreground">{u.lastActiveAt ? formatRelativeTime(u.lastActiveAt) : 'never'}</td>
                   </tr>
                 ))}
               </tbody>

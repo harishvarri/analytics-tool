@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
     return [
       // "Users" was a strict subset of Staff Intelligence.
       { source: '/dashboard/users', destination: '/dashboard/people', permanent: true },
+      // Access & Features folded into Product Analytics tabs (P2 consolidation).
+      { source: '/dashboard/access', destination: '/dashboard/portals?tab=adoption', permanent: true },
+      { source: '/dashboard/features', destination: '/dashboard/portals?tab=features', permanent: true },
+      // Department Intelligence folded into Productivity Insights (keeps the
+      // /departments/[dept] detail pages, which are reached via links).
+      { source: '/dashboard/departments', destination: '/dashboard/retention?tab=departments', permanent: true },
     ];
   },
   async headers() {
