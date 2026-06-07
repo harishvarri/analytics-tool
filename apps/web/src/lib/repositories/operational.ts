@@ -1,6 +1,7 @@
 import 'server-only';
 import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
+import { isOperationalEvent } from '../importance';
 import type { DirectoryUser } from '../schemas/directory';
 import type { RealtimeActivityItem, EventCategory } from '@/types/analytics';
 
@@ -335,6 +336,124 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     logins,
     apps,
     recent,
+  };
+}
+
+// ── Per-user activity window (page-level period filter) ──────────────────────
+export type ActivityRange = 'today' | 'yesterday' | 'week' | 'month' | 'all';
+
+export interface UserActivityWindow {
+  range:           ActivityRange;
+  events:          number;   // total events in the period (exact count)
+  businessActions: number;   // operational events in the period
+  errors:          number;
+  logins:          number;
+  productsUsed:    number;
+  activeDays:      number;
+  sessions:        number;   // sessions started in the period
+  activeMinutes:   number;   // total active time of those sessions
+  avgSessionMin:   number;
+  apps:            { slug: string; events: number }[];
+  topActions:      { label: string; count: number }[];
+  timeline:        { name: string; category: string; portalId: string; occurredAt: string; url: string | null; metadata: Record<string, unknown> | null }[];
+}
+
+const MS_DAY = 86_400_000;
+
+function windowBounds(range: ActivityRange): { since: string | null; upto: string | null } {
+  const now = Date.now();
+  const startToday = new Date(now).setHours(0, 0, 0, 0);
+  switch (range) {
+    case 'today':     return { since: new Date(startToday).toISOString(), upto: null };
+    case 'yesterday': return { since: new Date(startToday - MS_DAY).toISOString(), upto: new Date(startToday).toISOString() };
+    case 'week':      return { since: new Date(now - 7 * MS_DAY).toISOString(), upto: null };
+    case 'month':     return { since: new Date(now - 30 * MS_DAY).toISOString(), upto: null };
+    case 'all':       return { since: null, upto: null };
+  }
+}
+
+export async function getUserActivityWindow(userId: string, range: ActivityRange): Promise<UserActivityWindow> {
+  const admin = getSupabaseAdmin();
+  const { since, upto } = windowBounds(range);
+
+  // Exact event count (accurate even when row fetch is capped).
+  let countQ = admin.from('analytics_events').select('*', { count: 'exact', head: true }).eq('user_id', userId);
+  if (since) countQ = countQ.gte('occurred_at', since);
+  if (upto) countQ = countQ.lt('occurred_at', upto);
+
+  // Rows for aggregation + timeline.
+  let rowsQ = admin
+    .from('analytics_events')
+    .select('name, category, portal_id, occurred_at, url, metadata')
+    .eq('user_id', userId)
+    .order('occurred_at', { ascending: false })
+    .limit(5000);
+  if (since) rowsQ = rowsQ.gte('occurred_at', since);
+  if (upto) rowsQ = rowsQ.lt('occurred_at', upto);
+
+  // Sessions started within the period.
+  let sessQ = admin.from('analytics_sessions').select('started_at, last_seen_at, ended_at').eq('user_id', userId).limit(2000);
+  if (since) sessQ = sessQ.gte('started_at', since);
+  if (upto) sessQ = sessQ.lt('started_at', upto);
+
+  const [{ count, error: countErr }, { data: rowData, error: rowErr }, { data: sessData }] = await Promise.all([countQ, rowsQ, sessQ]);
+  if (countErr) throw new AppError('USER_WINDOW_FAILED', countErr.message, 500);
+  if (rowErr) throw new AppError('USER_WINDOW_FAILED', rowErr.message, 500);
+
+  const rows = (rowData ?? []) as Record<string, unknown>[];
+
+  const productSet = new Set<string>();
+  const daySet = new Set<string>();
+  const appCount = new Map<string, number>();
+  const nameCount = new Map<string, number>();
+  let businessActions = 0, errors = 0, logins = 0;
+  const timeline: UserActivityWindow['timeline'] = [];
+
+  for (const r of rows) {
+    const nameStr = String(r.name);
+    const cat = String(r.category);
+    const slug = String(r.portal_id);
+    const occ = String(r.occurred_at);
+    const meta = (r.metadata as Record<string, unknown> | null) ?? null;
+    const url = (r.url as string | null) ?? null;
+
+    productSet.add(slug);
+    daySet.add(occ.slice(0, 10));
+    appCount.set(slug, (appCount.get(slug) ?? 0) + 1);
+    if (cat === 'error') errors += 1;
+    if (nameStr === 'auth.login') logins += 1;
+    if (isOperationalEvent(cat, nameStr)) {
+      businessActions += 1;
+      nameCount.set(nameStr, (nameCount.get(nameStr) ?? 0) + 1);
+      if (timeline.length < 60) timeline.push({ name: nameStr, category: cat, portalId: slug, occurredAt: occ, url, metadata: meta });
+    }
+  }
+
+  const sessions = (sessData ?? []) as { started_at: string; last_seen_at: string; ended_at: string | null }[];
+  let totalMs = 0;
+  for (const s of sessions) {
+    const start = new Date(s.started_at).getTime();
+    const end = new Date(s.ended_at ?? s.last_seen_at).getTime();
+    if (end > start) totalMs += end - start;
+  }
+  const activeMinutes = Math.round(totalMs / 60000);
+
+  const apps = [...appCount.entries()].map(([slug, events]) => ({ slug, events })).sort((a, b) => b.events - a.events);
+
+  return {
+    range,
+    events: count ?? rows.length,
+    businessActions,
+    errors,
+    logins,
+    productsUsed: productSet.size,
+    activeDays: daySet.size,
+    sessions: sessions.length,
+    activeMinutes,
+    avgSessionMin: sessions.length ? Math.round(activeMinutes / sessions.length) : 0,
+    apps,
+    topActions: [...nameCount.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 6),
+    timeline,
   };
 }
 

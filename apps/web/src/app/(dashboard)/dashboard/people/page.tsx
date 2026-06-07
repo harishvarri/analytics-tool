@@ -1,4 +1,4 @@
-import { Building2, UserCheck, Users } from 'lucide-react';
+import { Building2, Users } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
@@ -26,7 +26,6 @@ export default async function DirectoryPage({ searchParams }: PageProps) {
 async function AppDirectory({ appSlug }: { appSlug: string }) {
   const users = await fetchAppUsers(appSlug, 200);
   const appName = getPortalConfig(appSlug).name;
-  const identified = users.filter((u) => u.email);
   const rows: PersonRow[] = users.map((u) => ({
     userId: u.userId, displayName: u.displayName, email: u.email, department: u.department,
     appsUsed: 1, totalEvents: u.totalEvents, totalSessions: u.totalSessions, lastActiveAt: u.lastActiveAt,
@@ -50,12 +49,10 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
         }
       />
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2">
         <KpiCard label={`Staff in ${appName}`} value={users.length.toLocaleString()} icon={Users}
           trend={{ direction: 'flat', label: `Active in ${appName}` }} />
-        <KpiCard label="Named staff" value={identified.length.toLocaleString()} icon={UserCheck}
-          trend={{ direction: 'flat', label: 'Signed in with a name or email' }} />
-        <KpiCard label="Guest sessions" value={(users.length - identified.length).toLocaleString()} icon={Building2}
+        <KpiCard label="Guest sessions" value={users.filter((u) => !u.email).length.toLocaleString()} icon={Building2}
           trend={{ direction: 'flat', label: 'Auto-named once the app identifies them' }} />
       </section>
 
@@ -72,7 +69,6 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
 
 async function CrossAppDirectory() {
   const users = await fetchUserProfileSummaries(200);
-  const identified = users.filter((u) => u.email);
   const rows: PersonRow[] = users.map((u) => ({
     userId: u.userId, displayName: u.displayName, email: u.email, department: u.department,
     appsUsed: u.appsUsed, totalEvents: u.totalEvents, totalSessions: u.totalSessions, lastActiveAt: u.lastActiveAt,
@@ -95,12 +91,10 @@ async function CrossAppDirectory() {
         }
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2">
         <KpiCard label="People tracked" value={users.length.toLocaleString()} icon={Building2}
           trend={{ direction: 'flat', label: 'Across all products' }} />
-        <KpiCard label="Named staff" value={identified.length.toLocaleString()} icon={UserCheck}
-          trend={{ direction: 'flat', label: 'Signed in (have a name / email)' }} />
-        <KpiCard label="Guest sessions" value={(users.length - identified.length).toLocaleString()} icon={Users}
+        <KpiCard label="Guest sessions" value={users.filter((u) => !u.email).length.toLocaleString()} icon={Users}
           trend={{ direction: 'flat', label: 'Auto-named once a product identifies them' }} />
       </section>
 

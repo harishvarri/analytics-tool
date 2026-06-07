@@ -75,8 +75,10 @@ import {
   getLoginHistory,
   getOrgPulse,
   getSessionList,
+  getUserActivityWindow,
   getUserDetail,
   getUserProfileSummaries,
+  type ActivityRange,
   type AppUserRow,
   type DepartmentActivityRow,
   type DepartmentDetail,
@@ -84,6 +86,7 @@ import {
   type LoginRow,
   type OrgPulse,
   type SessionRow,
+  type UserActivityWindow,
   type UserDetail,
   type UserProfileSummary,
 } from '../repositories/operational';
@@ -342,6 +345,12 @@ export const fetchAppUsers = (appSlug: string, limit = 100): Promise<AppUserRow[
 
 export const fetchUserDetail = (userId: string): Promise<UserDetail | null> =>
   withMockFallback('ops.userDetail', () => getUserDetail(userId), () => null);
+
+export const fetchUserActivityWindow = (userId: string, range: ActivityRange): Promise<UserActivityWindow> =>
+  withMockFallback('ops.userWindow', () => getUserActivityWindow(userId, range), () => ({
+    range, events: 0, businessActions: 0, errors: 0, logins: 0, productsUsed: 0, activeDays: 0,
+    sessions: 0, activeMinutes: 0, avgSessionMin: 0, apps: [], topActions: [], timeline: [],
+  }));
 
 // ── Operational Intelligence v2 (surface existing 0020/0030 views) ────────────
 
