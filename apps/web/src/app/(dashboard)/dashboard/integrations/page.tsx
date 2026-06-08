@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Check, X, Plug, UserX, Database, Activity } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
+import { ScriptInstallGuide } from '@/components/shared/ScriptInstallGuide';
 import { fetchIntegrationHealth } from '@/lib/data/fetchers';
 import type { IntegrationChecks } from '@/lib/repositories/integrationHealth';
 import { formatRelativeTime } from '@/lib/utils';
@@ -93,6 +94,13 @@ export default async function IntegrationHealthPage() {
                   ))}
                 </ul>
               )}
+
+              {/* Script install guide — expandable per project */}
+              <ScriptInstallGuide
+                projectSlug={p.slug}
+                projectName={p.name}
+                apiKey={p.apiKey}
+              />
             </div>
           ))}
         </section>

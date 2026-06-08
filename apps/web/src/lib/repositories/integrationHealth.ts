@@ -21,6 +21,7 @@ export interface IntegrationChecks {
 export interface IntegrationProject {
   slug: string;
   name: string;
+  apiKey: string;             // per-project public tracking key (ncpl_pk_…)
   score: number;              // 0–100 integration completeness
   checks: IntegrationChecks;
   events7d: number;
@@ -52,11 +53,17 @@ const WEIGHTS = { scriptInstalled: 30, eventsFlowing: 25, usersIdentified: 25, b
 export async function getIntegrationHealth(): Promise<IntegrationHealth> {
   const admin = getSupabaseAdmin();
 
-  const [projects, lastActRes, usersRes] = await Promise.all([
+  const [projects, lastActRes, usersRes, apiKeyRes] = await Promise.all([
     getProjectIntelligence(),
     admin.from('v_project_last_activity').select('project_slug, events_7d'),
     admin.from('analytics_users').select('id, email'),
+    admin.from('analytics_projects').select('slug, api_key'),
   ]);
+
+  const apiKeyBySlug = new Map<string, string>();
+  for (const r of (apiKeyRes.data ?? []) as { slug: string; api_key: string }[]) {
+    apiKeyBySlug.set(r.slug, r.api_key);
+  }
 
   const events7dBySlug = new Map<string, number>();
   for (const r of (lastActRes.data ?? []) as Record<string, unknown>[]) {
@@ -103,7 +110,7 @@ export async function getIntegrationHealth(): Promise<IntegrationHealth> {
     if (!checks.errorsCaptured) missing.push('No errors captured yet (fine if none occurred; tag with errorType when they do)');
 
     return {
-      slug: p.slug, name: p.name, score, checks,
+      slug: p.slug, name: p.name, apiKey: apiKeyBySlug.get(p.slug) ?? '', score, checks,
       events7d, activeUsers7d: p.activeUsers7d, businessEvents7d: p.businessEvents7d,
       lastActivityAt: p.lastActivityAt, missing,
     };
