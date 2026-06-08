@@ -79,10 +79,20 @@ export const getOrganizationHealth = cache(async (): Promise<OrgHealth> => {
     getErrorIntelligence(7).catch(() => null),
   ]);
 
-  const errCount = (cat: string) => errors?.categories.find((c) => c.category === cat)?.count ?? 0;
-  const apiErrors = errCount('api');
-  const dbErrors = errCount('database');
-  const authErrors = errCount('authentication');
+  // Projects whose error incidents are resolved/closed should not contribute to
+  // cross-product error category counts — the team has already acknowledged them.
+  const acknowledgedSlugs = new Set(projects.filter((p) => p.errorsAcknowledged).map((p) => p.slug));
+  const activeErrorProjects = (errors?.byProject ?? []).filter((ep) => !acknowledgedSlugs.has(ep.slug));
+
+  // Approximate per-category counts from non-acknowledged projects (uses topCategory
+  // as proxy — good enough for risk-factor and why[] scoring).
+  const activeCatCount = new Map<string, number>();
+  for (const ep of activeErrorProjects) {
+    if (ep.topCategory) activeCatCount.set(ep.topCategory, (activeCatCount.get(ep.topCategory) ?? 0) + ep.errors);
+  }
+  const apiErrors = activeCatCount.get('api') ?? 0;
+  const dbErrors = activeCatCount.get('database') ?? 0;
+  const authErrors = activeCatCount.get('authentication') ?? 0;
 
   const n = projects.length;
   const healthy = projects.filter((p) => p.status === 'healthy').length;
@@ -142,7 +152,9 @@ export const getOrganizationHealth = cache(async (): Promise<OrgHealth> => {
         title: `${p.name} needs attention (health ${p.healthScore})`, detail: reason,
       });
     }
-    if (p.errorRatePct >= 2) {
+    // Only surface error spike and inactivity as attention items when the
+    // corresponding incident has not been resolved/closed.
+    if (p.errorRatePct >= 2 && !p.errorsAcknowledged) {
       attention.push({
         kind: 'error_spike', slug: p.slug, severity: p.errorRatePct >= 5 ? 'critical' : 'warning',
         title: `Errors elevated in ${p.name}`, detail: `${p.errorRatePct}% error rate · ${p.errors30d} errors (30d)`,
@@ -154,7 +166,7 @@ export const getOrganizationHealth = cache(async (): Promise<OrgHealth> => {
         title: `Low adoption in ${p.name}`, detail: `${p.adoptionPct}% of people with access use it`,
       });
     }
-    if (p.daysSinceActivity !== null && p.daysSinceActivity >= 7) {
+    if (p.daysSinceActivity !== null && p.daysSinceActivity >= 7 && !p.statusAcknowledged) {
       attention.push({
         kind: 'inactive_project', slug: p.slug, severity: p.daysSinceActivity >= 14 ? 'critical' : 'warning',
         title: `${p.name} has gone quiet`, detail: `No activity for ${p.daysSinceActivity} days`,
@@ -175,10 +187,10 @@ export const getOrganizationHealth = cache(async (): Promise<OrgHealth> => {
   // ── Executive recommendations (actionable, plain English) ───────────────────
   const recommendations: string[] = [];
   for (const p of projects) {
-    if (p.errorRatePct >= 2) recommendations.push(`Investigate errors in ${p.name} (${p.errorRatePct}% error rate).`);
-    if (p.daysSinceActivity !== null && p.daysSinceActivity >= 14) recommendations.push(`Follow up on ${p.name} — unused for ${p.daysSinceActivity} days.`);
+    if (p.errorRatePct >= 2 && !p.errorsAcknowledged) recommendations.push(`Investigate errors in ${p.name} (${p.errorRatePct}% error rate).`);
+    if (p.daysSinceActivity !== null && p.daysSinceActivity >= 14 && !p.statusAcknowledged) recommendations.push(`Follow up on ${p.name} — unused for ${p.daysSinceActivity} days.`);
     else if (p.adoptionNorm < 40) recommendations.push(`Grow usage of ${p.name} — only ${p.activeUsers7d} active users this week.`);
-    if (p.failedLogins7d >= 10) recommendations.push(`Review authentication failures in ${p.name} (${p.failedLogins7d} failed logins this week).`);
+    if (p.failedLogins7d >= 10 && !p.errorsAcknowledged) recommendations.push(`Review authentication failures in ${p.name} (${p.failedLogins7d} failed logins this week).`);
     // Surface the dominant health driver for non-healthy products.
     if (p.status !== 'healthy' && p.topHealthDriver && p.errorRatePct < 2 && (p.daysSinceActivity ?? 0) < 14) {
       recommendations.push(`Improve ${p.name} — biggest drag on its ${p.healthScore}/100 health is ${p.topHealthDriver}.`);

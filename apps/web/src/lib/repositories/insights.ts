@@ -296,10 +296,16 @@ export async function getInsights(): Promise<ExecutiveOperationsReport> {
   const newUsers = Math.max(0, thisUsers.size - returningUsers);
   const thisLogins = thisEvents.filter((event) => event.name === 'auth.login').length;
   const lastLogins = lastEvents.filter((event) => event.name === 'auth.login').length;
-  const thisFailures = thisEvents.filter((event) => event.name === 'auth.login_failed').length;
-  const lastFailures = lastEvents.filter((event) => event.name === 'auth.login_failed').length;
-  const thisErrors = thisEvents.filter(isError).length;
-  const lastErrors = lastEvents.filter(isError).length;
+
+  // Projects whose error-category incidents are resolved/closed should not contribute
+  // to the cross-product failure/error counts — the team has already acknowledged them.
+  const acknowledgedErrorSlugs = new Set(
+    projectIntel.filter((p) => p.errorsAcknowledged).map((p) => p.slug),
+  );
+  const thisFailures = thisEvents.filter((event) => event.name === 'auth.login_failed' && !acknowledgedErrorSlugs.has(event.portal_id)).length;
+  const lastFailures = lastEvents.filter((event) => event.name === 'auth.login_failed' && !acknowledgedErrorSlugs.has(event.portal_id)).length;
+  const thisErrors = thisEvents.filter((event) => isError(event) && !acknowledgedErrorSlugs.has(event.portal_id)).length;
+  const lastErrors = lastEvents.filter((event) => isError(event) && !acknowledgedErrorSlugs.has(event.portal_id)).length;
 
   const projectHealthBySlug = new Map(projectIntel.map((project) => [project.slug, project]));
   const allSlugs = new Set<string>([

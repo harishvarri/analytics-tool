@@ -64,8 +64,10 @@ export async function getOperationalRisks(): Promise<RiskBoard> {
   const signals: RiskSignal[] = [];
 
   for (const p of projects) {
-    // 1) Authentication — failed login spike
-    if (p.failedLogins7d >= 5) {
+    // 1) Authentication — failed login spike.
+    //    Suppressed when an error-category incident for this project is resolved/closed,
+    //    since login failures are surfaced as an authentication-category incident.
+    if (p.failedLogins7d >= 5 && !p.errorsAcknowledged) {
       const critical = p.failedLogins7d >= 20;
       signals.push({
         kind: 'login_failures', severity: critical ? 'critical' : 'warning', portalId: p.slug, portalName: p.name,
@@ -76,8 +78,9 @@ export async function getOperationalRisks(): Promise<RiskBoard> {
       });
     }
 
-    // 2) Error spike
-    if (p.errorRatePct >= 2 && p.errors30d > 0) {
+    // 2) Error spike.
+    //    Suppressed when an error-category incident for this project is resolved/closed.
+    if (p.errorRatePct >= 2 && p.errors30d > 0 && !p.errorsAcknowledged) {
       const critical = p.errorRatePct >= 5;
       signals.push({
         kind: 'error_spike', severity: critical ? 'critical' : 'warning', portalId: p.slug, portalName: p.name,
@@ -88,8 +91,9 @@ export async function getOperationalRisks(): Promise<RiskBoard> {
       });
     }
 
-    // 3) Product inactivity
-    if (p.daysSinceActivity !== null && p.daysSinceActivity >= 7) {
+    // 3) Product inactivity.
+    //    Suppressed when the project-status incident is resolved/closed.
+    if (p.daysSinceActivity !== null && p.daysSinceActivity >= 7 && !p.statusAcknowledged) {
       const critical = p.daysSinceActivity >= 14;
       signals.push({
         kind: 'inactivity', severity: critical ? 'critical' : 'warning', portalId: p.slug, portalName: p.name,

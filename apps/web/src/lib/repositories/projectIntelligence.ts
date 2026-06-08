@@ -80,7 +80,9 @@ export interface ProjectIntelligence {
   topHealthDriver: string | null;   // the single biggest drag on the score
   adoptionMeasured: boolean;        // false when no access grants are synced
   operationalScore: number;         // 0–100 blend used for ranking
-  incidentsAcknowledged: boolean;   // true when all auto-detected incidents are resolved/closed
+  incidentsAcknowledged: boolean;   // true when ANY auto-detected incident for this project is resolved/closed
+  errorsAcknowledged: boolean;      // an error-category incident (auth/frontend/api/…) is resolved/closed
+  statusAcknowledged: boolean;      // the project-status (inactivity) incident is resolved/closed
 }
 
 function tierToStatus(tier: HealthTier): ProjectStatus {
@@ -287,6 +289,8 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
       adoptionMeasured,
       operationalScore,
       incidentsAcknowledged,
+      errorsAcknowledged,
+      statusAcknowledged,
     };
   });
 
