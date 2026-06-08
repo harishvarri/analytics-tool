@@ -22,6 +22,10 @@ const CATEGORY_LABEL: Record<ErrorCategory, string> = {
 /** Operationally "critical" categories (infra/security), used for severity. */
 const CRITICAL_CATEGORIES = new Set<ErrorCategory>(['database', 'authentication', 'api']);
 
+/**
+ * Classify a raw error event into one of the six reliability categories.
+ * Exported so the Reliability Health engine categorises identically.
+ */
 function categorize(name: string, meta: Record<string, unknown> | null): ErrorCategory {
   const explicit = String((meta?.['errorType'] ?? meta?.['error_type'] ?? meta?.['category'] ?? '') as string).toLowerCase();
   if (explicit) {
@@ -148,4 +152,4 @@ export const getErrorIntelligence = cache(async (days = 7): Promise<ErrorIntelli
   };
 });
 
-export { CATEGORY_LABEL };
+export { CATEGORY_LABEL, CRITICAL_CATEGORIES, categorize };

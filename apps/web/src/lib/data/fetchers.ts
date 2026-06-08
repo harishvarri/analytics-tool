@@ -105,6 +105,12 @@ import { getProjectHealth, type ProjectHealthRow } from '../repositories/health'
 import { getOrganizationHealth, type OrgHealth } from '../repositories/orgHealth';
 import { getErrorIntelligence, type ErrorIntelligence } from '../repositories/errorIntelligence';
 import { getIncidents, type IncidentBoard } from '../repositories/incidents';
+import {
+  getReliabilityHealth,
+  getReliabilityHealthBySlug,
+  type ReliabilityHealthBoard,
+  type ReliabilityHealth,
+} from '../repositories/reliabilityHealth';
 import { getIntegrationHealth, type IntegrationHealth } from '../repositories/integrationHealth';
 import { getCommandCenter, type CommandCenter } from '../repositories/analytics';
 import {
@@ -407,6 +413,16 @@ export const fetchPlatformHealth = (): Promise<PlatformHealth> =>
 
 export const fetchProjectRecentActivity = (slug: string, limit = 150): Promise<RealtimeActivityItem[]> =>
   withMockFallback('projects.recent', () => getProjectRecentActivity(slug, limit), () => []);
+
+export const fetchReliabilityHealth = (): Promise<ReliabilityHealthBoard> =>
+  withMockFallback('reliability.health', getReliabilityHealth, () => ({
+    overallScore: 100, healthy: 0, warning: 0, critical: 0, total: 0,
+    affectedUsers: 0, affectedProducts: 0,
+    mostHealthy: null, mostUnstable: null, needsAttention: [], recentChanges: [], projects: [],
+  }));
+
+export const fetchReliabilityHealthBySlug = (slug: string): Promise<ReliabilityHealth | null> =>
+  withMockFallback('reliability.health.one', () => getReliabilityHealthBySlug(slug), () => null);
 
 export const fetchErrorIntelligence = (days = 7): Promise<ErrorIntelligence> =>
   withMockFallback('errors.intel', () => getErrorIntelligence(days), () => ({
