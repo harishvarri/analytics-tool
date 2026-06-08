@@ -34,8 +34,8 @@ const RISK_META: Record<RiskLevel, { label: string; tone: string }> = {
 };
 
 function scoreTone(s: number): string {
-  if (s >= 75) return 'text-emerald-600 dark:text-emerald-400';
-  if (s >= 50) return 'text-amber-600 dark:text-amber-400';
+  if (s >= 90) return 'text-emerald-600 dark:text-emerald-400';
+  if (s >= 70) return 'text-amber-600 dark:text-amber-400';
   return 'text-rose-600 dark:text-rose-400';
 }
 
@@ -93,7 +93,8 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
       {/* Health */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Health score" value={String(p.healthScore)} icon={HeartPulse}
-          trend={{ direction: p.healthScore >= 75 ? 'flat' : 'down', label: status.label }} />
+          trend={{ direction: p.healthScore >= 90 ? 'flat' : 'down', label: status.label }}
+          href={`/dashboard/health/${p.slug}`} />
         <KpiCard label="Reliability" value={String(p.reliabilityNorm)} icon={ShieldCheck}
           trend={{ direction: 'flat', label: `${p.errorRatePct}% error rate` }} invertTrend />
         <KpiCard label="Performance" value={String(p.performanceNorm)} icon={Gauge}
@@ -213,7 +214,9 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
       </section>
 
       <div className={`text-[11px] ${scoreTone(p.healthScore)}`}>
-        Health {p.healthScore}/100 — usage {p.adoptionNorm}, reliability {p.reliabilityNorm}, performance {p.performanceNorm}, momentum {p.activityNorm}.
+        Health {p.healthScore}/100 — reliability &amp; stability only.{' '}
+        <Link href={`/dashboard/health/${p.slug}`} className="underline hover:opacity-80">Open full health analysis →</Link>{' '}
+        Usage {p.adoptionNorm}, performance {p.performanceNorm}, and momentum {p.activityNorm} are tracked separately under Engagement &amp; Product Intelligence.
       </div>
     </div>
   );

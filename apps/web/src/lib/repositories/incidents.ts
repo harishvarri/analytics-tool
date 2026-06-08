@@ -129,10 +129,14 @@ export async function getIncidents(): Promise<IncidentBoard> {
     }
   }
 
-  // 2) Critical project conditions (outage / prolonged inactivity) → incidents.
+  // 2) Prolonged inactivity / outage → incident. Driven by activity (an
+  //    operational signal) rather than the reliability health status, since
+  //    health is now reliability-only and inactivity is an engagement concern.
   for (const p of projects) {
-    if (p.status !== 'critical') continue;
-    const alert = p.alerts[0] ?? p.issues[0] ?? `Health ${p.healthScore}/100`;
+    const inactive = p.daysSinceActivity === null || p.daysSinceActivity >= 14;
+    if (!inactive) continue;
+    const alert = p.alerts.find((a) => a.toLowerCase().includes('used')) ?? p.alerts[0]
+      ?? (p.daysSinceActivity === null ? 'No activity recorded yet' : `No activity for ${p.daysSinceActivity} days`);
     const id = shortId(`${p.slug}|status`);
     if (incidents.some((i) => i.id === id)) continue;
     incidents.push({
@@ -146,9 +150,7 @@ export async function getIncidents(): Promise<IncidentBoard> {
       occurrences: p.errors30d,
       category: 'project',
       rootCause: alert,
-      recommendedAction: p.daysSinceActivity && p.daysSinceActivity >= 7
-        ? 'Confirm the product is reachable and that tracking is still installed.'
-        : 'Open the project intelligence page to review health drivers.',
+      recommendedAction: 'Confirm the product is reachable and that tracking is still installed.',
       detectedAt: p.lastActivityAt ?? new Date().toISOString(),
       statusUpdatedAt: null,
     });

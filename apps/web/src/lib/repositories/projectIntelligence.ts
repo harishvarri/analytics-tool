@@ -5,6 +5,7 @@ import { AppError } from '../api/errors';
 import { getProjectHealth, type HealthTier } from './health';
 import { getAccessVsUsage } from './access';
 import { getProjectComparison } from './crossProject';
+import { getReliabilityHealth, type ReliabilityHealth } from './reliabilityHealth';
 import type { RealtimeActivityItem, EventCategory } from '@/types/analytics';
 
 /**
@@ -97,7 +98,7 @@ function tierToStatus(tier: HealthTier): ProjectStatus {
 export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligence[]> => {
   const admin = getSupabaseAdmin();
 
-  const [projectsRes, activityRes, health, access, comparison, incStatusRes] = await Promise.all([
+  const [projectsRes, activityRes, health, access, comparison, incStatusRes, reliability] = await Promise.all([
     admin
       .from('analytics_projects')
       .select('slug, name, description, project_type, environment, team_owner, tracking_enabled, created_at')
@@ -111,6 +112,8 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
       (r) => r,
       () => ({ data: [] as Record<string, unknown>[], error: null }),
     ),
+    // Canonical health = reliability (single source of truth, platform-wide).
+    getReliabilityHealth().catch(() => null),
   ]);
 
   if (projectsRes.error) throw new AppError('PROJECT_REGISTRY_FAILED', projectsRes.error.message, 500);
@@ -120,6 +123,11 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
     ((incStatusRes.data ?? []) as Record<string, unknown>[])
       .filter((r) => r.status === 'resolved' || r.status === 'closed')
       .map((r) => String(r.incident_key)),
+  );
+
+  // Reliability health per product (the canonical Health Score & status).
+  const reliabilityBySlug = new Map<string, ReliabilityHealth>(
+    (reliability?.projects ?? []).map((r) => [r.slug, r]),
   );
 
   const activityBySlug = new Map<string, Record<string, unknown>>();
@@ -160,57 +168,40 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
     const adoptionPct = ac?.adoptionPct ?? 0;
     const usersWithAccess = ac?.usersWithAccess ?? 0;
 
-    const healthScore = h?.ghiScore ?? 50;
-    const healthTier: HealthTier = h?.healthTier ?? 'at_risk';
-    const usageNorm = h?.adoptionNorm ?? 40;        // now engagement/usage (0035), not access adoption
+    // ── Canonical Health = System Reliability (single source of truth) ─────────
+    // Health no longer blends usage/momentum/performance. Those remain available
+    // as separate informational norms (below) for Engagement/Product Intelligence,
+    // but the Health Score & status come straight from the reliability engine.
+    const rel = reliabilityBySlug.get(slug);
+    const healthScore = rel ? rel.score : 100;
+    const healthTier: HealthTier =
+      rel ? (rel.status === 'healthy' ? 'healthy' : rel.status === 'critical' ? 'critical' : 'at_risk') : 'healthy';
+
+    // Informational norms (NOT part of health) — kept for other intelligence modules.
+    const usageNorm = h?.adoptionNorm ?? 40;        // engagement/usage (0035)
     const reliabilityNorm = h?.reliabilityNorm ?? 100;
     const performanceNorm = h?.performanceNorm ?? 50;
     const activityNorm = h?.activityNorm ?? 50;
-    // Usage/engagement is always measurable from real activity (no access grants).
     const adoptionMeasured = (lastActivityAt !== null);
 
-    // ── Explain the health score (always — so a Warning product never says
-    //    "no issues"). Blend (0035): 30% reliability / 25% performance /
-    //    25% momentum / 20% usage. We surface whichever are below target. ──────
+    // ── Explain the health score from reliability categories + incidents ───────
     const healthReasons: string[] = [];
-    const drivers: { label: string; norm: number; weight: number; reason: string }[] = [];
-
-    if (usageNorm < 70) {
-      healthReasons.push(`Usage ${usageNorm}/100 — ${activeUsers7d} active ${activeUsers7d === 1 ? 'user' : 'users'} in the last 7 days. More active staff lifts this.`);
-      drivers.push({ label: 'usage', norm: usageNorm, weight: 0.20, reason: `low usage (${activeUsers7d} active/7d)` });
-    }
-    if (reliabilityNorm < 90) {
-      healthReasons.push(
-        errorsAcknowledged
-          ? `Reliability ${reliabilityNorm}/100 — ${errorRatePct}% error rate (${c?.errors30d ?? 0} errors/30d). Incident acknowledged.`
-          : `Reliability ${reliabilityNorm}/100 — ${errorRatePct}% error rate (${c?.errors30d ?? 0} errors in 30 days).`,
-      );
-      // Only count reliability as a health driver when errors are not yet acknowledged.
-      if (!errorsAcknowledged) {
-        drivers.push({ label: 'reliability', norm: reliabilityNorm, weight: 0.30, reason: `${errorRatePct}% error rate` });
+    if (rel && rel.categories.length > 0) {
+      for (const cat of rel.categories.slice(0, 4)) {
+        healthReasons.push(`${cat.label}: ${cat.errors} ${cat.errors === 1 ? 'error' : 'errors'} (−${cat.penalty}) affecting ${cat.affectedUsers} ${cat.affectedUsers === 1 ? 'user' : 'users'}.`);
       }
     }
-    if (performanceNorm < 70) {
-      healthReasons.push(h?.p95LoadMs != null
-        ? `Performance ${performanceNorm}/100 — p95 page load is ${h.p95LoadMs}ms.`
-        : `Performance ${performanceNorm}/100 — limited performance data.`);
-      drivers.push({ label: 'performance', norm: performanceNorm, weight: 0.25, reason: 'slow performance' });
+    const activeIncidentCount = rel ? rel.incidents.open + rel.incidents.investigating : 0;
+    if (activeIncidentCount > 0) {
+      healthReasons.push(`${activeIncidentCount} active incident${activeIncidentCount === 1 ? '' : 's'} (−${rel?.incidents.penalty ?? 0}).`);
     }
-    if (activityNorm < 70) {
-      healthReasons.push(`Momentum ${activityNorm}/100 — recent activity is flat or below the prior period.`);
-      drivers.push({ label: 'momentum', norm: activityNorm, weight: 0.25, reason: 'low momentum' });
+    if (healthReasons.length === 0) {
+      healthReasons.push('Stable — no errors or active incidents in the last 7 days.');
     }
-    if (daysSinceActivity !== null && daysSinceActivity >= 7) {
-      healthReasons.push(`No activity for ${daysSinceActivity} days.`);
-    }
-    if (failedLogins7d >= 5) {
-      healthReasons.push(`${failedLogins7d} failed logins this week.`);
-    }
-
-    // The single biggest drag = the component losing the most weighted points
-    // ( (100 − norm) × weight ), highest first.
-    drivers.sort((a, b) => ((100 - b.norm) * b.weight) - ((100 - a.norm) * a.weight));
-    const topHealthDriver = drivers[0]?.reason ?? null;
+    // The single biggest drag = the top reliability category.
+    const topHealthDriver = rel?.categories[0]
+      ? `${rel.categories[0].errors} ${rel.categories[0].label.toLowerCase()}`
+      : null;
 
     // ── Actionable issues (real problems worth a manager's time) ───────────────
     const issues: string[] = [];
@@ -232,10 +223,10 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
     if (failedLogins7d >= 10) alerts.push('Login failures spiking');
 
     // ── Status + risk ─────────────────────────────────────────────────────────
-    let status = tierToStatus(healthTier);
-    // Only force 'critical' from inactivity when the project-status incident is open.
-    if ((daysSinceActivity === null || daysSinceActivity >= 14) && !statusAcknowledged) status = 'critical';
-    else if (daysSinceActivity !== null && daysSinceActivity >= 7 && status === 'healthy' && !statusAcknowledged) status = 'warning';
+    // Status mirrors the reliability health tier (Healthy ≥90 / Warning 70–89 /
+    // Critical <70). Inactivity is an engagement concern, not a health one, so it
+    // no longer forces a product to 'critical'.
+    const status: ProjectStatus = rel ? rel.status : tierToStatus(healthTier);
 
     let riskLevel: RiskLevel = 'low';
     // Error rate only elevates risk when the incident isn't acknowledged.

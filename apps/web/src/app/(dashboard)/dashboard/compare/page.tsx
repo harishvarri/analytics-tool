@@ -19,8 +19,8 @@ const STATUS_META: Record<ProjectStatus, { label: string; dot: string; tone: str
 };
 
 function scoreTone(s: number): string {
-  if (s >= 75) return 'text-emerald-600 dark:text-emerald-400';
-  if (s >= 50) return 'text-amber-600 dark:text-amber-400';
+  if (s >= 90) return 'text-emerald-600 dark:text-emerald-400';
+  if (s >= 70) return 'text-amber-600 dark:text-amber-400';
   return 'text-rose-600 dark:text-rose-400';
 }
 

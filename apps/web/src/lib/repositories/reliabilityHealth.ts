@@ -3,7 +3,14 @@ import { cache } from 'react';
 import { getSupabaseAdmin } from '../supabase/admin';
 import { AppError } from '../api/errors';
 import { categorize, CATEGORY_LABEL, CRITICAL_CATEGORIES, type ErrorCategory } from './errorIntelligence';
-import { getIncidents } from './incidents';
+import {
+  INCIDENT_PENALTY, INCIDENT_PENALTY_CAP,
+  CATEGORY_SEVERITY, categoryPenalty, statusFromScore, incidentKey,
+  type HealthStatus,
+} from './reliabilityScore';
+
+export { statusFromScore };
+export type { HealthStatus };
 
 /**
  * ============================================================================
@@ -30,39 +37,8 @@ import { getIncidents } from './incidents';
  * impact, the responsible incidents, a week-over-week trend, and a root cause.
  */
 
-// ── Tunable scoring model (single source of truth) ──────────────────────────
-// Penalty per category = min(cap, ceil(errorCount × weight)). Critical infra/
-// security categories cost more per error and are allowed to do more damage.
-const SEVERITY_WEIGHT: Record<ErrorCategory, number> = {
-  database:       2.5,
-  api:            2.0,
-  authentication: 1.7,
-  authorization:  1.3,
-  network:        1.3,
-  frontend:       1.0,
-};
-const CATEGORY_CAP: Record<ErrorCategory, number> = {
-  database:       30,
-  api:            30,
-  authentication: 25,
-  authorization:  15,
-  network:        15,
-  frontend:       20,
-};
-// Open/investigating incidents add a bounded penalty on top of raw errors.
-const INCIDENT_PENALTY = { openCritical: 8, investigatingCritical: 5, openOther: 4, investigatingOther: 2 };
-const INCIDENT_PENALTY_CAP = 25;
-
-// ── Status thresholds (reliability-based) ───────────────────────────────────
-//   Healthy  ≥ 90   no significant issues
-//   Warning  70–89  minor issues detected
-//   Critical < 70   users actively impacted
-export type HealthStatus = 'healthy' | 'warning' | 'critical';
-export function statusFromScore(score: number): HealthStatus {
-  if (score >= 90) return 'healthy';
-  if (score >= 70) return 'warning';
-  return 'critical';
-}
+// Scoring model + status thresholds live in ./reliabilityScore (imported above)
+// so Project Intelligence can share the exact same math without a cycle.
 
 // ── Public shapes ───────────────────────────────────────────────────────────
 export interface CategoryImpact {
@@ -139,11 +115,6 @@ const newWindow = (): Window => ({
   total: 0, byCat: new Map(), users: new Set(), sessions: new Set(), areas: new Map(), userHits: new Map(),
 });
 
-function categoryPenalty(cat: ErrorCategory, errors: number): number {
-  if (errors <= 0) return 0;
-  return Math.min(CATEGORY_CAP[cat], Math.ceil(errors * SEVERITY_WEIGHT[cat]));
-}
-
 /** Score a single 7-day window from its error buckets (no incident penalty). */
 function scoreWindow(win: Window): { score: number; penalty: number; categories: CategoryImpact[] } {
   let penalty = 0;
@@ -179,14 +150,19 @@ function urlArea(url: string | null): string | null {
 /**
  * Compute reliability health for every registered product. Reads the last 14
  * days of error events once, splits into this-7d / prev-7d windows, overlays
- * live incident state, and produces a fully-explained score per product.
+ * the persisted incident lifecycle status, and produces a fully-explained
+ * score per product.
+ *
+ * Reads `incident_status` directly (rather than getIncidents) so this engine
+ * has NO dependency on Project Intelligence — letting Project Intelligence
+ * consume THIS as the canonical health source without a circular import.
  */
 export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoard> => {
   const admin = getSupabaseAdmin();
   const since14 = new Date(Date.now() - 14 * DAY).toISOString();
   const cutoff7 = Date.now() - 7 * DAY;
 
-  const [projectsRes, errorsRes, incidentBoard] = await Promise.all([
+  const [projectsRes, errorsRes, statusRes] = await Promise.all([
     admin.from('analytics_projects').select('slug, name').eq('tracking_enabled', true),
     admin
       .from('analytics_events')
@@ -195,11 +171,21 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
       .gte('occurred_at', since14)
       .order('occurred_at', { ascending: false })
       .limit(8000),
-    getIncidents().catch(() => null),
+    // Persisted incident lifecycle (defensive — empty if migration 0036 absent).
+    admin.from('incident_status').select('incident_key, status').then(
+      (r) => r,
+      () => ({ data: [] as Record<string, unknown>[], error: null }),
+    ),
   ]);
 
   if (projectsRes.error) throw new AppError('RELIABILITY_PROJECTS_FAILED', projectsRes.error.message, 500);
   if (errorsRes.error) throw new AppError('RELIABILITY_EVENTS_FAILED', errorsRes.error.message, 500);
+
+  // incident_key → lifecycle status (open/investigating/resolved/closed).
+  const incidentStatus = new Map<string, string>();
+  for (const r of (statusRes.data ?? []) as Record<string, unknown>[]) {
+    incidentStatus.set(String(r.incident_key), String(r.status));
+  }
 
   const projectName = new Map<string, string>();
   for (const p of (projectsRes.data ?? []) as { slug: string; name: string | null }[]) {
@@ -230,20 +216,22 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
     map.set(slug, win);
   }
 
-  // Incident tallies per project from the live board (active + resolved/closed).
-  const incidentsBySlug = new Map<string, IncidentImpact>();
-  if (incidentBoard) {
-    const all = [...incidentBoard.incidents, ...incidentBoard.resolved];
-    for (const inc of all) {
-      const t = incidentsBySlug.get(inc.projectSlug) ?? { open: 0, investigating: 0, resolved: 0, closed: 0, penalty: 0 };
-      const isCritical = inc.severity === 'critical';
-      if (inc.status === 'open') { t.open += 1; t.penalty += isCritical ? INCIDENT_PENALTY.openCritical : INCIDENT_PENALTY.openOther; }
-      else if (inc.status === 'investigating') { t.investigating += 1; t.penalty += isCritical ? INCIDENT_PENALTY.investigatingCritical : INCIDENT_PENALTY.investigatingOther; }
-      else if (inc.status === 'resolved') t.resolved += 1;
-      else if (inc.status === 'closed') t.closed += 1;
-      incidentsBySlug.set(inc.projectSlug, t);
-    }
-    for (const t of incidentsBySlug.values()) t.penalty = Math.min(INCIDENT_PENALTY_CAP, t.penalty);
+  // Per-project incident impact, derived the SAME way the incident board does:
+  // one auto-incident per project keyed on its top error category. Its persisted
+  // lifecycle status decides whether it still costs health (open/investigating)
+  // or has been acknowledged (resolved/closed → zero penalty).
+  function incidentImpactFor(slug: string, win: Window): IncidentImpact {
+    const t: IncidentImpact = { open: 0, investigating: 0, resolved: 0, closed: 0, penalty: 0 };
+    const topCat = Array.from(win.byCat.entries()).sort((a, b) => b[1].errors - a[1].errors)[0]?.[0];
+    if (!topCat) return t;
+    const status = incidentStatus.get(incidentKey(`${slug}|${topCat}`)) ?? 'open';
+    const isCritical = CATEGORY_SEVERITY[topCat] === 'critical';
+    if (status === 'open') { t.open = 1; t.penalty = isCritical ? INCIDENT_PENALTY.openCritical : INCIDENT_PENALTY.openOther; }
+    else if (status === 'investigating') { t.investigating = 1; t.penalty = isCritical ? INCIDENT_PENALTY.investigatingCritical : INCIDENT_PENALTY.investigatingOther; }
+    else if (status === 'resolved') t.resolved = 1;
+    else if (status === 'closed') t.closed = 1;
+    t.penalty = Math.min(INCIDENT_PENALTY_CAP, t.penalty);
+    return t;
   }
 
   // Resolve the worst-hit user id per project to a readable label.
@@ -266,7 +254,7 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
   for (const [slug, name] of projectName) {
     const curWin = cur.get(slug) ?? newWindow();
     const prevWin = prev.get(slug) ?? newWindow();
-    const inc = incidentsBySlug.get(slug) ?? { open: 0, investigating: 0, resolved: 0, closed: 0, penalty: 0 };
+    const inc = incidentImpactFor(slug, curWin);
 
     const scored = scoreWindow(curWin);
     const score = Math.max(0, scored.score - inc.penalty);
