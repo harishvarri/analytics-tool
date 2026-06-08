@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { after } from 'next/server';
 import {
   Activity, HeartPulse, ShieldCheck, TriangleAlert, TrendingUp, TrendingDown,
   Minus, ArrowUpRight, Sparkles, AlertOctagon, ChevronRight,
@@ -8,6 +9,7 @@ import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { fetchReliabilityHealth } from '@/lib/data/fetchers';
+import { snapshotReliabilityHealth } from '@/lib/repositories/reliabilityHealth';
 import type { HealthStatus, ReliabilityHealth } from '@/lib/repositories/reliabilityHealth';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +41,10 @@ function TrendBadge({ trend }: { trend: number }) {
 
 export default async function ProjectHealthPage() {
   const board = await fetchReliabilityHealth();
+
+  // Persist today's scores after the response is sent (idempotent), so the
+  // Health Evolution trends build from real usage even before the daily cron runs.
+  after(async () => { await snapshotReliabilityHealth(); });
 
   return (
     <div className="space-y-6">

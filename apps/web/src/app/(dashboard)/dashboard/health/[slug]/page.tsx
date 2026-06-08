@@ -2,13 +2,21 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ArrowLeft, ShieldCheck, TrendingUp, TrendingDown, Minus, Code2, Server,
-  Database, KeyRound, Network, Lock, AlertOctagon, Target, MapPin, UserX,
+  Database, KeyRound, Network, Lock, AlertOctagon, Target, MapPin, UserX, LineChart,
 } from 'lucide-react';
-import { fetchReliabilityHealthBySlug } from '@/lib/data/fetchers';
+import { ChartCard } from '@/components/charts/ChartCard';
+import { AreaChart } from '@/components/charts/AreaChart';
+import { fetchReliabilityHealthBySlug, fetchHealthHistory } from '@/lib/data/fetchers';
 import type { ErrorCategory } from '@/lib/repositories/errorIntelligence';
 import type { CategoryImpact, HealthStatus } from '@/lib/repositories/reliabilityHealth';
 
 export const dynamic = 'force-dynamic';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function shortDate(iso: string): string {
+  const [, m, d] = iso.split('-');
+  return `${MONTHS[Number(m) - 1] ?? ''} ${Number(d)}`;
+}
 
 const fmt = new Intl.NumberFormat('en-US');
 
@@ -38,8 +46,13 @@ const CAT_ICON: Record<ErrorCategory, typeof Code2> = {
 
 export default async function HealthAnalysisPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const p = await fetchReliabilityHealthBySlug(slug);
+  const [p, history] = await Promise.all([
+    fetchReliabilityHealthBySlug(slug),
+    fetchHealthHistory(slug, 30),
+  ]);
   if (!p) notFound();
+
+  const trendData = history.map((h) => ({ label: shortDate(h.date), score: h.score }));
 
   const meta = STATUS_META[p.status];
   const byCat = new Map<ErrorCategory, CategoryImpact>(p.categories.map((c) => [c.category, c]));
@@ -100,6 +113,27 @@ export default async function HealthAnalysisPage({ params }: { params: Promise<{
           </div>
         </div>
       </section>
+
+      {/* Health Evolution */}
+      <ChartCard
+        title="Health Evolution"
+        description="Daily reliability score over the last 30 days"
+      >
+        {trendData.length >= 2 ? (
+          <AreaChart
+            data={trendData}
+            xKey="label"
+            series={[{ dataKey: 'score', label: 'Health', color: '#6366f1' }]}
+            height={240}
+          />
+        ) : (
+          <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+            <LineChart className="h-6 w-6 text-muted-foreground/60" />
+            <p>Building history — the evolution chart appears after a couple of daily snapshots.</p>
+            <p className="text-[11px]">Today&apos;s score ({p.score}) has been recorded.</p>
+          </div>
+        )}
+      </ChartCard>
 
       {/* User impact band */}
       <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">

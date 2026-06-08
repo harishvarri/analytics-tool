@@ -337,3 +337,72 @@ export async function getReliabilityHealthBySlug(slug: string): Promise<Reliabil
   const board = await getReliabilityHealth();
   return board.projects.find((p) => p.slug === slug) ?? null;
 }
+
+// ── Health History (daily snapshots → trend charts) ─────────────────────────
+
+export interface HealthHistoryPoint {
+  date:   string;        // YYYY-MM-DD
+  score:  number;
+  status: HealthStatus;
+}
+
+/**
+ * Persist today's reliability score for every product. Idempotent — the
+ * (snapshot_date, project_slug) primary key means re-running just overwrites
+ * today's row, so it is safe to call on every dashboard view AND from a daily
+ * cron. Defensive: a no-op if migration 0038 has not been applied yet.
+ */
+export async function snapshotReliabilityHealth(): Promise<{ snapshotted: number }> {
+  const board = await getReliabilityHealth();
+  if (!board.projects.length) return { snapshotted: 0 };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = board.projects.map((p) => ({
+    snapshot_date:     today,
+    project_slug:      p.slug,
+    score:             p.score,
+    status:            p.status,
+    total_penalty:     p.totalPenalty,
+    affected_users:    p.affectedUsers,
+    affected_sessions: p.affectedSessions,
+    active_incidents:  p.incidents.open + p.incidents.investigating,
+    breakdown: {
+      categories: p.categories.map((c) => ({ category: c.category, errors: c.errors, penalty: c.penalty })),
+      incidentPenalty: p.incidents.penalty,
+    },
+  }));
+
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('health_history')
+      .upsert(rows, { onConflict: 'snapshot_date,project_slug' });
+    if (error) return { snapshotted: 0 };
+    return { snapshotted: rows.length };
+  } catch {
+    return { snapshotted: 0 };
+  }
+}
+
+/**
+ * Read a product's score history (oldest → newest) for the last `days`.
+ * Returns [] if the table is missing or no snapshots exist yet.
+ */
+export async function getHealthHistory(slug: string, days = 30): Promise<HealthHistoryPoint[]> {
+  const since = new Date(Date.now() - days * DAY).toISOString().slice(0, 10);
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('health_history')
+      .select('snapshot_date, score, status')
+      .eq('project_slug', slug)
+      .gte('snapshot_date', since)
+      .order('snapshot_date', { ascending: true });
+    if (error) return [];
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      date: String(r.snapshot_date),
+      score: Number(r.score),
+      status: String(r.status) as HealthStatus,
+    }));
+  } catch {
+    return [];
+  }
+}

@@ -4,5 +4,7 @@
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
-  "crons": []
+  "crons": [
+    { "path": "/api/v1/admin/snapshot-health", "schedule": "0 3 * * *" }
+  ]
 }

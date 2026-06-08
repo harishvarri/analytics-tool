@@ -108,8 +108,10 @@ import { getIncidents, type IncidentBoard } from '../repositories/incidents';
 import {
   getReliabilityHealth,
   getReliabilityHealthBySlug,
+  getHealthHistory,
   type ReliabilityHealthBoard,
   type ReliabilityHealth,
+  type HealthHistoryPoint,
 } from '../repositories/reliabilityHealth';
 import { getIntegrationHealth, type IntegrationHealth } from '../repositories/integrationHealth';
 import { getCommandCenter, type CommandCenter } from '../repositories/analytics';
@@ -423,6 +425,9 @@ export const fetchReliabilityHealth = (): Promise<ReliabilityHealthBoard> =>
 
 export const fetchReliabilityHealthBySlug = (slug: string): Promise<ReliabilityHealth | null> =>
   withMockFallback('reliability.health.one', () => getReliabilityHealthBySlug(slug), () => null);
+
+export const fetchHealthHistory = (slug: string, days = 30): Promise<HealthHistoryPoint[]> =>
+  withMockFallback('reliability.health.history', () => getHealthHistory(slug, days), () => []);
 
 export const fetchErrorIntelligence = (days = 7): Promise<ErrorIntelligence> =>
   withMockFallback('errors.intel', () => getErrorIntelligence(days), () => ({
