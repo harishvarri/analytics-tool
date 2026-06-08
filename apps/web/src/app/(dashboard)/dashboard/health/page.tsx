@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Activity, HeartPulse, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { Activity, CheckCircle2, HeartPulse, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
@@ -127,6 +127,13 @@ export default async function PlatformHealthPage() {
                 </div>
                 <div className={`text-2xl font-bold tabular-nums ${scoreTone(p.healthScore)}`}>{p.healthScore}</div>
               </div>
+
+              {p.incidentsAcknowledged && (
+                <div className="mt-2 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span>Incidents acknowledged — signals suppressed</span>
+                </div>
+              )}
 
               {p.alerts.length > 0 && (
                 <ul className="mt-3 space-y-1">

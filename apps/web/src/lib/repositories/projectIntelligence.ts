@@ -18,6 +18,19 @@ import type { RealtimeActivityItem, EventCategory } from '@/types/analytics';
 
 const n = (v: unknown): number => Number(v ?? 0);
 
+/**
+ * Deterministic short ID — same algorithm used in incidents.ts.
+ * Lets us check whether a project's auto-generated incident has been
+ * acknowledged (resolved / closed) without importing from incidents.ts
+ * (which would create a circular dependency).
+ */
+function incidentKey(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return `INC-${h.toString(36).toUpperCase().slice(0, 6).padStart(6, '0')}`;
+}
+const ERROR_CATS = ['database', 'authentication', 'api', 'authorization', 'network', 'frontend'] as const;
+
 export type ProjectStatus = 'healthy' | 'warning' | 'critical';
 export type RiskLevel = 'low' | 'medium' | 'high';
 
@@ -67,6 +80,7 @@ export interface ProjectIntelligence {
   topHealthDriver: string | null;   // the single biggest drag on the score
   adoptionMeasured: boolean;        // false when no access grants are synced
   operationalScore: number;         // 0–100 blend used for ranking
+  incidentsAcknowledged: boolean;   // true when all auto-detected incidents are resolved/closed
 }
 
 function tierToStatus(tier: HealthTier): ProjectStatus {
@@ -81,7 +95,7 @@ function tierToStatus(tier: HealthTier): ProjectStatus {
 export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligence[]> => {
   const admin = getSupabaseAdmin();
 
-  const [projectsRes, activityRes, health, access, comparison] = await Promise.all([
+  const [projectsRes, activityRes, health, access, comparison, incStatusRes] = await Promise.all([
     admin
       .from('analytics_projects')
       .select('slug, name, description, project_type, environment, team_owner, tracking_enabled, created_at')
@@ -90,9 +104,21 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
     getProjectHealth(),
     getAccessVsUsage(30),
     getProjectComparison(),
+    // Defensive — returns empty if migration 0036 not yet applied.
+    admin.from('incident_status').select('incident_key, status').then(
+      (r) => r,
+      () => ({ data: [] as Record<string, unknown>[], error: null }),
+    ),
   ]);
 
   if (projectsRes.error) throw new AppError('PROJECT_REGISTRY_FAILED', projectsRes.error.message, 500);
+
+  // Build a set of incident keys that are resolved or closed.
+  const closedIncidentKeys = new Set<string>(
+    ((incStatusRes.data ?? []) as Record<string, unknown>[])
+      .filter((r) => r.status === 'resolved' || r.status === 'closed')
+      .map((r) => String(r.incident_key)),
+  );
 
   const activityBySlug = new Map<string, Record<string, unknown>>();
   for (const a of (activityRes.data ?? []) as Record<string, unknown>[]) {
@@ -110,6 +136,14 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
     const h = healthBySlug.get(slug);
     const ac = accessBySlug.get(slug);
     const c = cmpBySlug.get(slug);
+
+    // True when the team has acknowledged all auto-detected incidents for this
+    // project (all are Resolved or Closed). Error-rate alerts + risk elevation
+    // are suppressed while this is true so the health page reflects intent, not
+    // just raw signals.
+    const errorsAcknowledged = ERROR_CATS.some((cat) => closedIncidentKeys.has(incidentKey(`${slug}|${cat}`)));
+    const statusAcknowledged = closedIncidentKeys.has(incidentKey(`${slug}|status`));
+    const incidentsAcknowledged = errorsAcknowledged || statusAcknowledged;
 
     const lastActivityAt = (act?.last_activity_at as string | null) ?? null;
     const daysSinceActivity = lastActivityAt
@@ -144,8 +178,15 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
       drivers.push({ label: 'usage', norm: usageNorm, weight: 0.20, reason: `low usage (${activeUsers7d} active/7d)` });
     }
     if (reliabilityNorm < 90) {
-      healthReasons.push(`Reliability ${reliabilityNorm}/100 — ${errorRatePct}% error rate (${c?.errors30d ?? 0} errors in 30 days).`);
-      drivers.push({ label: 'reliability', norm: reliabilityNorm, weight: 0.30, reason: `${errorRatePct}% error rate` });
+      healthReasons.push(
+        errorsAcknowledged
+          ? `Reliability ${reliabilityNorm}/100 — ${errorRatePct}% error rate (${c?.errors30d ?? 0} errors/30d). Incident acknowledged.`
+          : `Reliability ${reliabilityNorm}/100 — ${errorRatePct}% error rate (${c?.errors30d ?? 0} errors in 30 days).`,
+      );
+      // Only count reliability as a health driver when errors are not yet acknowledged.
+      if (!errorsAcknowledged) {
+        drivers.push({ label: 'reliability', norm: reliabilityNorm, weight: 0.30, reason: `${errorRatePct}% error rate` });
+      }
     }
     if (performanceNorm < 70) {
       healthReasons.push(h?.p95LoadMs != null
@@ -173,25 +214,30 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
     const issues: string[] = [];
     if (daysSinceActivity === null || daysSinceActivity >= 7) issues.push('No recent activity');
     if (usageNorm < 40) issues.push(`Low usage (${activeUsers7d} active/7d)`);
-    if (errorRatePct >= 2) issues.push(`High error rate (${errorRatePct}%)`);
+    // Only surface error-rate as an issue when the incident hasn't been acknowledged.
+    if (errorRatePct >= 2 && !errorsAcknowledged) issues.push(`High error rate (${errorRatePct}%)`);
     if (performanceNorm < 50) issues.push('Slow performance');
     if (failedLogins7d >= 5) issues.push(`${failedLogins7d} failed logins`);
 
     // ── Alerts (urgent, time-sensitive) ───────────────────────────────────────
     const alerts: string[] = [];
-    if (daysSinceActivity !== null && daysSinceActivity >= 7) {
+    // Suppress activity-based alert if the project-status incident is acknowledged.
+    if (daysSinceActivity !== null && daysSinceActivity >= 7 && !statusAcknowledged) {
       alerts.push(`Not used in ${daysSinceActivity} days`);
     }
-    if (errorRatePct >= 5) alerts.push('Error rate critical');
+    // Suppress error-rate alert when the error incident is acknowledged.
+    if (errorRatePct >= 5 && !errorsAcknowledged) alerts.push('Error rate critical');
     if (failedLogins7d >= 10) alerts.push('Login failures spiking');
 
     // ── Status + risk ─────────────────────────────────────────────────────────
     let status = tierToStatus(healthTier);
-    if (daysSinceActivity === null || daysSinceActivity >= 14) status = 'critical';
-    else if (daysSinceActivity >= 7 && status === 'healthy') status = 'warning';
+    // Only force 'critical' from inactivity when the project-status incident is open.
+    if ((daysSinceActivity === null || daysSinceActivity >= 14) && !statusAcknowledged) status = 'critical';
+    else if (daysSinceActivity !== null && daysSinceActivity >= 7 && status === 'healthy' && !statusAcknowledged) status = 'warning';
 
     let riskLevel: RiskLevel = 'low';
-    if (status === 'critical' || errorRatePct >= 5 || alerts.length > 0) riskLevel = 'high';
+    // Error rate only elevates risk when the incident isn't acknowledged.
+    if (status === 'critical' || (errorRatePct >= 5 && !errorsAcknowledged) || alerts.length > 0) riskLevel = 'high';
     else if (status === 'warning' || issues.length > 0) riskLevel = 'medium';
 
     // Operational score = activity-weighted blend (for ranking), 0–100.
@@ -240,6 +286,7 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
       topHealthDriver,
       adoptionMeasured,
       operationalScore,
+      incidentsAcknowledged,
     };
   });
 
