@@ -93,8 +93,13 @@ export default async function HealthAnalysisPage({ params }: { params: Promise<{
           </div>
           {p.categories.map((c) => (
             <div key={c.category} className="flex items-center justify-between text-[12px]">
-              <span className="text-muted-foreground">{c.label} ({c.errors} {c.errors === 1 ? 'error' : 'errors'})</span>
-              <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">−{c.penalty}</span>
+              <span className="text-muted-foreground">
+                {c.label} ({c.errors} {c.errors === 1 ? 'error' : 'errors'})
+                {c.penalty === 0 && c.acknowledged && <span className="ml-1 text-emerald-600 dark:text-emerald-400">· acknowledged</span>}
+              </span>
+              {c.penalty === 0
+                ? <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">−0</span>
+                : <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">−{c.penalty}</span>}
             </div>
           ))}
           {p.incidents.penalty > 0 && (
@@ -212,7 +217,11 @@ export default async function HealthAnalysisPage({ params }: { params: Promise<{
                       <td className="px-4 py-2.5 text-right tabular-nums">{fmt.format(c.errors)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{fmt.format(c.affectedUsers)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{fmt.format(c.affectedSessions)}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-rose-600 dark:text-rose-400">−{c.penalty}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
+                        {c.penalty === 0
+                          ? <span className="text-emerald-600 dark:text-emerald-400" title={c.acknowledged ? 'Acknowledged — incident resolved/closed' : 'No health impact'}>{c.acknowledged ? 'ack’d' : '−0'}</span>
+                          : <span className="text-rose-600 dark:text-rose-400">−{c.penalty}</span>}
+                      </td>
                     </tr>
                   );
                 })}

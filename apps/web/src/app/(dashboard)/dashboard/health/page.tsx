@@ -198,10 +198,14 @@ function HealthCard({ p }: { p: ReliabilityHealth }) {
         <ul className="mt-3 space-y-1.5">
           {p.categories.slice(0, 4).map((c) => (
             <li key={c.category} className="flex items-center gap-2 text-[11px]">
-              <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${c.critical ? 'bg-rose-500' : 'bg-amber-500'}`} />
+              <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${c.penalty === 0 ? 'bg-emerald-500' : c.critical ? 'bg-rose-500' : 'bg-amber-500'}`} />
               <span className="flex-1 truncate text-muted-foreground">{c.label}</span>
               <span className="tabular-nums text-muted-foreground">{c.errors} err</span>
-              <span className="w-10 text-right font-semibold tabular-nums text-rose-600 dark:text-rose-400">−{c.penalty}</span>
+              {c.penalty === 0 ? (
+                <span className="w-14 text-right text-[10px] font-medium text-emerald-600 dark:text-emerald-400">{c.acknowledged ? 'ack’d' : 'ok'}</span>
+              ) : (
+                <span className="w-14 text-right font-semibold tabular-nums text-rose-600 dark:text-rose-400">−{c.penalty}</span>
+              )}
             </li>
           ))}
         </ul>

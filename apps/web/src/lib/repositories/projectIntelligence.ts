@@ -186,9 +186,13 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
 
     // ── Explain the health score from reliability categories + incidents ───────
     const healthReasons: string[] = [];
-    if (rel && rel.categories.length > 0) {
+    if (rel) {
       for (const cat of rel.categories.slice(0, 4)) {
-        healthReasons.push(`${cat.label}: ${cat.errors} ${cat.errors === 1 ? 'error' : 'errors'} (−${cat.penalty}) affecting ${cat.affectedUsers} ${cat.affectedUsers === 1 ? 'user' : 'users'}.`);
+        if (cat.penalty > 0) {
+          healthReasons.push(`${cat.label}: ${cat.errors} ${cat.errors === 1 ? 'error' : 'errors'} (−${cat.penalty}) affecting ${cat.affectedUsers} ${cat.affectedUsers === 1 ? 'user' : 'users'}.`);
+        } else if (cat.acknowledged) {
+          healthReasons.push(`${cat.label}: ${cat.errors} ${cat.errors === 1 ? 'error' : 'errors'} — acknowledged (incident resolved/closed), no longer reducing health.`);
+        }
       }
     }
     const activeIncidentCount = rel ? rel.incidents.open + rel.incidents.investigating : 0;
@@ -198,10 +202,9 @@ export const getProjectIntelligence = cache(async (): Promise<ProjectIntelligenc
     if (healthReasons.length === 0) {
       healthReasons.push('Stable — no errors or active incidents in the last 7 days.');
     }
-    // The single biggest drag = the top reliability category.
-    const topHealthDriver = rel?.categories[0]
-      ? `${rel.categories[0].errors} ${rel.categories[0].label.toLowerCase()}`
-      : null;
+    // The single biggest drag = the top reliability category STILL reducing health.
+    const topDrag = rel?.categories.find((c) => c.penalty > 0) ?? null;
+    const topHealthDriver = topDrag ? `${topDrag.errors} ${topDrag.label.toLowerCase()}` : null;
 
     // ── Actionable issues (real problems worth a manager's time) ───────────────
     const issues: string[] = [];

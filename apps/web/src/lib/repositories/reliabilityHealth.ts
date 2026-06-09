@@ -45,11 +45,12 @@ export interface CategoryImpact {
   category:         ErrorCategory;
   label:            string;
   reliability:      number;   // 0–100 per-category sub-score (100 = no errors)
-  errors:           number;
+  errors:           number;   // total errors seen (for display)
   affectedUsers:    number;
   affectedSessions: number;
-  penalty:          number;   // points removed from the health score
+  penalty:          number;   // points removed from the health score (0 when acknowledged)
   critical:         boolean;
+  acknowledged:     boolean;  // incident resolved/closed → these errors no longer reduce health
 }
 
 export interface IncidentImpact {
@@ -100,7 +101,10 @@ export interface ReliabilityHealthBoard {
 }
 
 // ── Internal accumulators ───────────────────────────────────────────────────
-interface CatBucket { errors: number; users: Set<string>; sessions: Set<string> }
+// `penalizable` excludes errors that occurred BEFORE an acknowledged (resolved/
+// closed) incident's timestamp — so acknowledging stops old errors dragging
+// health, while genuinely NEW errors after the close still count.
+interface CatBucket { errors: number; penalizable: number; users: Set<string>; sessions: Set<string> }
 interface Window {
   total: number;
   byCat: Map<ErrorCategory, CatBucket>;
@@ -115,25 +119,31 @@ const newWindow = (): Window => ({
   total: 0, byCat: new Map(), users: new Set(), sessions: new Set(), areas: new Map(), userHits: new Map(),
 });
 
-/** Score a single 7-day window from its error buckets (no incident penalty). */
+/**
+ * Score a single 7-day window from its error buckets (no incident penalty).
+ * Penalty is computed from `penalizable` errors only — errors acknowledged via a
+ * resolved/closed incident contribute 0, so health recovers on acknowledgement.
+ */
 function scoreWindow(win: Window): { score: number; penalty: number; categories: CategoryImpact[] } {
   let penalty = 0;
   const categories: CategoryImpact[] = [];
   for (const [cat, b] of win.byCat) {
-    const p = categoryPenalty(cat, b.errors);
+    const p = categoryPenalty(cat, b.penalizable);
     penalty += p;
     categories.push({
       category: cat,
       label: CATEGORY_LABEL[cat],
-      reliability: Math.max(0, 100 - categoryPenalty(cat, b.errors)),
+      reliability: Math.max(0, 100 - p),
       errors: b.errors,
       affectedUsers: b.users.size,
       affectedSessions: b.sessions.size,
       penalty: p,
       critical: CRITICAL_CATEGORIES.has(cat),
+      acknowledged: b.errors > 0 && b.penalizable < b.errors,
     });
   }
-  categories.sort((a, b) => b.penalty - a.penalty);
+  // Worst (highest-penalty) first; fully-acknowledged categories sink to the bottom.
+  categories.sort((a, b) => b.penalty - a.penalty || b.errors - a.errors);
   return { score: Math.max(0, 100 - penalty), penalty, categories };
 }
 
@@ -172,7 +182,7 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
       .order('occurred_at', { ascending: false })
       .limit(8000),
     // Persisted incident lifecycle (defensive — empty if migration 0036 absent).
-    admin.from('incident_status').select('incident_key, status').then(
+    admin.from('incident_status').select('incident_key, status, updated_at').then(
       (r) => r,
       () => ({ data: [] as Record<string, unknown>[], error: null }),
     ),
@@ -181,10 +191,22 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
   if (projectsRes.error) throw new AppError('RELIABILITY_PROJECTS_FAILED', projectsRes.error.message, 500);
   if (errorsRes.error) throw new AppError('RELIABILITY_EVENTS_FAILED', errorsRes.error.message, 500);
 
-  // incident_key → lifecycle status (open/investigating/resolved/closed).
-  const incidentStatus = new Map<string, string>();
+  // incident_key → lifecycle status + when it changed.
+  const incidentStatus = new Map<string, { status: string; updatedAt: number }>();
   for (const r of (statusRes.data ?? []) as Record<string, unknown>[]) {
-    incidentStatus.set(String(r.incident_key), String(r.status));
+    incidentStatus.set(String(r.incident_key), {
+      status: String(r.status),
+      updatedAt: r.updated_at ? new Date(String(r.updated_at)).getTime() : 0,
+    });
+  }
+
+  // For a category to be "acknowledged", its auto-incident (key = slug|category)
+  // must be resolved/closed. Errors BEFORE the acknowledgement timestamp stop
+  // counting; errors AFTER it still count (a recurring problem re-drags health).
+  function ackCutoff(slug: string, cat: ErrorCategory): number | null {
+    const s = incidentStatus.get(incidentKey(`${slug}|${cat}`));
+    if (s && (s.status === 'resolved' || s.status === 'closed')) return s.updatedAt;
+    return null;
   }
 
   const projectName = new Map<string, string>();
@@ -198,16 +220,24 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
   for (const r of (errorsRes.data ?? []) as Record<string, unknown>[]) {
     const slug = String(r.portal_id);
     if (!projectName.has(slug)) projectName.set(slug, slug);
-    const isCurrent = new Date(String(r.occurred_at)).getTime() >= cutoff7;
+    const occurredMs = new Date(String(r.occurred_at)).getTime();
+    const isCurrent = occurredMs >= cutoff7;
     const map = isCurrent ? cur : prev;
     const win = map.get(slug) ?? newWindow();
     const cat = categorize(String(r.name), (r.metadata as Record<string, unknown> | null) ?? null);
     const uid = r.user_id ? String(r.user_id) : null;
     const sid = r.session_id ? String(r.session_id) : null;
 
+    // Suppress this error from the penalty if its category's incident was
+    // acknowledged at/after the error occurred (only applies to the current
+    // window — the prior window is the pre-acknowledgement baseline for trend).
+    const cutoff = isCurrent ? ackCutoff(slug, cat) : null;
+    const suppressed = cutoff !== null && occurredMs <= cutoff;
+
     win.total += 1;
-    const b = win.byCat.get(cat) ?? { errors: 0, users: new Set<string>(), sessions: new Set<string>() };
-    b.errors += 1; if (uid) b.users.add(uid); if (sid) b.sessions.add(sid);
+    const b = win.byCat.get(cat) ?? { errors: 0, penalizable: 0, users: new Set<string>(), sessions: new Set<string>() };
+    b.errors += 1; if (!suppressed) b.penalizable += 1;
+    if (uid) b.users.add(uid); if (sid) b.sessions.add(sid);
     win.byCat.set(cat, b);
     if (uid) { win.users.add(uid); win.userHits.set(uid, (win.userHits.get(uid) ?? 0) + 1); }
     if (sid) win.sessions.add(sid);
@@ -224,7 +254,7 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
     const t: IncidentImpact = { open: 0, investigating: 0, resolved: 0, closed: 0, penalty: 0 };
     const topCat = Array.from(win.byCat.entries()).sort((a, b) => b[1].errors - a[1].errors)[0]?.[0];
     if (!topCat) return t;
-    const status = incidentStatus.get(incidentKey(`${slug}|${topCat}`)) ?? 'open';
+    const status = incidentStatus.get(incidentKey(`${slug}|${topCat}`))?.status ?? 'open';
     const isCritical = CATEGORY_SEVERITY[topCat] === 'critical';
     if (status === 'open') { t.open = 1; t.penalty = isCritical ? INCIDENT_PENALTY.openCritical : INCIDENT_PENALTY.openOther; }
     else if (status === 'investigating') { t.investigating = 1; t.penalty = isCritical ? INCIDENT_PENALTY.investigatingCritical : INCIDENT_PENALTY.investigatingOther; }
@@ -272,15 +302,18 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
       mostAffectedUser: topUserId ? (userLabel.get(topUserId) ?? null) : null,
     };
 
-    // Plain-English reason.
+    // Plain-English reason — only mention what is actually still reducing health.
     let reason: string;
-    if (curWin.total === 0 && inc.open === 0 && inc.investigating === 0) {
-      reason = 'Stable — no errors or open incidents in the last 7 days.';
+    if (totalPenalty === 0) {
+      reason = curWin.total > 0
+        ? 'Stable — all detected errors have been acknowledged (incidents resolved/closed).'
+        : 'Stable — no errors or open incidents in the last 7 days.';
     } else {
       const bits: string[] = [];
-      if (topCat) bits.push(`${topCat.errors} ${topCat.label.toLowerCase()}`);
-      const more = scored.categories[1];
-      if (more) bits.push(`${more.errors} ${more.label.toLowerCase()}`);
+      // Only categories that still carry a penalty (unacknowledged) explain the score.
+      for (const c of scored.categories.filter((x) => x.penalty > 0).slice(0, 2)) {
+        bits.push(`${c.errors} ${c.label.toLowerCase()}`);
+      }
       if (inc.open + inc.investigating > 0) bits.push(`${inc.open + inc.investigating} active incident${inc.open + inc.investigating === 1 ? '' : 's'}`);
       reason = bits.length ? `Health reduced by ${bits.join(', ')}.` : 'Minor reliability noise detected.';
     }
