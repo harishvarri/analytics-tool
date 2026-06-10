@@ -15,6 +15,26 @@ interface KpiCardProps {
   invertTrend?: boolean; // when up = bad (e.g. error rate)
   /** When set, the whole card becomes a link to this route (drill-down). */
   href?: string;
+  /** Override the auto-assigned accent. Defaults to a stable color from the label. */
+  accent?: 'indigo' | 'emerald' | 'violet' | 'amber';
+}
+
+// House palette — every KPI card gets a colored icon chip + top accent bar so
+// the dashboards read as a rich, multi-color system instead of monochrome. The
+// color is derived deterministically from the label, so a given metric always
+// keeps the same hue across renders/pages.
+const ACCENTS = {
+  indigo:  { chipBg: 'bg-indigo-500/10',  chipFg: 'text-indigo-600 dark:text-indigo-400',   bar: 'bg-indigo-500'  },
+  emerald: { chipBg: 'bg-emerald-500/10', chipFg: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' },
+  violet:  { chipBg: 'bg-violet-500/10',  chipFg: 'text-violet-600 dark:text-violet-400',   bar: 'bg-violet-500'  },
+  amber:   { chipBg: 'bg-amber-500/10',   chipFg: 'text-amber-600 dark:text-amber-400',     bar: 'bg-amber-500'  },
+} as const;
+const ACCENT_ORDER = ['indigo', 'emerald', 'violet', 'amber'] as const;
+
+function accentFromLabel(label: string): keyof typeof ACCENTS {
+  let h = 0;
+  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
+  return ACCENT_ORDER[h % ACCENT_ORDER.length]!;
 }
 
 export function KpiCard({
@@ -26,7 +46,9 @@ export function KpiCard({
   sparklineColor,
   invertTrend,
   href,
+  accent,
 }: KpiCardProps) {
+  const tone = ACCENTS[accent ?? accentFromLabel(label)];
   const trendColor =
     !trend || trend.direction === 'flat'
       ? 'text-muted-foreground'
@@ -37,18 +59,22 @@ export function KpiCard({
   const card = (
     <Card
       className={cn(
-        'h-full overflow-hidden transition-shadow hover:shadow-md',
+        'relative h-full overflow-hidden transition-shadow hover:shadow-md',
         href && 'group cursor-pointer hover:border-primary/40',
       )}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+      {/* Top accent bar — distributes the house palette across every KPI band. */}
+      <div className={cn('absolute inset-x-0 top-0 h-1', tone.bar)} />
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-5">
         <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </CardTitle>
-        {href ? (
+        {Icon ? (
+          <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', tone.chipBg)}>
+            <Icon className={cn('h-4 w-4', tone.chipFg)} />
+          </span>
+        ) : href ? (
           <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-        ) : Icon ? (
-          <Icon className="h-4 w-4 text-muted-foreground" />
         ) : null}
       </CardHeader>
       <CardContent className="space-y-2 pb-4">
