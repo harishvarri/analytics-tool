@@ -73,6 +73,19 @@
     --input: 217 30% 18%;
     --ring: 238 80% 66%;
   }
+
+  /* ── Accent themes ──────────────────────────────────────────────────────────
+     Independent of light/dark (set via data-accent on <html>). Default =
+     Indigo (the :root/.dark values above). Each theme only re-tints the brand
+     primary + focus ring + accent text, so buttons, links, active states, and
+     focus outlines all follow the chosen color. */
+  [data-accent='emerald'] { --primary: 160 84% 39%; --ring: 160 84% 39%; --accent-foreground: 161 94% 28%; }
+  [data-accent='violet']  { --primary: 262 83% 58%; --ring: 262 83% 58%; --accent-foreground: 263 70% 48%; }
+  [data-accent='amber']   { --primary:  28 92% 45%; --ring:  28 92% 45%; --accent-foreground:  24 90% 36%; }
+
+  .dark[data-accent='emerald'] { --primary: 158 74% 50%; --ring: 158 74% 50%; --accent-foreground: 152 76% 70%; }
+  .dark[data-accent='violet']  { --primary: 258 90% 70%; --ring: 258 90% 70%; --accent-foreground: 252 90% 84%; }
+  .dark[data-accent='amber']   { --primary:  38 92% 55%; --ring:  38 92% 55%; --accent-foreground:  40 92% 70%; }
 }
 
 @layer base {

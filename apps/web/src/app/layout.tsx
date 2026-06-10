@@ -28,6 +28,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply the saved accent color before paint so there's no flash on reload. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var a=localStorage.getItem('ncpl-accent');if(a&&a!=='indigo')document.documentElement.setAttribute('data-accent',a);}catch(e){}`,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AppProviders>{children}</AppProviders>
       </body>

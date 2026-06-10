@@ -32,12 +32,11 @@ function scoreTone(s: number): string {
   return 'text-rose-600 dark:text-rose-400';
 }
 
-// The four reliability domains we always show (even at 100/no errors).
+// The tracking script only auto-captures frontend/JS errors, so health is a
+// frontend-reliability measure. Backend (API/DB/auth) errors are handled in-app
+// and never reach the browser — we don't pretend to measure what we can't see.
 const RELIABILITY_DOMAINS: { category: ErrorCategory; label: string; icon: typeof Code2 }[] = [
-  { category: 'frontend',       label: 'Frontend Reliability',       icon: Code2 },
-  { category: 'api',            label: 'API Reliability',            icon: Server },
-  { category: 'database',       label: 'Database Reliability',       icon: Database },
-  { category: 'authentication', label: 'Authentication Reliability', icon: KeyRound },
+  { category: 'frontend', label: 'Frontend Reliability', icon: Code2 },
 ];
 
 const CAT_ICON: Record<ErrorCategory, typeof Code2> = {
@@ -155,9 +154,13 @@ export default async function HealthAnalysisPage({ params }: { params: Promise<{
         ))}
       </section>
 
-      {/* Reliability Overview — always show the 4 domains */}
+      {/* Reliability — frontend/JS errors (what the tracking script captures) */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Reliability Overview</h2>
+        <h2 className="mb-1 text-sm font-semibold">Frontend Reliability</h2>
+        <p className="mb-3 text-[11px] text-muted-foreground">
+          Health reflects uncaught JavaScript errors &amp; promise rejections captured by the tracking script.
+          Backend errors (API / database / auth) are handled inside each app and aren&apos;t observed here.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {RELIABILITY_DOMAINS.map(({ category, label, icon: Icon }) => {
             const c = byCat.get(category);

@@ -15,6 +15,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { AccentPicker } from '@/components/shared/AccentPicker';
 import { NAV_SECTIONS } from '@/config/navigation';
 import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
@@ -99,6 +100,7 @@ export function TopbarClient({ applications }: Props) {
         <Badge variant="outline" className="hidden border-emerald-500/40 text-emerald-600 dark:text-emerald-400 md:inline-flex">
           ● Live
         </Badge>
+        <AccentPicker />
         <ThemeToggle />
         <Button
           variant="ghost"
