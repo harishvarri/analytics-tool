@@ -136,15 +136,15 @@ export default async function SessionDetailPage({ params }: PageProps) {
               ))}
             </ul>
           ) : (
-            <div className="flex h-[120px] items-center justify-center text-xs text-muted-foreground">No business actions in this session.</div>
+            <div className="flex h-[120px] items-center justify-center text-xs text-muted-foreground">No operational actions in this session.</div>
           )}
         </ChartCard>
       </section>
 
       {/* Complete event timeline */}
-      <ChartCard title="Complete event timeline" description="Every business action in this session — in order">
+      <ChartCard title="Complete event timeline" description="Every operational action in this session — in order">
         <UserTimeline events={s.events.filter((e) => friendlyEventName(e.name, e.metadata, e.url) && e.category !== 'navigation')} userName={person}
-          empty="No business events recorded in this session." />
+          empty="No operational events recorded in this session." />
       </ChartCard>
     </div>
   );

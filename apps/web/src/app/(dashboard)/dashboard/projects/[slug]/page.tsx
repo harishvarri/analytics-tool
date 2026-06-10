@@ -85,8 +85,8 @@ export default async function ProjectIntelligencePage({ params }: PageProps) {
           trend={{ direction: 'flat', label: 'work sessions' }} />
         <KpiCard label="Usage / engagement" value={String(p.adoptionNorm)} icon={Activity}
           trend={{ direction: 'flat', label: `${fmt.format(p.activeUsers7d)} active users (7d)` }} />
-        <KpiCard label="Business activity (7d)" value={fmt.format(p.businessEvents7d)} icon={Activity}
-          trend={{ direction: 'flat', label: 'operational actions — view analytics' }}
+        <KpiCard label="Operational events (7d)" value={fmt.format(p.businessEvents7d)} icon={Activity}
+          trend={{ direction: 'flat', label: 'important actions — view analytics' }}
           href={`/dashboard/projects/${p.slug}/activity`} />
       </section>
 

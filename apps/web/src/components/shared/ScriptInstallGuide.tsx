@@ -85,9 +85,9 @@ function getSteps(fw: FrameworkId, slug: string, key: string): Step[] {
 
   // Step 3 (optional) is the same idea everywhere — a domain event.
   const trackStep = (file: string, code: string): Step => ({
-    title: 'Track business events',
+    title: 'Track operational events',
     file,
-    desc: 'Optional. Send domain-specific events (lesson completed, quiz submitted…) for richer analysis. Everything else is already captured.',
+    desc: 'Optional. Send important domain actions (lesson completed, quiz submitted…) — they show as operational events. Everything else is captured as common events automatically.',
     code,
     optional: true,
   });
@@ -421,7 +421,7 @@ export function ScriptInstallGuide({ projectSlug, projectName, apiKey }: Props) 
           {/* One-line promise */}
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Two steps to connect any product: <span className="font-medium text-foreground">paste the script</span> (everything below is auto-tracked),
-            then <span className="font-medium text-foreground">one identify call</span> so real names appear instead of IDs. Business events are optional.
+            then <span className="font-medium text-foreground">one identify call</span> so real names appear instead of IDs. Operational events are optional.
           </p>
 
           {/* Framework pills */}

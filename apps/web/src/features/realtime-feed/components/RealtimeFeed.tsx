@@ -53,7 +53,7 @@ export function RealtimeFeed({ initial, capacity = 60 }: RealtimeFeedProps) {
         title={operationalOnly ? 'Operational activity' : 'Live event stream'}
         description={
           operationalOnly
-            ? 'What people are doing across every product right now — logins, business actions, and problems. Repeats are grouped.'
+            ? 'What people are doing across every product right now — logins, operational actions, and problems. Repeats are grouped.'
             : 'Every raw event, newest first — streaming via Supabase Realtime.'
         }
         actions={
@@ -77,7 +77,7 @@ export function RealtimeFeed({ initial, capacity = 60 }: RealtimeFeedProps) {
           items={visible}
           empty={
             operationalOnly
-              ? 'No operational activity yet — logins, business actions, and errors will appear here.'
+              ? 'No operational activity yet — logins, operational actions, and errors will appear here.'
               : 'Waiting for the first event…'
           }
         />

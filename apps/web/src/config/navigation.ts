@@ -130,7 +130,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: 'Integration Health',
         href: ROUTES.integrations,
         icon: Plug,
-        description: 'Is each product tracking script, events, users, errors, and business events',
+        description: 'Is each product tracking script, events, users, errors, and operational events',
       },
     ],
   },

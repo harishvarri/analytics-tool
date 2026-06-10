@@ -33,7 +33,7 @@ export default async function IntegrationHealthPage() {
     <div className="space-y-6">
       <PageHeader
         title="Integration Health & Data Quality"
-        description="Is each product actually wired up — script, events, identified users, errors, and business events?"
+        description="Is each product actually wired up — script, events, identified users, errors, and operational events?"
       />
 
       {/* Org-level data quality */}
@@ -42,7 +42,7 @@ export default async function IntegrationHealthPage() {
           trend={{ direction: data.avgScore >= 80 ? 'flat' : 'down', label: `${dq.productsTotal} products` }} />
         <KpiCard label="Anonymous users" value={`${dq.anonymousPct}%`} icon={UserX}
           trend={{ direction: dq.anonymousPct > 50 ? 'up' : 'flat', label: `${fmt.format(dq.anonymousUsers)} of ${fmt.format(dq.totalUsers)} unnamed` }} invertTrend />
-        <KpiCard label="Missing business events" value={String(dq.productsMissingBusinessEvents)} icon={Activity}
+        <KpiCard label="Missing operational events" value={String(dq.productsMissingBusinessEvents)} icon={Activity}
           trend={{ direction: dq.productsMissingBusinessEvents > 0 ? 'up' : 'flat', label: 'products not tracking actions' }} invertTrend />
         <KpiCard label="No identified users" value={String(dq.productsWithoutIdentifiedUsers)} icon={Database}
           trend={{ direction: dq.productsWithoutIdentifiedUsers > 0 ? 'up' : 'flat', label: 'products missing identify()' }} invertTrend />
@@ -107,7 +107,7 @@ export default async function IntegrationHealthPage() {
       )}
 
       <div className="text-[11px] text-muted-foreground">
-        Integration score = Script 30% + Events 25% + Identified users 25% + Business events 15% + Errors captured 5%.
+        Integration score = Script 30% + Events 25% + Identified users 25% + Operational events 15% + Errors captured 5%.
         Open <Link href="/dashboard/admin/projects" className="text-primary hover:underline">Connected Products</Link> for each product&apos;s integration kit.
       </div>
     </div>

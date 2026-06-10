@@ -68,13 +68,13 @@ export default async function BusinessActivityPage({ params }: PageProps) {
       </Link>
 
       <PageHeader
-        title={`${p.name} — Business Activity`}
-        description="Meaningful business actions in this product — history, who's doing them, trends and timeline (page views & clicks hidden)."
+        title={`${p.name} — Operational Activity`}
+        description="The important actions in this product — history, who's doing them, trends and timeline (page views & clicks are common events, hidden here)."
       />
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <KpiCard label="Business actions" value={fmt.format(ops.length)} icon={Activity}
-          trend={{ direction: 'flat', label: 'recent (page-view noise hidden)' }} />
+        <KpiCard label="Operational events" value={fmt.format(ops.length)} icon={Activity}
+          trend={{ direction: 'flat', label: 'recent (common-event noise hidden)' }} />
         <KpiCard label="People acting" value={fmt.format(distinctActors)} icon={Users}
           trend={{ direction: 'flat', label: 'distinct actors' }} />
         <KpiCard label="Active days" value={fmt.format(activeDays)} icon={CalendarDays}
@@ -82,9 +82,9 @@ export default async function BusinessActivityPage({ params }: PageProps) {
       </section>
 
       {/* Daily trend */}
-      <ChartCard title="Activity trend" description="Business actions per day — last 14 days">
+      <ChartCard title="Activity trend" description="Operational events per day — last 14 days">
         {ops.length === 0 ? (
-          <div className="flex h-[120px] items-center justify-center text-xs text-muted-foreground">No business activity recorded yet.</div>
+          <div className="flex h-[120px] items-center justify-center text-xs text-muted-foreground">No operational activity recorded yet.</div>
         ) : (
           <div className="flex items-end gap-1.5 pt-2" style={{ height: 140 }}>
             {trend.map((t) => (
@@ -120,7 +120,7 @@ export default async function BusinessActivityPage({ params }: PageProps) {
         </ChartCard>
 
         {/* User actions — top actors */}
-        <ChartCard title="Who's doing the work" description="People performing the most business actions here">
+        <ChartCard title="Who's doing the work" description="People performing the most operational actions here">
           {users.length === 0 ? (
             <div className="flex h-[140px] items-center justify-center text-xs text-muted-foreground">No actors yet.</div>
           ) : (
@@ -141,8 +141,8 @@ export default async function BusinessActivityPage({ params }: PageProps) {
       </section>
 
       {/* Timeline */}
-      <ChartCard title="Activity timeline" description="Most recent business actions — repeats grouped">
-        <ActivityFeed items={timeline} empty="No recent business activity." />
+      <ChartCard title="Activity timeline" description="Most recent operational actions — repeats grouped">
+        <ActivityFeed items={timeline} empty="No recent operational activity." />
       </ChartCard>
     </div>
   );

@@ -123,3 +123,28 @@ export function isOperationalEvent(category: string, name: string): boolean {
   if (OPERATIONAL_SUFFIXES.some((s) => n.endsWith(s))) return true;
   return false; // page_view, route_change, click, performance.*, dashboard.viewed → hidden
 }
+
+// ── Single event taxonomy (errors / operational / common) ────────────────────
+// There is no separate "business events" bucket. Every event is exactly one of:
+//   • error       — drives Project Health (shown only in the Operations Center)
+//   • operational — important actions worth surfacing (logins, domain actions)
+//   • common      — regular activity (page views, clicks, navigation, perf)
+
+export type EventKind = 'error' | 'operational' | 'common';
+
+/** True if an event is an error (feeds health), by category or name shape. */
+export function isErrorEvent(category: string, name: string): boolean {
+  const n = (name || '').toLowerCase();
+  return category === 'error' || n.startsWith('error') || n === 'auth.login_failed';
+}
+
+/**
+ * Classify any event into the one taxonomy used across the whole platform.
+ * Errors take precedence (health), then important actions are "operational",
+ * everything else is "common". Replaces the old business-vs-other split.
+ */
+export function classifyEventKind(category: string, name: string): EventKind {
+  if (isErrorEvent(category, name)) return 'error';
+  if (isOperationalEvent(category, name)) return 'operational';
+  return 'common';
+}

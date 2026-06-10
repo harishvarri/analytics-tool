@@ -169,9 +169,9 @@ export default async function EngagementIntelligencePage() {
       </section>
 
       {/* Operational workflows */}
-      <ChartCard title="Common business workflows" description="The business actions staff most often perform one after another (page views & clicks excluded)">
+      <ChartCard title="Common operational workflows" description="The operational actions staff most often perform one after another (page views & clicks excluded)">
         {opWorkflows.length === 0 ? (
-          <Empty hint="No business workflows yet — these appear as staff perform sequences of operational actions (login → action → action)." />
+          <Empty hint="No workflows yet — these appear as staff perform sequences of operational actions (login → action → action)." />
         ) : (
           <div className="space-y-2">
             {opWorkflows.map((j, i) => (
