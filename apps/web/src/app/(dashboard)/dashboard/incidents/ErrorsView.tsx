@@ -5,6 +5,7 @@ import { ChartCard } from '@/components/charts/ChartCard';
 import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchErrorIntelligence, fetchErrorGroups } from '@/lib/data/fetchers';
 import { getErrorGroupStatuses } from '@/lib/repositories/incidents';
+import { errorFingerprint } from '@/lib/repositories/reliabilityScore';
 import { ErrorGroupStatusControl } from './ErrorGroupStatusControl';
 import { getPortalConfig } from '@/config/portals';
 import { friendlyEventName } from '@/lib/event-labels';
@@ -36,7 +37,11 @@ export async function ErrorsView() {
     fetchErrorGroups(30),
   ]);
   // Lifecycle status per signature — drives the resolve/close control + health.
-  const groupStatus = await getErrorGroupStatuses(groups.map((g) => g.fingerprint));
+  // Key by the JS message-fingerprint (NOT the SQL view fingerprint) so the key
+  // matches exactly what the health engine recomputes from each raw error event;
+  // otherwise resolving a group never suppresses its health penalty.
+  const fpOf = (g: { sampleMessage: string }) => errorFingerprint(g.sampleMessage);
+  const groupStatus = await getErrorGroupStatuses(groups.map(fpOf));
 
   const maxCat = Math.max(1, ...intel.categories.map((c) => c.count));
   const hasErrors = intel.totalErrors > 0;
@@ -143,7 +148,7 @@ export async function ErrorsView() {
             <div className="space-y-2">
               {groups.map((g) => {
                 const metadataEntries = Object.entries(g.sampleMetadata ?? {});
-                const st = groupStatus.get(g.fingerprint) ?? 'open';
+                const st = groupStatus.get(fpOf(g)) ?? 'open';
                 const acked = st === 'resolved' || st === 'closed';
                 return (
                   <details key={g.fingerprint} className={`group rounded-md border bg-background ${acked ? 'opacity-70' : ''}`}>
@@ -242,7 +247,7 @@ export async function ErrorsView() {
                         <span className="text-[11px] text-muted-foreground">
                           Resolving or closing this error stops it reducing the affected products&apos; health.
                         </span>
-                        <ErrorGroupStatusControl fingerprint={g.fingerprint} current={st} />
+                        <ErrorGroupStatusControl fingerprint={fpOf(g)} current={st} />
                       </div>
                     </div>
                   </details>
