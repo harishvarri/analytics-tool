@@ -81,6 +81,7 @@ import {
   getUserActivityWindow,
   getUserDetail,
   getUserProfileSummaries,
+  getUserSessionTimeline,
   type ActivityRange,
   type AppUserRow,
   type DepartmentActivityRow,
@@ -93,6 +94,7 @@ import {
   type UserActivityWindow,
   type UserDetail,
   type UserProfileSummary,
+  type UserSessionTimeline,
 } from '../repositories/operational';
 import {
   getAccessVsUsage,
@@ -367,6 +369,9 @@ export const fetchUserActivityWindow = (userId: string, range: ActivityRange): P
     range, events: 0, businessActions: 0, errors: 0, logins: 0, productsUsed: 0, activeDays: 0,
     sessions: 0, activeMinutes: 0, avgSessionMin: 0, apps: [], topActions: [], timeline: [],
   }));
+
+export const fetchUserSessionTimeline = (userId: string, range: ActivityRange): Promise<UserSessionTimeline> =>
+  withMockFallback('ops.userTimeline', () => getUserSessionTimeline(userId, range), () => ({ sessions: [] }));
 
 // ── Operational Intelligence v2 (surface existing 0020/0030 views) ────────────
 

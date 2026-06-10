@@ -5,7 +5,7 @@ import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { UserTimeline } from '@/components/analytics/UserTimeline';
-import { fetchUserDetail, fetchUserActivityWindow } from '@/lib/data/fetchers';
+import { fetchUserDetail, fetchUserActivityWindow, fetchUserSessionTimeline } from '@/lib/data/fetchers';
 import type { ActivityRange } from '@/lib/repositories/operational';
 import { getPortalConfig } from '@/config/portals';
 import { riskFromLastActive } from '@/lib/user-risk';
@@ -28,6 +28,19 @@ function fmtDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function sessionDayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  const yest = new Date(today); yest.setDate(today.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 const RANGES: { key: ActivityRange; label: string }[] = [
@@ -57,7 +70,11 @@ export default async function UserDetailPage({ params, searchParams }: PageProps
   const { range: rangeParam } = await searchParams;
   const range: ActivityRange = isRange(rangeParam) ? rangeParam : 'all';
 
-  const [u, win] = await Promise.all([fetchUserDetail(userId), fetchUserActivityWindow(userId, range)]);
+  const [u, win, timeline] = await Promise.all([
+    fetchUserDetail(userId),
+    fetchUserActivityWindow(userId, range),
+    fetchUserSessionTimeline(userId, range),
+  ]);
 
   if (!u) {
     return (
@@ -119,6 +136,8 @@ export default async function UserDetailPage({ params, searchParams }: PageProps
         {u.firstSeenAt ? `First seen ${formatRelativeTime(u.firstSeenAt)}` : 'No activity yet'}
         {u.lastActiveAt ? `  ·  last active ${formatRelativeTime(u.lastActiveAt)}` : ''}
         {`  ·  ${fmt.format(u.totalEvents)} lifetime actions`}
+        {`  ·  ${fmt.format(u.totalSessions)} sessions`}
+        {u.totalSessionMinutes > 0 ? `  ·  ${fmtDuration(u.totalSessionMinutes)} total time` : ''}
       </p>
 
       {/* ── Page-level period filter ─────────────────────────────────────── */}
@@ -204,9 +223,46 @@ export default async function UserDetailPage({ params, searchParams }: PageProps
         </ChartCard>
       </section>
 
-      {/* Activity timeline for the period */}
-      <ChartCard title="Important activities" description={`Business actions across every product, ${noun} — newest first (page views & clicks hidden)`}>
-        <UserTimeline events={win.timeline} userName={name} empty={`No business activity ${noun}.`} />
+      {/* Activity timeline — grouped by work session (Login → … → Logout) */}
+      <ChartCard
+        title="Activity timeline"
+        description={`Each work session ${noun}, newest first — login to logout. Expand a session to see the step-by-step path.`}
+      >
+        {timeline.sessions.length === 0 ? (
+          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            No sessions {noun}.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {timeline.sessions.map((s, i) => {
+              const products = s.portalIds.map((p) => getPortalConfig(p).name).join(', ');
+              return (
+                <details key={s.sessionId} className="group rounded-md border bg-background" open={i === 0}>
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-xs hover:bg-muted/40">
+                    <span className="font-semibold">{sessionDayLabel(s.startedAt)}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {clockTime(s.startedAt)} → {clockTime(s.endedAt)}
+                    </span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{fmtDuration(s.durationMin)}</span>
+                    <span className="truncate text-muted-foreground">· {products}</span>
+                    <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <span className="tabular-nums">{fmt.format(s.actionCount)} actions</span>
+                      {s.errorCount > 0 && (
+                        <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-rose-600 dark:text-rose-400">{s.errorCount} err</span>
+                      )}
+                      <Link href={`/dashboard/sessions/${s.sessionId}`} className="text-primary hover:underline">
+                        details →
+                      </Link>
+                    </span>
+                  </summary>
+                  <div className="border-t px-3 py-3">
+                    <UserTimeline events={s.events} userName={name} empty="No steps recorded in this session." />
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        )}
       </ChartCard>
 
       {!u.email && (

@@ -603,6 +603,90 @@ export async function getUserActivityWindow(userId: string, range: ActivityRange
   };
 }
 
+// ── Per-user session-grouped activity timeline ───────────────────────────────
+// One entry per work session (Login → product → feature → action → Logout),
+// newest-first, so the user page can show the full story grouped by visit
+// instead of one flat list. Reuses SessionEvent + the same window bounds.
+export interface UserTimelineSession {
+  sessionId:   string;
+  portalIds:   string[];
+  startedAt:   string;
+  endedAt:     string;        // ended_at ?? last_seen_at (or last event)
+  durationMin: number;
+  eventCount:  number;        // events seen in this window for the session
+  actionCount: number;        // operational events
+  errorCount:  number;
+  events:      SessionEvent[]; // chronological (ASC) — fed to <UserTimeline>
+}
+export interface UserSessionTimeline {
+  sessions: UserTimelineSession[];
+}
+
+export async function getUserSessionTimeline(userId: string, range: ActivityRange): Promise<UserSessionTimeline> {
+  const admin = getSupabaseAdmin();
+  const { since, upto } = windowBounds(range);
+
+  let evQ = admin
+    .from('analytics_events')
+    .select('name, category, portal_id, session_id, occurred_at, url, metadata')
+    .eq('user_id', userId)
+    .order('occurred_at', { ascending: true })
+    .limit(2000);
+  if (since) evQ = evQ.gte('occurred_at', since);
+  if (upto) evQ = evQ.lt('occurred_at', upto);
+
+  let sessQ = admin
+    .from('analytics_sessions')
+    .select('id, portal_id, started_at, last_seen_at, ended_at')
+    .eq('user_id', userId)
+    .order('started_at', { ascending: false })
+    .limit(200);
+  if (since) sessQ = sessQ.gte('started_at', since);
+  if (upto) sessQ = sessQ.lt('started_at', upto);
+
+  const [{ data: evData, error: evErr }, { data: sessData }] = await Promise.all([evQ, sessQ]);
+  if (evErr) throw new AppError('USER_TIMELINE_FAILED', evErr.message, 500);
+
+  const sessById = new Map(((sessData ?? []) as Record<string, unknown>[]).map((s) => [String(s.id), s]));
+
+  // Group in-window events by session.
+  const groups = new Map<string, SessionEvent[]>();
+  for (const r of (evData ?? []) as Record<string, unknown>[]) {
+    const sid = r.session_id ? String(r.session_id) : null;
+    if (!sid) continue; // events without a session can't be placed on the timeline
+    const ev: SessionEvent = {
+      name: String(r.name), category: String(r.category), portalId: String(r.portal_id),
+      occurredAt: String(r.occurred_at), url: (r.url as string | null) ?? null,
+      metadata: (r.metadata as Record<string, unknown> | null) ?? null,
+    };
+    const arr = groups.get(sid) ?? [];
+    arr.push(ev);
+    groups.set(sid, arr);
+  }
+
+  const sessions: UserTimelineSession[] = [];
+  for (const [sid, evs] of groups) {
+    const s = sessById.get(sid);
+    const startedAt = s ? String(s.started_at) : evs[0]!.occurredAt;
+    const endedAt = s ? String((s.ended_at as string | null) ?? s.last_seen_at) : evs[evs.length - 1]!.occurredAt;
+    const start = new Date(startedAt).getTime();
+    const end = new Date(endedAt).getTime();
+    let actionCount = 0, errorCount = 0;
+    for (const e of evs) {
+      if (e.category === 'error') errorCount += 1;
+      if (isOperationalEvent(e.category, e.name)) actionCount += 1;
+    }
+    const portalIds = Array.from(new Set(evs.map((e) => e.portalId).concat(s ? [String(s.portal_id)] : [])));
+    sessions.push({
+      sessionId: sid, portalIds, startedAt, endedAt,
+      durationMin: end > start ? Math.round((end - start) / 60000) : 0,
+      eventCount: evs.length, actionCount, errorCount, events: evs,
+    });
+  }
+  sessions.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+  return { sessions };
+}
+
 // ── Department Intelligence (detail page) ────────────────────────────────────
 export interface DepartmentStaff {
   userId: string;
