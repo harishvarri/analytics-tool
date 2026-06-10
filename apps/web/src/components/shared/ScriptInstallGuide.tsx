@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy, Download } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -15,8 +15,6 @@ interface Step {
   file: string;
   desc: string;
   code: string;
-  /** if set → show a Save File button that downloads with this filename */
-  filename?: string;
   optional?: boolean;
 }
 
@@ -31,207 +29,46 @@ const FRAMEWORKS: { id: FrameworkId; label: string }[] = [
   { id: 'nuxt',         label: 'Nuxt'            },
 ];
 
-// ─── Analytics helper file content ────────────────────────────────────────────
+// ─── Reusable snippet pieces ────────────────────────────────────────────────────
 
-function nextjsAnalyticsFile(slug: string): string {
+/** The tiny <NcplIdentify> component for React-family frameworks — no Supabase
+ *  import, no DB query, no RLS. Pass the name your app already has. */
+const IDENTIFY_COMPONENT = [
+  `'use client';`,
+  `import { useEffect } from 'react';`,
+  ``,
+  `// Pass the user info your app ALREADY has (from your session/context).`,
+  `// No database query, no RLS policy needed — so it can never be blocked.`,
+  `export function NcplIdentify({ id, name, email }:`,
+  `  { id: string; name?: string; email?: string }) {`,
+  `  useEffect(() => {`,
+  `    let tries = 0;`,
+  `    const fire = () => {`,
+  `      const w = window as any;`,
+  `      if (w.ncpl) { w.ncpl('identify', id, { name, email }); return; }`,
+  `      if (tries++ < 30) setTimeout(fire, 100); // wait for ncpl.js to load`,
+  `    };`,
+  `    fire();`,
+  `  }, [id, name, email]);`,
+  `  return null;`,
+  `}`,
+].join('\n');
+
+/** Plain-JS identify call with a ready-check, for non-React frameworks. */
+function identifyInline(idExpr: string, nameExpr: string, emailExpr: string): string {
   return [
-    `'use client';`,
-    `// NCPL Analytics helper — project: ${slug}`,
-    `// Place this file at: components/ncpl-analytics.tsx`,
-    `import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';`,
-    `import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';`,
-    ``,
-    `type ErrorType = 'api' | 'database' | 'authentication' | 'authorization' | 'network' | 'frontend';`,
-    `export interface NcplInstance {`,
-    `  track: (event: string, metadata?: Record<string, unknown>) => void;`,
-    `  error: (type: ErrorType, message: string, extra?: Record<string, unknown>) => void;`,
-    `}`,
-    `declare global { interface Window { ncpl?: (...args: unknown[]) => void; } }`,
-    ``,
-    `const Ctx = createContext<NcplInstance>({ track: () => {}, error: () => {} });`,
-    `export function useNcpl() { return useContext(Ctx); }`,
-    ``,
-    `export function NcplAnalytics({ children }: { children?: ReactNode }) {`,
-    `  const supabase = createClientComponentClient();`,
-    `  const fetchPatched = useRef(false);`,
-    ``,
-    `  useEffect(() => {`,
-    `    async function identify() {`,
-    `      const { data: { session } } = await supabase.auth.getSession();`,
-    `      if (session?.user) sendIdentify(supabase, session.user);`,
-    `    }`,
-    `    identify();`,
-    `    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {`,
-    `      if (s?.user) sendIdentify(supabase, s.user);`,
+    `// Call this once, right after you know who the user is.`,
+    `// Pass the name your app already has — no database lookup needed.`,
+    `(function identify(tries) {`,
+    `  if (window.ncpl) {`,
+    `    window.ncpl('identify', ${idExpr}, {`,
+    `      name:  ${nameExpr},`,
+    `      email: ${emailExpr},`,
     `    });`,
-    `    const onError = (e: ErrorEvent) =>`,
-    `      window.ncpl?.('track', 'error.occurred', { errorType: 'frontend', message: e.message });`,
-    `    const onRejection = (e: PromiseRejectionEvent) => {`,
-    `      const msg = e.reason?.message ?? String(e.reason ?? 'Unknown');`,
-    `      window.ncpl?.('track', 'error.occurred', { errorType: classifyMsg(msg), message: msg });`,
-    `    };`,
-    `    if (!fetchPatched.current) {`,
-    `      fetchPatched.current = true;`,
-    `      const orig = window.fetch;`,
-    `      window.fetch = async (...args) => {`,
-    `        const res = await orig(...args);`,
-    `        if (!res.ok) {`,
-    `          const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url ?? '';`,
-    `          window.ncpl?.('track', 'error.occurred', {`,
-    `            errorType: classifyUrl(url, res.status),`,
-    `            message: 'HTTP ' + res.status,`,
-    `            statusCode: res.status, url,`,
-    `          });`,
-    `        }`,
-    `        return res;`,
-    `      };`,
-    `    }`,
-    `    window.addEventListener('error', onError);`,
-    `    window.addEventListener('unhandledrejection', onRejection);`,
-    `    return () => {`,
-    `      subscription.unsubscribe();`,
-    `      window.removeEventListener('error', onError);`,
-    `      window.removeEventListener('unhandledrejection', onRejection);`,
-    `    };`,
-    `  }, []);`,
-    ``,
-    `  const api: NcplInstance = {`,
-    `    track: (event, meta) => window.ncpl?.('track', event, meta ?? {}),`,
-    `    error: (type, message, extra) =>`,
-    `      window.ncpl?.('track', 'error.occurred', { errorType: type, message, ...extra }),`,
-    `  };`,
-    `  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;`,
-    `}`,
-    ``,
-    `// Waits until the <Script> has loaded window.ncpl before firing. Without this,`,
-    `// identify() runs on mount before ncpl.js finishes loading and silently no-ops.`,
-    `function whenNcplReady(fn: () => void, tries = 30) {`,
-    `  if (window.ncpl) return fn();`,
-    `  if (tries <= 0) return;`,
-    `  setTimeout(() => whenNcplReady(fn, tries - 1), 100);`,
-    `}`,
-    `// eslint-disable-next-line @typescript-eslint/no-explicit-any`,
-    `async function sendIdentify(supabase: any, user: any) {`,
-    `  // Display names usually live in a "users" table, not auth metadata —`,
-    `  // try metadata first, then the table, then fall back to email.`,
-    `  let name: string | null = user.user_metadata?.full_name ?? user.user_metadata?.name ?? null;`,
-    `  if (!name) {`,
-    `    try {`,
-    `      const { data } = await supabase.from('users').select('full_name').eq('id', user.id).single();`,
-    `      name = data?.full_name ?? null;`,
-    `    } catch { /* table may not exist / be readable — email fallback below */ }`,
+    `  } else if ((tries || 0) < 30) {`,
+    `    setTimeout(() => identify((tries || 0) + 1), 100); // wait for ncpl.js`,
     `  }`,
-    `  whenNcplReady(() => window.ncpl?.('identify', {`,
-    `    userId: user.id,`,
-    `    name: name ?? user.email,`,
-    `    email: user.email,`,
-    `  }));`,
-    `}`,
-    `function classifyMsg(msg: string): ErrorType {`,
-    `  if (/auth|unauthori[sz]ed|401|403|token|session/i.test(msg)) return 'authentication';`,
-    `  if (/database|postgres|supabase|query|sql/i.test(msg))        return 'database';`,
-    `  if (/fetch|network|cors|timeout|abort/i.test(msg))             return 'network';`,
-    `  if (/api|500|502|503/i.test(msg))                              return 'api';`,
-    `  return 'frontend';`,
-    `}`,
-    `function classifyUrl(url: string, status: number): ErrorType {`,
-    `  if (status === 401 || status === 403)                   return 'authentication';`,
-    `  if (/supabase|\\.rpc\\.|\\/rest\\//i.test(url))        return 'database';`,
-    `  if (/\\/api\\//i.test(url))                             return 'api';`,
-    `  return 'network';`,
-    `}`,
-  ].join('\n');
-}
-
-function reactAnalyticsFile(slug: string): string {
-  return [
-    `// NCPL Analytics helper — project: ${slug}`,
-    `// Place this file at: src/ncpl-analytics.tsx`,
-    `// Requires: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env`,
-    `import { createContext, useContext, useEffect, useRef } from 'react';`,
-    `import { createClient } from '@supabase/supabase-js';`,
-    ``,
-    `const supabase = createClient(`,
-    `  import.meta.env.VITE_SUPABASE_URL ?? '',`,
-    `  import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',`,
-    `);`,
-    ``,
-    `const Ctx = createContext({ track: (_e: string, _m?: object) => {}, error: (_t: string, _msg: string) => {} });`,
-    `export const useNcpl = () => useContext(Ctx);`,
-    ``,
-    `export function NcplAnalytics({ children }: { children: React.ReactNode }) {`,
-    `  const fetchPatched = useRef(false);`,
-    ``,
-    `  useEffect(() => {`,
-    `    async function identify() {`,
-    `      const { data: { session } } = await supabase.auth.getSession();`,
-    `      if (session?.user) sendIdentify(session.user);`,
-    `    }`,
-    `    identify();`,
-    `    supabase.auth.onAuthStateChange((_, s) => { if (s?.user) sendIdentify(s.user); });`,
-    ``,
-    `    // eslint-disable-next-line @typescript-eslint/no-explicit-any`,
-    `    const onError = (e: any) =>`,
-    `      (window as any).ncpl?.('track', 'error.occurred', { errorType: 'frontend', message: e.message });`,
-    `    // eslint-disable-next-line @typescript-eslint/no-explicit-any`,
-    `    const onRejection = (e: any) => {`,
-    `      const msg = e.reason?.message ?? String(e.reason ?? 'Unknown');`,
-    `      let type = 'frontend';`,
-    `      if (/auth|401|403|token/i.test(msg))      type = 'authentication';`,
-    `      else if (/database|postgres|sql/i.test(msg)) type = 'database';`,
-    `      else if (/network|fetch|timeout/i.test(msg)) type = 'network';`,
-    `      else if (/api|500|502|503/i.test(msg))       type = 'api';`,
-    `      (window as any).ncpl?.('track', 'error.occurred', { errorType: type, message: msg });`,
-    `    };`,
-    `    if (!fetchPatched.current) {`,
-    `      fetchPatched.current = true;`,
-    `      const orig = window.fetch;`,
-    `      window.fetch = async (...args) => {`,
-    `        const res = await orig(...args);`,
-    `        if (!res.ok) {`,
-    `          const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url ?? '';`,
-    `          const type = res.status === 401 || res.status === 403 ? 'authentication'`,
-    `            : /supabase/i.test(url) ? 'database' : /\\/api\\//i.test(url) ? 'api' : 'network';`,
-    `          (window as any).ncpl?.('track', 'error.occurred', { errorType: type, message: 'HTTP ' + res.status, statusCode: res.status, url });`,
-    `        }`,
-    `        return res;`,
-    `      };`,
-    `    }`,
-    `    window.addEventListener('error', onError);`,
-    `    window.addEventListener('unhandledrejection', onRejection);`,
-    `    return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection); };`,
-    `  }, []);`,
-    ``,
-    `  const api = {`,
-    `    track: (event: string, meta?: object) => (window as any).ncpl?.('track', event, meta ?? {}),`,
-    `    error: (type: string, message: string, extra?: object) =>`,
-    `      (window as any).ncpl?.('track', 'error.occurred', { errorType: type, message, ...extra }),`,
-    `  };`,
-    `  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;`,
-    `}`,
-    ``,
-    `// Waits until ncpl.js has set window.ncpl before firing (avoids the mount-time race).`,
-    `function whenNcplReady(fn: () => void, tries = 30) {`,
-    `  if ((window as any).ncpl) return fn();`,
-    `  if (tries <= 0) return;`,
-    `  setTimeout(() => whenNcplReady(fn, tries - 1), 100);`,
-    `}`,
-    `// eslint-disable-next-line @typescript-eslint/no-explicit-any`,
-    `async function sendIdentify(user: any) {`,
-    `  // Display names usually live in a "users" table, not auth metadata.`,
-    `  let name: string | null = user.user_metadata?.full_name ?? null;`,
-    `  if (!name) {`,
-    `    try {`,
-    `      const { data } = await supabase.from('users').select('full_name').eq('id', user.id).single();`,
-    `      name = data?.full_name ?? null;`,
-    `    } catch { /* fall back to email */ }`,
-    `  }`,
-    `  whenNcplReady(() => (window as any).ncpl?.('identify', {`,
-    `    userId: user.id,`,
-    `    name: name ?? user.email,`,
-    `    email: user.email,`,
-    `  }));`,
-    `}`,
+    `})();`,
   ].join('\n');
 }
 
@@ -246,24 +83,30 @@ function getSteps(fw: FrameworkId, slug: string, key: string): Step[] {
     `  data-key="${key}"></script>`,
   ].join('\n');
 
+  // Step 3 (optional) is the same idea everywhere — a domain event.
+  const trackStep = (file: string, code: string): Step => ({
+    title: 'Track business events',
+    file,
+    desc: 'Optional. Send domain-specific events (lesson completed, quiz submitted…) for richer analysis. Everything else is already captured.',
+    code,
+    optional: true,
+  });
+
   switch (fw) {
     case 'nextjs-app':
       return [
         {
-          title: 'Add tracking script',
+          title: 'Add the tracking script',
           file: 'app/layout.tsx',
-          desc: 'Import next/script and place it inside <body>. This loads the tracker on every page automatically.',
+          desc: 'Place the Next.js <Script> inside <body>. This loads the tracker on every page.',
           code: [
             `import Script from 'next/script';`,
-            `import { NcplAnalytics } from '@/components/ncpl-analytics';`,
             ``,
             `export default function RootLayout({ children }) {`,
             `  return (`,
             `    <html lang="en">`,
             `      <body>`,
-            `        <NcplAnalytics>`,
-            `          {children}`,
-            `        </NcplAnalytics>`,
+            `        {children}`,
             `        <Script`,
             `          src="https://analytics-tool-web.vercel.app/ncpl.js"`,
             `          data-project="${slug}"`,
@@ -277,44 +120,39 @@ function getSteps(fw: FrameworkId, slug: string, key: string): Step[] {
           ].join('\n'),
         },
         {
-          title: 'Create analytics helper',
-          file: 'components/ncpl-analytics.tsx',
-          desc: 'Create this new file. It auto-identifies users via Supabase, captures API / auth / DB errors, and exposes useNcpl() for business events.',
-          code: nextjsAnalyticsFile(slug),
-          filename: 'ncpl-analytics.tsx',
-        },
-        {
-          title: 'Track business events',
-          file: 'any client component',
-          desc: 'Call useNcpl() to send domain-specific events. Page views, clicks, and all errors are already captured without this step.',
+          title: 'Show real names — add a tiny identify component',
+          file: 'components/ncpl-identify.tsx',
+          desc: 'Create this small file, then render it wherever you already load the signed-in user (a dashboard layout, a provider, etc.). Pass the name you already have.',
           code: [
+            IDENTIFY_COMPONENT,
+            ``,
+            `// ── Then use it where the user is already available: ──`,
+            `// import { NcplIdentify } from '@/components/ncpl-identify';`,
+            `// <NcplIdentify id={user.id} name={user.full_name} email={user.email} />`,
+          ].join('\n'),
+        },
+        trackStep(
+          'any client component',
+          [
             `'use client';`,
-            `import { useNcpl } from '@/components/ncpl-analytics';`,
             ``,
-            `export function LessonPlayer({ lesson }) {`,
-            `  const ncpl = useNcpl();`,
-            ``,
-            `  function handleComplete() {`,
-            `    ncpl.track('lesson.completed', {`,
-            `      lessonId: lesson.id,`,
-            `      level: lesson.level,`,
-            `      score: 95,`,
-            `    });`,
-            `  }`,
-            ``,
-            `  return <button onClick={handleComplete}>Mark Complete</button>;`,
+            `function onComplete(lesson) {`,
+            `  (window as any).ncpl?.('track', 'lesson.completed', {`,
+            `    lessonId: lesson.id,`,
+            `    level: lesson.level,`,
+            `    score: 95,`,
+            `  });`,
             `}`,
           ].join('\n'),
-          optional: true,
-        },
+        ),
       ];
 
     case 'nextjs-pages':
       return [
         {
-          title: 'Add tracking script',
+          title: 'Add the tracking script',
           file: 'pages/_document.tsx',
-          desc: 'Add the script inside <Head> in your custom document. It loads on every page.',
+          desc: 'Add the script inside <Head> of your custom document. It loads on every page.',
           code: [
             `import { Html, Head, Main, NextScript } from 'next/document';`,
             ``,
@@ -329,343 +167,202 @@ function getSteps(fw: FrameworkId, slug: string, key: string): Step[] {
             `          data-key="${key}"`,
             `        />`,
             `      </Head>`,
-            `      <body>`,
-            `        <Main />`,
-            `        <NextScript />`,
-            `      </body>`,
+            `      <body><Main /><NextScript /></body>`,
             `    </Html>`,
             `  );`,
             `}`,
           ].join('\n'),
         },
         {
-          title: 'Create analytics helper',
-          file: 'components/ncpl-analytics.tsx',
-          desc: 'Create this new file. Handles Supabase user identification, error classification, and the useNcpl() hook.',
-          code: nextjsAnalyticsFile(slug),
-          filename: 'ncpl-analytics.tsx',
-        },
-        {
-          title: 'Wrap your app',
-          file: 'pages/_app.tsx',
-          desc: 'Wrap the root component with <NcplAnalytics> so user identification activates globally.',
+          title: 'Show real names — add a tiny identify component',
+          file: 'components/ncpl-identify.tsx',
+          desc: 'Create this small file, then render it once the user is loaded (e.g. inside _app.tsx or a layout). Pass the name you already have.',
           code: [
-            `import type { AppProps } from 'next/app';`,
-            `import { NcplAnalytics } from '@/components/ncpl-analytics';`,
+            IDENTIFY_COMPONENT,
             ``,
-            `export default function App({ Component, pageProps }: AppProps) {`,
-            `  return (`,
-            `    <NcplAnalytics>`,
-            `      <Component {...pageProps} />`,
-            `    </NcplAnalytics>`,
-            `  );`,
-            `}`,
+            `// ── Use it where the user is available: ──`,
+            `// <NcplIdentify id={user.id} name={user.fullName} email={user.email} />`,
           ].join('\n'),
         },
-        {
-          title: 'Track business events',
-          file: 'any component',
-          desc: 'Use useNcpl() to send business events like form submissions, course progress, etc.',
-          code: [
-            `import { useNcpl } from '@/components/ncpl-analytics';`,
-            ``,
-            `export function SubmitButton() {`,
-            `  const ncpl = useNcpl();`,
-            `  return (`,
-            `    <button onClick={() => ncpl.track('form.submitted', { formName: 'enrollment' })}>`,
-            `      Submit`,
-            `    </button>`,
-            `  );`,
-            `}`,
-          ].join('\n'),
-          optional: true,
-        },
+        trackStep(
+          'any component',
+          `(window as any).ncpl?.('track', 'form.submitted', { formName: 'enrollment' });`,
+        ),
       ];
 
     case 'react':
       return [
         {
-          title: 'Add tracking script',
-          file: 'public/index.html',
-          desc: 'Paste before the closing </body> tag. Tracks page views, clicks, and JS errors automatically.',
+          title: 'Add the tracking script',
+          file: 'public/index.html  (or index.html for Vite)',
+          desc: 'Paste before the closing </body> tag. Page views, clicks, errors, and sessions are captured immediately.',
           code: scriptTag,
         },
         {
-          title: 'Create analytics helper',
-          file: 'src/ncpl-analytics.tsx',
-          desc: 'Create this file. Reads VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY from .env to identify users and classify errors.',
-          code: reactAnalyticsFile(slug),
-          filename: 'ncpl-analytics.tsx',
-        },
-        {
-          title: 'Wrap your app',
-          file: 'src/main.tsx',
-          desc: 'Wrap the root component so identification and error tracking activate for every page.',
+          title: 'Show real names — identify the logged-in user',
+          file: 'components/NcplIdentify.tsx',
+          desc: 'Create this small component and render it once the user is loaded. Pass the name your app already has — no Supabase query needed.',
           code: [
-            `import React from 'react';`,
-            `import ReactDOM from 'react-dom/client';`,
-            `import { NcplAnalytics } from './ncpl-analytics';`,
-            `import App from './App';`,
+            `import { useEffect } from 'react';`,
             ``,
-            `ReactDOM.createRoot(document.getElementById('root')!).render(`,
-            `  <React.StrictMode>`,
-            `    <NcplAnalytics>`,
-            `      <App />`,
-            `    </NcplAnalytics>`,
-            `  </React.StrictMode>,`,
-            `);`,
-          ].join('\n'),
-        },
-        {
-          title: 'Track business events',
-          file: 'any component',
-          desc: 'Use useNcpl() for domain events. All errors and navigation are already captured without this.',
-          code: [
-            `import { useNcpl } from './ncpl-analytics';`,
-            ``,
-            `export function CourseCard({ course }) {`,
-            `  const ncpl = useNcpl();`,
-            `  return (`,
-            `    <button onClick={() => ncpl.track('course.started', { courseId: course.id })}>`,
-            `      Start Course`,
-            `    </button>`,
-            `  );`,
+            `// Render once you know the user: <NcplIdentify id={user.id} name={user.fullName} email={user.email} />`,
+            `export function NcplIdentify({ id, name, email }:`,
+            `  { id: string; name?: string; email?: string }) {`,
+            `  useEffect(() => {`,
+            `    let tries = 0;`,
+            `    const fire = () => {`,
+            `      const w = window as any;`,
+            `      if (w.ncpl) { w.ncpl('identify', id, { name, email }); return; }`,
+            `      if (tries++ < 30) setTimeout(fire, 100);`,
+            `    };`,
+            `    fire();`,
+            `  }, [id, name, email]);`,
+            `  return null;`,
             `}`,
           ].join('\n'),
-          optional: true,
         },
+        trackStep(
+          'any component',
+          `(window as any).ncpl?.('track', 'course.started', { courseId: course.id });`,
+        ),
       ];
 
     case 'vue':
       return [
         {
-          title: 'Add tracking script',
+          title: 'Add the tracking script',
           file: 'index.html',
-          desc: 'Paste before </body>. Vue Router navigation changes are captured automatically.',
+          desc: 'Paste before </body>. Vue Router navigation is captured automatically.',
           code: scriptTag,
         },
         {
-          title: 'Identify users after login',
-          file: 'composables/useAuth.ts  (or your auth composable)',
-          desc: 'Call identify once after the user logs in so the platform shows real names.',
-          code: [
-            `// In your auth composable, after login succeeds:`,
-            `window.ncpl?.('identify', {`,
-            `  userId: user.value.id,`,
-            `  name:   user.value.fullName ?? user.value.email,`,
-            `  email:  user.value.email,`,
-            `});`,
-          ].join('\n'),
-          optional: true,
+          title: 'Show real names — identify after login',
+          file: 'your auth composable / store',
+          desc: 'Call identify once after login, using the name already in your user object.',
+          code: identifyInline('user.value.id', 'user.value.fullName', 'user.value.email'),
         },
-        {
-          title: 'Track business events',
-          file: 'any component or composable',
-          desc: 'Call ncpl("track", ...) to send domain-specific events.',
-          code: [
-            `// In any component method or composable:`,
-            `window.ncpl?.('track', 'lesson.completed', {`,
-            `  lessonId: props.lesson.id,`,
-            `  level: 'A1',`,
-            `  score: score.value,`,
-            `});`,
-          ].join('\n'),
-          optional: true,
-        },
+        trackStep(
+          'any component or composable',
+          `window.ncpl?.('track', 'lesson.completed', { lessonId: lesson.id, score: 90 });`,
+        ),
       ];
 
     case 'angular':
       return [
         {
-          title: 'Add tracking script',
+          title: 'Add the tracking script',
           file: 'src/index.html',
           desc: 'Paste before </body>. Angular Router navigations are captured automatically.',
           code: scriptTag,
         },
         {
-          title: 'Identify users after login',
+          title: 'Show real names — identify after login',
           file: 'app/services/auth.service.ts',
-          desc: 'Call identify in your AuthService after a successful login.',
-          code: [
-            `// In AuthService, after login():`,
-            `(window as any).ncpl?.('identify', {`,
-            `  userId: user.id,`,
-            `  name:   user.displayName ?? user.email,`,
-            `  email:  user.email,`,
-            `});`,
-          ].join('\n'),
-          optional: true,
+          desc: 'Call identify in your AuthService after a successful login, using the user you already have.',
+          code: identifyInline('user.id', 'user.displayName', 'user.email').replace(/window\.ncpl/g, '(window as any).ncpl'),
         },
-        {
-          title: 'Track business events',
-          file: 'any component or service',
-          desc: 'Call ncpl("track", ...) from anywhere in your Angular app.',
-          code: [
-            `// From any component or service:`,
-            `(window as any).ncpl?.('track', 'form.submitted', {`,
-            `  formName: 'enrollment',`,
-            `  success: true,`,
-            `});`,
-          ].join('\n'),
-          optional: true,
-        },
+        trackStep(
+          'any component or service',
+          `(window as any).ncpl?.('track', 'form.submitted', { formName: 'enrollment' });`,
+        ),
       ];
 
     case 'sveltekit':
       return [
         {
-          title: 'Add tracking script',
+          title: 'Add the tracking script',
           file: 'src/app.html',
           desc: 'Paste before </body> in your root HTML template.',
           code: scriptTag,
         },
         {
-          title: 'Identify users after login',
+          title: 'Show real names — identify from the session',
           file: 'src/routes/+layout.svelte',
-          desc: 'Identify users from the session in your root layout.',
+          desc: 'Identify the user from your session store, using the name you already have.',
           code: [
             `<script>`,
             `  import { page } from '$app/stores';`,
             `  import { browser } from '$app/environment';`,
-            ``,
-            `  $: if (browser && $page.data.session?.user) {`,
-            `    window.ncpl?.('identify', {`,
-            `      userId: $page.data.session.user.id,`,
-            `      name:   $page.data.session.user.user_metadata?.full_name,`,
-            `      email:  $page.data.session.user.email,`,
+            `  $: if (browser && $page.data.user && window.ncpl) {`,
+            `    window.ncpl('identify', $page.data.user.id, {`,
+            `      name:  $page.data.user.fullName,`,
+            `      email: $page.data.user.email,`,
             `    });`,
             `  }`,
             `</script>`,
           ].join('\n'),
-          optional: true,
         },
-        {
-          title: 'Track business events',
-          file: 'any .svelte component',
-          desc: 'Call ncpl("track", ...) from any Svelte component.',
-          code: [
-            `<script>`,
-            `  function handleComplete() {`,
-            `    window.ncpl?.('track', 'lesson.completed', { lessonId, score });`,
-            `  }`,
-            `</script>`,
-            ``,
-            `<button on:click={handleComplete}>Mark Complete</button>`,
-          ].join('\n'),
-          optional: true,
-        },
+        trackStep(
+          'any .svelte component',
+          `window.ncpl?.('track', 'lesson.completed', { lessonId, score });`,
+        ),
       ];
 
     case 'nuxt':
       return [
         {
-          title: 'Add tracking script',
+          title: 'Add the tracking script',
           file: 'nuxt.config.ts',
           desc: 'Add the script to app.head.script in your Nuxt config.',
           code: [
             `export default defineNuxtConfig({`,
-            `  app: {`,
-            `    head: {`,
-            `      script: [`,
-            `        {`,
-            `          src: 'https://analytics-tool-web.vercel.app/ncpl.js',`,
-            `          defer: true,`,
-            `          'data-project': '${slug}',`,
-            `          'data-key': '${key}',`,
-            `        },`,
-            `      ],`,
-            `    },`,
-            `  },`,
+            `  app: { head: { script: [{`,
+            `    src: 'https://analytics-tool-web.vercel.app/ncpl.js',`,
+            `    defer: true,`,
+            `    'data-project': '${slug}',`,
+            `    'data-key': '${key}',`,
+            `  }] } },`,
             `});`,
           ].join('\n'),
         },
         {
-          title: 'Identify users after login',
+          title: 'Show real names — identify after login',
           file: 'plugins/ncpl.client.ts',
-          desc: 'Create a client-side plugin to identify users from the Nuxt auth session.',
-          code: [
-            `export default defineNuxtPlugin(async () => {`,
-            `  const user = useSupabaseUser();`,
-            `  if (user.value) {`,
-            `    window.ncpl?.('identify', {`,
-            `      userId: user.value.id,`,
-            `      name:   user.value.user_metadata?.full_name ?? user.value.email,`,
-            `      email:  user.value.email,`,
-            `    });`,
-            `  }`,
-            `});`,
-          ].join('\n'),
-          optional: true,
+          desc: 'Create a client plugin that identifies the user from your session, using the name you already have.',
+          code: identifyInline('user.value.id', 'user.value.fullName', 'user.value.email'),
         },
-        {
-          title: 'Track business events',
-          file: 'any component or composable',
-          desc: 'Call ncpl("track", ...) from any component.',
-          code: [
-            `window.ncpl?.('track', 'lesson.completed', {`,
-            `  lessonId: 'a1-greetings',`,
-            `  level: 'A1',`,
-            `  score: 90,`,
-            `});`,
-          ].join('\n'),
-          optional: true,
-        },
+        trackStep(
+          'any component or composable',
+          `window.ncpl?.('track', 'lesson.completed', { lessonId: 'a1-greetings', score: 90 });`,
+        ),
       ];
 
     // html (default)
     default:
       return [
         {
-          title: 'Add tracking script',
+          title: 'Add the tracking script',
           file: 'index.html',
-          desc: 'Paste before </body>. Page views, clicks, and JS errors are captured immediately with no other code changes.',
+          desc: 'Paste before </body>. Page views, clicks, form submits, sessions, and JS errors are captured immediately — no other code.',
           code: scriptTag,
         },
         {
-          title: 'Identify users after login',
+          title: 'Show real names — identify after login',
           file: 'your login handler',
-          desc: 'Call identify once after login to show real names in the dashboard instead of anonymous IDs.',
-          code: [
-            `// Call this after a successful login:`,
-            `window.ncpl?.('identify', {`,
-            `  userId: user.id,`,
-            `  name:   user.fullName,`,
-            `  email:  user.email,`,
-            `});`,
-          ].join('\n'),
-          optional: true,
+          desc: 'Call identify once after login, using the name your app already has.',
+          code: identifyInline('user.id', 'user.fullName', 'user.email'),
         },
-        {
-          title: 'Track business events',
-          file: 'anywhere in your JS',
-          desc: 'Send domain-specific events for richer analysis.',
-          code: [
-            `window.ncpl?.('track', 'quiz.submitted', {`,
-            `  score: 90,`,
-            `  passed: true,`,
-            `  level: 'A1',`,
-            `});`,
-            ``,
-            `window.ncpl?.('track', 'lesson.completed', {`,
-            `  lessonId: 'a1-greetings',`,
-            `  durationSeconds: 420,`,
-            `});`,
+        trackStep(
+          'anywhere in your JS',
+          [
+            `window.ncpl?.('track', 'quiz.submitted', { score: 90, passed: true, level: 'A1' });`,
           ].join('\n'),
-          optional: true,
-        },
+        ),
       ];
   }
 }
 
-// ─── Auto-captured checklist ──────────────────────────────────────────────────
+// ─── Auto-captured (zero code) — true for every framework, from ncpl.js ─────────
 
-function getAutoCapture(fw: FrameworkId): string[] {
-  const base = ['Page views & navigation', 'Button & link clicks', 'JS crashes'];
-  if (fw === 'nextjs-app' || fw === 'nextjs-pages' || fw === 'react') {
-    return ['Real user names & emails', ...base, 'API errors (classified)', 'Database errors', 'Auth / 401 / 403 errors', 'Network failures'];
-  }
-  return base;
-}
+const AUTO_CAPTURE = [
+  'Page views & navigation (SPA-aware)',
+  'Button & link clicks',
+  'Form submissions',
+  'Sessions & time-on-page',
+  'Device, browser & OS',
+  'Performance metrics',
+  'JavaScript errors & crashes',
+];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -688,22 +385,6 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
-function SaveBtn({ content, filename }: { content: string; filename: string }) {
-  return (
-    <button
-      onClick={() => {
-        const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
-        URL.revokeObjectURL(url);
-      }}
-      className="inline-flex items-center gap-1 rounded border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-[10px] text-indigo-400 hover:bg-indigo-500/20 transition-colors"
-    >
-      <Download className="h-3 w-3" />Save file
-    </button>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -717,8 +398,6 @@ export function ScriptInstallGuide({ projectSlug, projectName, apiKey }: Props) 
   const [fw, setFw] = useState<FrameworkId>('nextjs-app');
 
   const steps = getSteps(fw, projectSlug, apiKey || 'YOUR_API_KEY');
-  const autoCapture = getAutoCapture(fw);
-  const requiredCount = steps.filter((s) => !s.optional).length;
 
   return (
     <div className="mt-3 border-t pt-3">
@@ -729,7 +408,7 @@ export function ScriptInstallGuide({ projectSlug, projectName, apiKey }: Props) 
       >
         <span className="flex items-center gap-1.5">
           <Code2 className="h-3.5 w-3.5" />
-          Installation kit — {projectName}
+          Setup guide — {projectName}
         </span>
         {open
           ? <ChevronUp className="h-3.5 w-3.5" />
@@ -738,6 +417,12 @@ export function ScriptInstallGuide({ projectSlug, projectName, apiKey }: Props) 
 
       {open && (
         <div className="mt-4 space-y-5">
+
+          {/* One-line promise */}
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Two steps to connect any product: <span className="font-medium text-foreground">paste the script</span> (everything below is auto-tracked),
+            then <span className="font-medium text-foreground">one identify call</span> so real names appear instead of IDs. Business events are optional.
+          </p>
 
           {/* Framework pills */}
           <div>
@@ -760,9 +445,6 @@ export function ScriptInstallGuide({ projectSlug, projectName, apiKey }: Props) 
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              {requiredCount} required step{requiredCount !== 1 ? 's' : ''} · optional steps expand what gets tracked
-            </p>
           </div>
 
           {/* Steps */}
@@ -808,8 +490,7 @@ export function ScriptInstallGuide({ projectSlug, projectName, apiKey }: Props) 
                   <pre className="overflow-x-auto rounded-md bg-[#0f172a] p-3 text-[11px] leading-relaxed text-slate-200">
                     <code>{step.code}</code>
                   </pre>
-                  <div className="absolute right-2 top-2 flex items-center gap-1.5">
-                    {step.filename && <SaveBtn content={step.code} filename={step.filename} />}
+                  <div className="absolute right-2 top-2">
                     <CopyBtn text={step.code} />
                   </div>
                 </div>
@@ -820,10 +501,10 @@ export function ScriptInstallGuide({ projectSlug, projectName, apiKey }: Props) 
           {/* Auto-captured summary */}
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-3">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-              Auto-captured after setup — zero extra code
+              Captured automatically from step 1 — zero extra code
             </p>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5">
-              {autoCapture.map((item) => (
+              {AUTO_CAPTURE.map((item) => (
                 <span key={item} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
                   {item}

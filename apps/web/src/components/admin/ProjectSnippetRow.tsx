@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { ProjectIntegrationSnippet } from './ProjectIntegrationSnippet';
+import { ScriptInstallGuide } from '@/components/shared/ScriptInstallGuide';
 import type { Project } from '@/lib/repositories/projects';
 
 export interface ProjectStatusInfo {
@@ -88,10 +88,10 @@ export function ProjectSnippetRow({ project: p, envToneClass, status }: Props) {
               View live intelligence →
             </Link>
           </div>
-          <ProjectIntegrationSnippet
-            slug={p.slug}
+          <ScriptInstallGuide
+            projectSlug={p.slug}
+            projectName={p.name}
             apiKey={p.apiKey}
-            environment={p.environment}
           />
         </div>
       )}

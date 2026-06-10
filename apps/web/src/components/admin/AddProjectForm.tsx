@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createProjectAction, type CreateProjectState } from '@/app/(dashboard)/dashboard/admin/projects/actions';
-import { ProjectIntegrationSnippet } from './ProjectIntegrationSnippet';
+import { ScriptInstallGuide } from '@/components/shared/ScriptInstallGuide';
 
 const initialState: CreateProjectState = { ok: false };
 
@@ -56,10 +56,10 @@ export function AddProjectForm() {
               tracking is {state.project.trackingEnabled ? 'enabled' : 'disabled'}. Paste a snippet below into
               the product — events will start flowing into all dashboards automatically.
             </p>
-            <ProjectIntegrationSnippet
-              slug={state.project.slug}
+            <ScriptInstallGuide
+              projectSlug={state.project.slug}
+              projectName={state.project.name}
               apiKey={state.project.apiKey}
-              environment={state.project.environment}
             />
           </CardContent>
         </Card>
