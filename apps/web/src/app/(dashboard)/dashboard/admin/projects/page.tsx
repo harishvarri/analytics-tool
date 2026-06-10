@@ -36,7 +36,7 @@ export default async function ManageProjectsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Connected Products"
-        description="Add a new product to start tracking it. You'll get a tracking snippet to paste in — no redeploy needed."
+        description="Add a product, then follow its 2-step setup: paste the script (page views, clicks, sessions, and JS errors are captured automatically) and add one identify call for real names. Disconnect any product anytime — its history is kept."
         actions={
           <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-400">
             {projects.length} products connected

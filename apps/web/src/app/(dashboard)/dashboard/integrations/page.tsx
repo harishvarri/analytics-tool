@@ -20,9 +20,9 @@ function scoreTone(s: number): string {
 const CHECK_LABELS: { key: keyof IntegrationChecks; label: string }[] = [
   { key: 'scriptInstalled', label: 'Script' },
   { key: 'eventsFlowing', label: 'Events' },
-  { key: 'usersIdentified', label: 'Auto users' },
-  { key: 'errorsCaptured', label: 'Errors' },
-  { key: 'businessEvents', label: 'Business' },
+  { key: 'usersIdentified', label: 'Real names' },
+  { key: 'errorsCaptured', label: 'JS errors' },
+  { key: 'businessEvents', label: 'Operational' },
 ];
 
 export default async function IntegrationHealthPage() {
@@ -33,7 +33,7 @@ export default async function IntegrationHealthPage() {
     <div className="space-y-6">
       <PageHeader
         title="Integration Health & Data Quality"
-        description="Is each product actually wired up — script, events, identified users, errors, and operational events?"
+        description="Is each product wired up correctly? Step 1 (script) auto-captures page views, clicks, sessions, and JS errors; step 2 (identify) turns IDs into real names. Operational events are an optional extra."
       />
 
       {/* Org-level data quality */}
@@ -107,8 +107,9 @@ export default async function IntegrationHealthPage() {
       )}
 
       <div className="text-[11px] text-muted-foreground">
-        Integration score = Script 30% + Events 25% + Identified users 25% + Operational events 15% + Errors captured 5%.
-        Open <Link href="/dashboard/admin/projects" className="text-primary hover:underline">Connected Products</Link> for each product&apos;s integration kit.
+        Integration score = Script 30% + Events 25% + Real names (identify) 25% + Operational events 15% + JS errors captured 5%.
+        Expand any product above for its 2-step setup guide, or open{' '}
+        <Link href="/dashboard/admin/projects" className="text-primary hover:underline">Connected Products</Link> to add or disconnect a product.
       </div>
     </div>
   );

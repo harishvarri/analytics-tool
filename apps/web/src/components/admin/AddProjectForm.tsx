@@ -53,8 +53,8 @@ export function AddProjectForm() {
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
               Product <code className="rounded bg-muted px-1">{state.project.slug}</code> is registered and
-              tracking is {state.project.trackingEnabled ? 'enabled' : 'disabled'}. Paste a snippet below into
-              the product — events will start flowing into all dashboards automatically.
+              tracking is {state.project.trackingEnabled ? 'enabled' : 'disabled'}. Follow the 2-step setup below
+              (paste the script, then add one identify call) — events start flowing into every dashboard automatically.
             </p>
             <ScriptInstallGuide
               projectSlug={state.project.slug}
