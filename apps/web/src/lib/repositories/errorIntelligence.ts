@@ -23,29 +23,17 @@ const CATEGORY_LABEL: Record<ErrorCategory, string> = {
 const CRITICAL_CATEGORIES = new Set<ErrorCategory>(['database', 'authentication', 'api']);
 
 /**
- * Classify a raw error event into one of the six reliability categories.
- * Exported so the Reliability Health engine categorises identically.
+ * Classify a raw error event.
+ *
+ * SCOPE (deliberate): the tracking script only AUTO-captures frontend/JS errors
+ * — uncaught exceptions and unhandled promise rejections. API, database, auth,
+ * authorization, and network errors are handled inside app code and never reach
+ * the browser, so they're not actually observed by the standard 2-step setup.
+ * To avoid implying we measure reliability we can't see, every captured error is
+ * treated as a frontend error. (Backend categories would require each product to
+ * explicitly tag errorType and feed those events — a separate opt-in.)
  */
-function categorize(name: string, meta: Record<string, unknown> | null): ErrorCategory {
-  const explicit = String((meta?.['errorType'] ?? meta?.['error_type'] ?? meta?.['category'] ?? '') as string).toLowerCase();
-  if (explicit) {
-    if (explicit.includes('db') || explicit.includes('database') || explicit.includes('sql')) return 'database';
-    if (explicit.includes('auth') && explicit.includes('z')) return 'authorization';
-    if (explicit.includes('auth') || explicit.includes('login') || explicit.includes('token')) return 'authentication';
-    if (explicit.includes('api') || explicit.includes('http') || explicit.includes('server')) return 'api';
-    if (explicit.includes('network') || explicit.includes('cors') || explicit.includes('offline')) return 'network';
-    if (explicit.includes('front') || explicit.includes('ui') || explicit.includes('render')) return 'frontend';
-  }
-  const lname = (name || '').toLowerCase();
-  if (lname.includes('login_failed') || lname.startsWith('auth.')) return 'authentication';
-
-  const msg = String((meta?.['message'] ?? meta?.['errorMessage'] ?? '') as string).toLowerCase();
-  const hay = `${lname} ${msg}`;
-  if (/\b(database|db|sql|postgres|pg|connection (refused|timeout)|deadlock)\b/.test(hay)) return 'database';
-  if (/\b(401|unauthor|token|session expired|login|credential)\b/.test(hay)) return 'authentication';
-  if (/\b(403|forbidden|permission|access denied)\b/.test(hay)) return 'authorization';
-  if (/\b(timeout|5\d\d|api|fetch|request failed|endpoint|gateway)\b/.test(hay)) return 'api';
-  if (/\b(network|cors|offline|dns|econnreset|connection)\b/.test(hay)) return 'network';
+function categorize(_name: string, _meta: Record<string, unknown> | null): ErrorCategory {
   return 'frontend';
 }
 

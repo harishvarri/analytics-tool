@@ -57,16 +57,15 @@ export async function ErrorsView() {
           <div className="mx-auto mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
             <Bug className="h-5 w-5 text-emerald-500" />
           </div>
-          <div className="text-sm font-medium">No errors in the last 7 days</div>
+          <div className="text-sm font-medium">No JS errors in the last 7 days</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            When products report errors (or auth failures), this view categorizes them by type, shows who&apos;s
-            affected, and pinpoints the worst-hit products. Tag errors with <code>errorType</code> in event metadata
-            for sharper categorization.
+            The tracking script auto-captures uncaught JavaScript errors and unhandled promise rejections. When a
+            product throws one, it appears here with the affected users and the worst-hit products.
           </p>
         </div>
       ) : (
         <section id="affected-products" className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
-          <ChartCard title="Error categories" description="Where the failures are concentrated">
+          <ChartCard title="Error types" description="Captured JavaScript errors (uncaught exceptions & rejections)">
             <ul className="space-y-3 pt-1">
               {intel.categories.map((c) => (
                 <li key={c.category} className="text-xs">

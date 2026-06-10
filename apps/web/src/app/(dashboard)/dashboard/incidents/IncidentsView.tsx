@@ -24,7 +24,7 @@ export function IncidentsView({ board }: { board: IncidentBoard }) {
           </div>
           <div className="text-sm font-medium">No active incidents</div>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Incidents are auto-opened from critical errors (database, auth, API) and product outages. When something
+            Incidents are auto-opened from captured JS errors and product outages. When something
             breaks, it appears here with its impact and a recommended action.
           </p>
         </div>

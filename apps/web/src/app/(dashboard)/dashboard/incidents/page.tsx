@@ -53,8 +53,8 @@ export default async function OperationsCenterPage({
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Open incidents" value={fmt.format(board.open)} icon={AlertOctagon}
           trend={{ direction: board.open > 0 ? 'up' : 'flat', label: 'auto-detected' }} invertTrend />
-        <KpiCard label="Critical errors" value={fmt.format(intel.criticalErrors)} icon={Bug}
-          trend={{ direction: intel.criticalErrors > 0 ? 'up' : 'flat', label: 'API / DB / auth (7d)' }} invertTrend />
+        <KpiCard label="JS errors (7d)" value={fmt.format(intel.totalErrors)} icon={Bug}
+          trend={{ direction: intel.totalErrors > 0 ? 'up' : 'flat', label: 'uncaught JS errors & rejections' }} invertTrend />
         <KpiCard label="Users impacted" value={fmt.format(intel.usersImpacted)} icon={Users}
           trend={{ direction: 'flat', label: 'distinct people hitting errors' }} invertTrend />
         <KpiCard label="Products at risk" value={fmt.format(board.projectsAtRisk)} icon={ShieldAlert}
@@ -66,7 +66,7 @@ export default async function OperationsCenterPage({
         <nav className="flex gap-1">
           {TABS.map((t) => {
             const active = t.key === view;
-            const count = t.key === 'incidents' ? board.open : intel.criticalErrors;
+            const count = t.key === 'incidents' ? board.open : intel.totalErrors;
             return (
               <Link
                 key={t.key}
