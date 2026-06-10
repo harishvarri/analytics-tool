@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { cn } from '@/lib/utils';
+import { ACCENT_BAR, ACCENT_CHIP, ACCENT_TEXT, accentFromLabel, type AccentKey } from '@/lib/accent';
 
 interface KpiCardProps {
   label: string;
@@ -16,25 +17,7 @@ interface KpiCardProps {
   /** When set, the whole card becomes a link to this route (drill-down). */
   href?: string;
   /** Override the auto-assigned accent. Defaults to a stable color from the label. */
-  accent?: 'indigo' | 'emerald' | 'violet' | 'amber';
-}
-
-// House palette — every KPI card gets a colored icon chip + top accent bar so
-// the dashboards read as a rich, multi-color system instead of monochrome. The
-// color is derived deterministically from the label, so a given metric always
-// keeps the same hue across renders/pages.
-const ACCENTS = {
-  indigo:  { chipBg: 'bg-indigo-500/10',  chipFg: 'text-indigo-600 dark:text-indigo-400',   bar: 'bg-indigo-500'  },
-  emerald: { chipBg: 'bg-emerald-500/10', chipFg: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' },
-  violet:  { chipBg: 'bg-violet-500/10',  chipFg: 'text-violet-600 dark:text-violet-400',   bar: 'bg-violet-500'  },
-  amber:   { chipBg: 'bg-amber-500/10',   chipFg: 'text-amber-600 dark:text-amber-400',     bar: 'bg-amber-500'  },
-} as const;
-const ACCENT_ORDER = ['indigo', 'emerald', 'violet', 'amber'] as const;
-
-function accentFromLabel(label: string): keyof typeof ACCENTS {
-  let h = 0;
-  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
-  return ACCENT_ORDER[h % ACCENT_ORDER.length]!;
+  accent?: AccentKey;
 }
 
 export function KpiCard({
@@ -48,7 +31,10 @@ export function KpiCard({
   href,
   accent,
 }: KpiCardProps) {
-  const tone = ACCENTS[accent ?? accentFromLabel(label)];
+  // Every KPI gets a colored icon chip + top accent bar so metric bands read as
+  // a rich, multi-color system. Hue is stable per label across renders/pages.
+  const key = accent ?? accentFromLabel(label);
+  const tone = { chipBg: ACCENT_CHIP[key], chipFg: ACCENT_TEXT[key], bar: ACCENT_BAR[key] };
   const trendColor =
     !trend || trend.direction === 'flat'
       ? 'text-muted-foreground'

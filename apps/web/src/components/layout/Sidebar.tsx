@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { NAV_SECTIONS } from '@/config/navigation';
 import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
+import { ACCENT_BAR, accentFromLabel } from '@/lib/accent';
 
 /**
  * Enterprise-style sidebar: branded header, grouped sections (Overview /
@@ -47,7 +48,8 @@ export function Sidebar() {
         {NAV_SECTIONS.map((section, i) => (
           <div key={section.label ?? `section-${i}`} className={cn(i > 0 && 'mt-4')}>
             {section.label && (
-              <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <div className="mb-1.5 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <span className={cn('h-1.5 w-1.5 rounded-full', ACCENT_BAR[accentFromLabel(section.label)])} aria-hidden />
                 {section.label}
               </div>
             )}
