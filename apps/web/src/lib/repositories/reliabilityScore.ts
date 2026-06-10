@@ -66,3 +66,28 @@ export function incidentKey(seed: string): string {
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return `INC-${h.toString(36).toUpperCase().slice(0, 6).padStart(6, '0')}`;
 }
+
+/**
+ * Normalize an error message into a stable signature — a 1:1 JS mirror of the
+ * SQL `error_fingerprint` (migration 0011) so an event bucketed in the health
+ * engine produces the SAME fingerprint as the v_error_groups view. Keep both in
+ * sync if either changes.
+ */
+export function errorFingerprint(msg: string | null | undefined): string {
+  let s = (msg ?? 'unknown error').toLowerCase();
+  s = s.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<id>'); // UUIDs
+  s = s.replace(/0x[0-9a-f]+/g, '<hex>');        // hex literals
+  s = s.replace(/'[^']*'|"[^"]*"/g, '<str>');    // quoted strings
+  s = s.replace(/\d+/g, '<n>');                  // bare numbers
+  s = s.replace(/\s+/g, ' ').trim();             // collapse whitespace
+  return s || 'unknown error';
+}
+
+/**
+ * Lifecycle key for a single error signature (group). Lets an error group be
+ * resolved/closed in the same incident_status store as category incidents,
+ * without colliding (prefixed seed).
+ */
+export function errorGroupKey(fingerprint: string): string {
+  return incidentKey(`fp|${fingerprint}`);
+}

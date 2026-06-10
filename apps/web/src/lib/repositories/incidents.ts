@@ -2,6 +2,7 @@ import 'server-only';
 import { getErrorIntelligence, type ErrorCategory } from './errorIntelligence';
 import { getProjectIntelligence } from './projectIntelligence';
 import { getSupabaseAdmin } from '../supabase/admin';
+import { errorGroupKey } from './reliabilityScore';
 import { getPortalConfig } from '@/config/portals';
 
 /**
@@ -198,4 +199,30 @@ export async function setIncidentStatus(incidentKey: string, status: IncidentSta
   } catch {
     return false;
   }
+}
+
+/**
+ * Current lifecycle status for a set of error signatures (groups), keyed by
+ * fingerprint. Defaults missing/unknown rows to 'open'. Safe if migration 0036
+ * isn't applied yet (returns all 'open').
+ */
+export async function getErrorGroupStatuses(fingerprints: string[]): Promise<Map<string, IncidentStatus>> {
+  const out = new Map<string, IncidentStatus>();
+  if (fingerprints.length === 0) return out;
+  const keyToFp = new Map<string, string>();
+  for (const fp of fingerprints) keyToFp.set(errorGroupKey(fp), fp);
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('incident_status')
+      .select('incident_key, status')
+      .in('incident_key', Array.from(keyToFp.keys()));
+    if (!error) {
+      for (const r of (data ?? []) as Record<string, unknown>[]) {
+        const fp = keyToFp.get(String(r.incident_key));
+        if (fp) out.set(fp, String(r.status) as IncidentStatus);
+      }
+    }
+  } catch { /* table missing — treat all as open */ }
+  for (const fp of fingerprints) if (!out.has(fp)) out.set(fp, 'open');
+  return out;
 }

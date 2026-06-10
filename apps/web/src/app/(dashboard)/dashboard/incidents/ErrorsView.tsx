@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchErrorIntelligence, fetchErrorGroups } from '@/lib/data/fetchers';
+import { getErrorGroupStatuses } from '@/lib/repositories/incidents';
+import { ErrorGroupStatusControl } from './ErrorGroupStatusControl';
 import { getPortalConfig } from '@/config/portals';
 import { friendlyEventName } from '@/lib/event-labels';
 import { formatRelativeTime } from '@/lib/utils';
@@ -33,6 +35,8 @@ export async function ErrorsView() {
     fetchErrorIntelligence(7),
     fetchErrorGroups(30),
   ]);
+  // Lifecycle status per signature — drives the resolve/close control + health.
+  const groupStatus = await getErrorGroupStatuses(groups.map((g) => g.fingerprint));
 
   const maxCat = Math.max(1, ...intel.categories.map((c) => c.count));
   const hasErrors = intel.totalErrors > 0;
@@ -140,8 +144,10 @@ export async function ErrorsView() {
             <div className="space-y-2">
               {groups.map((g) => {
                 const metadataEntries = Object.entries(g.sampleMetadata ?? {});
+                const st = groupStatus.get(g.fingerprint) ?? 'open';
+                const acked = st === 'resolved' || st === 'closed';
                 return (
-                  <details key={g.fingerprint} className="group rounded-md border bg-background">
+                  <details key={g.fingerprint} className={`group rounded-md border bg-background ${acked ? 'opacity-70' : ''}`}>
                     <summary className="flex cursor-pointer list-none items-start gap-3 px-3 py-3 text-xs hover:bg-muted/40">
                       <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition group-open:rotate-180" />
                       <div className="min-w-0 flex-1">
@@ -150,7 +156,10 @@ export async function ErrorsView() {
                             {g.sampleMessage || g.errorName || 'Unknown error'}
                           </span>
                           {g.errorName && <Badge variant="secondary" className="text-[10px]">{g.errorName}</Badge>}
-                          {g.isNew && <Badge variant="outline" className="border-rose-500/40 text-[9px] text-rose-600 dark:text-rose-400">NEW</Badge>}
+                          {g.isNew && !acked && <Badge variant="outline" className="border-rose-500/40 text-[9px] text-rose-600 dark:text-rose-400">NEW</Badge>}
+                          {st === 'resolved' && <Badge variant="outline" className="border-emerald-500/40 text-[9px] text-emerald-600 dark:text-emerald-400">RESOLVED</Badge>}
+                          {st === 'closed' && <Badge variant="outline" className="border-slate-500/40 text-[9px] text-slate-600 dark:text-slate-400">CLOSED</Badge>}
+                          {st === 'investigating' && <Badge variant="outline" className="border-amber-500/40 text-[9px] text-amber-600 dark:text-amber-400">INVESTIGATING</Badge>}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
                           <span>{fmt.format(g.totalOccurrences)} occurrences</span>
@@ -227,6 +236,14 @@ export async function ErrorsView() {
                             )}
                           </section>
                         </div>
+                      </div>
+
+                      {/* Lifecycle — resolving/closing stops this signature from reducing health */}
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+                        <span className="text-[11px] text-muted-foreground">
+                          Resolving or closing this error stops it reducing the affected products&apos; health.
+                        </span>
+                        <ErrorGroupStatusControl fingerprint={g.fingerprint} current={st} />
                       </div>
                     </div>
                   </details>

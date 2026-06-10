@@ -6,6 +6,7 @@ import { categorize, CATEGORY_LABEL, CRITICAL_CATEGORIES, type ErrorCategory } f
 import {
   INCIDENT_PENALTY, INCIDENT_PENALTY_CAP,
   CATEGORY_SEVERITY, categoryPenalty, statusFromScore, incidentKey,
+  errorFingerprint, errorGroupKey,
   type HealthStatus,
 } from './reliabilityScore';
 
@@ -209,6 +210,17 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
     return null;
   }
 
+  // An individual error signature (group) can also be resolved/closed from the
+  // Error Intelligence tab. When it is, errors matching that fingerprint stop
+  // counting toward health (up to the acknowledgement time), independent of the
+  // category-level incident.
+  function fingerprintCutoff(metadata: Record<string, unknown> | null): number | null {
+    const msg = metadata?.['message'];
+    const s = incidentStatus.get(errorGroupKey(errorFingerprint(typeof msg === 'string' ? msg : null)));
+    if (s && (s.status === 'resolved' || s.status === 'closed')) return s.updatedAt;
+    return null;
+  }
+
   const projectName = new Map<string, string>();
   for (const p of (projectsRes.data ?? []) as { slug: string; name: string | null }[]) {
     projectName.set(p.slug, p.name ?? p.slug);
@@ -224,15 +236,20 @@ export const getReliabilityHealth = cache(async (): Promise<ReliabilityHealthBoa
     const isCurrent = occurredMs >= cutoff7;
     const map = isCurrent ? cur : prev;
     const win = map.get(slug) ?? newWindow();
-    const cat = categorize(String(r.name), (r.metadata as Record<string, unknown> | null) ?? null);
+    const meta = (r.metadata as Record<string, unknown> | null) ?? null;
+    const cat = categorize(String(r.name), meta);
     const uid = r.user_id ? String(r.user_id) : null;
     const sid = r.session_id ? String(r.session_id) : null;
 
-    // Suppress this error from the penalty if its category's incident was
-    // acknowledged at/after the error occurred (only applies to the current
-    // window — the prior window is the pre-acknowledgement baseline for trend).
-    const cutoff = isCurrent ? ackCutoff(slug, cat) : null;
-    const suppressed = cutoff !== null && occurredMs <= cutoff;
+    // Suppress this error from the penalty if EITHER its category incident OR
+    // its specific error signature was acknowledged at/after the error occurred
+    // (only the current window — the prior window is the pre-ack baseline for
+    // trend).
+    const catCut = isCurrent ? ackCutoff(slug, cat) : null;
+    const fpCut = isCurrent ? fingerprintCutoff(meta) : null;
+    const suppressed =
+      (catCut !== null && occurredMs <= catCut) ||
+      (fpCut !== null && occurredMs <= fpCut);
 
     win.total += 1;
     const b = win.byCat.get(cat) ?? { errors: 0, penalizable: 0, users: new Set<string>(), sessions: new Set<string>() };
