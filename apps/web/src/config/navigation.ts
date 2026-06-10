@@ -36,11 +36,14 @@ export interface NavSection {
  *   4. Operations    — system errors, speed, unusual activity, highlights
  *   5. Admin         — product onboarding and keys
  *
- * Pages removed from nav (routes still alive):
+ * Retired in the consolidation pass (deleted — redundant/low-value):
  *   /dashboard/users     — redundant with Staff Directory
  *   /dashboard/features  — too granular for current audiences
  *   /dashboard/audience  — device/browser irrelevant for internal staff tool
- *   /dashboard/journeys  — too technical; Sankey not a stated management need
+ *
+ * Drill-down routes (live, reached from cards/tables, intentionally not in nav):
+ *   /dashboard/projects/[slug], /people/[userId], /sessions, /health/[slug],
+ *   /logins, /operations
  */
 export const NAV_SECTIONS: readonly NavSection[] = [
   {

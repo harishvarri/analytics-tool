@@ -52,20 +52,6 @@ const bandTone: Record<'high' | 'medium' | 'low', string> = {
   low: 'border-rose-500/40 text-rose-600 dark:text-rose-400',
 };
 
-function productRisk(row: { healthScore: number; errorCount: number; trend: string }): { label: string; tone: string } {
-  if (row.healthScore < 60 || row.errorCount > 20) return { label: 'High', tone: 'text-rose-600 dark:text-rose-400' };
-  if (row.healthScore < 80 || row.trend === 'Declining' || row.errorCount > 0) return { label: 'Medium', tone: 'text-amber-600 dark:text-amber-400' };
-  return { label: 'Low', tone: 'text-emerald-600 dark:text-emerald-400' };
-}
-
-const trendTone: Record<string, string> = {
-  Growing: 'text-emerald-600 dark:text-emerald-400',
-  New: 'text-sky-600 dark:text-sky-400',
-  Stable: 'text-muted-foreground',
-  Declining: 'text-rose-600 dark:text-rose-400',
-  Inactive: 'text-rose-600 dark:text-rose-400',
-};
-
 export default async function ExecutiveDashboard() {
   const [active, command, pulse, people, rawActivity, report, incidents] = await Promise.all([
     fetchActiveUserCounts(),
@@ -104,7 +90,6 @@ export default async function ExecutiveDashboard() {
   const openIncidents = incidents.open;
   const criticalIncidents = incidents.critical;
   const errorsToday = command.errorsToday;
-  const riskAlerts = report.risks.length;
 
   // ── Executive insights & recommendations ─────────────────────────────────────
   const recs = report.recommendations;
@@ -208,50 +193,17 @@ export default async function ExecutiveDashboard() {
 
       {/* ─── SECTION 5 · Product Intelligence ──────────────────────────────── */}
       <Section title="Product Intelligence" subtitle="Which products are used, healthy, growing, or need attention"
-        href="/dashboard/portals" linkLabel="All products">
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        href="/dashboard/compare" linkLabel="Compare all products">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <AdoptionCard label="Most used" insight={adoption.mostUsed?.feature} sub={products[0]?.name} tone="text-emerald-600 dark:text-emerald-400" icon={TrendingUp} />
           <AdoptionCard label="Fastest growing" insight={adoption.fastestGrowing?.feature} sub={adoption.fastestGrowing ? `+${adoption.fastestGrowing.growthPct ?? 0}%` : undefined} tone="text-sky-600 dark:text-sky-400" icon={TrendingUp} />
           <AdoptionCard label="Needs attention" insight={products.find((p) => p.healthScore < 70)?.name} sub="low health" tone="text-amber-600 dark:text-amber-400" icon={AlertTriangle} />
           <AdoptionCard label="Declining" insight={adoption.declining?.feature} sub={adoption.declining ? `${adoption.declining.growthPct ?? 0}%` : undefined} tone="text-rose-600 dark:text-rose-400" icon={TrendingDown} />
         </div>
-        <ChartCard title="Product scorecard" description="Users, health, trend and risk per product">
-          {products.length === 0 ? (
-            <Empty hint="No product activity recorded this week." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <th className="py-2 pr-2 font-medium">Product</th>
-                    <th className="px-2 py-2 text-right font-medium">Users</th>
-                    <th className="px-2 py-2 text-right font-medium">Health</th>
-                    <th className="px-2 py-2 text-right font-medium">Trend</th>
-                    <th className="px-2 py-2 text-right font-medium">Risk</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {products.map((row) => {
-                    const risk = productRisk(row);
-                    return (
-                      <tr key={row.slug} className="hover:bg-muted/40">
-                        <td className="py-2 pr-2">
-                          <Link href={`/dashboard/projects/${row.slug}`} className="font-medium hover:underline">{row.name}</Link>
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">{fmt.format(row.activeUsers)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{row.healthScore}</td>
-                        <td className={`px-2 py-2 text-right text-xs font-medium ${trendTone[row.trend] ?? 'text-muted-foreground'}`}>
-                          {row.trend}{row.weeklyGrowthPct !== null ? ` ${row.weeklyGrowthPct > 0 ? '+' : ''}${row.weeklyGrowthPct}%` : ''}
-                        </td>
-                        <td className={`px-2 py-2 text-right text-xs font-medium ${risk.tone}`}>{risk.label}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </ChartCard>
+        <p className="text-xs text-muted-foreground">
+          Full per-product scorecard (users, health, reliability, errors, trend) lives on{' '}
+          <Link href="/dashboard/compare" className="text-primary hover:underline">Product Comparison</Link>.
+        </p>
       </Section>
 
       {/* ─── SECTION 6 · Executive Insights ────────────────────────────────── */}
@@ -332,16 +284,13 @@ export default async function ExecutiveDashboard() {
       </Section>
 
       {/* ─── SECTION 8 · Operational Intelligence ──────────────────────────── */}
-      <Section title="Operational Intelligence" subtitle="Incidents, errors and risks — supporting view">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Section title="Operational Intelligence" subtitle="Reliability at a glance — full detail in the Operations Center"
+        href="/dashboard/incidents" linkLabel="Operations Center">
+        <div className="grid gap-4 sm:grid-cols-2">
           <KpiCard label="Open incidents" value={fmt.format(openIncidents)} icon={AlertOctagon} invertTrend
-            trend={{ direction: openIncidents > 0 ? 'up' : 'flat', label: 'auto-detected' }} href="/dashboard/incidents" />
-          <KpiCard label="Critical incidents" value={fmt.format(criticalIncidents)} icon={ShieldAlert} invertTrend
-            trend={{ direction: criticalIncidents > 0 ? 'up' : 'flat', label: 'need action now' }} href="/dashboard/incidents" />
-          <KpiCard label="Errors today" value={fmt.format(errorsToday)} icon={Bug} invertTrend
-            trend={{ direction: errorsToday > 0 ? 'up' : 'flat', label: 'across all products' }} href="/dashboard/reliability" />
-          <KpiCard label="Risk alerts" value={fmt.format(riskAlerts)} icon={AlertTriangle} invertTrend
-            trend={{ direction: riskAlerts > 0 ? 'up' : 'flat', label: 'this week' }} href="/dashboard/anomalies" />
+            trend={{ direction: openIncidents > 0 ? 'up' : 'flat', label: criticalIncidents > 0 ? `${criticalIncidents} critical` : 'auto-detected' }} href="/dashboard/incidents" />
+          <KpiCard label="JS errors today" value={fmt.format(errorsToday)} icon={Bug} invertTrend
+            trend={{ direction: errorsToday > 0 ? 'up' : 'flat', label: 'uncaught errors & rejections' }} href="/dashboard/incidents?view=errors" />
         </div>
       </Section>
 
