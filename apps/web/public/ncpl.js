@@ -331,18 +331,30 @@
     }, true);
 
     // ---- error capture -----------------------------------------------------
+    // Capture name + stack + file:line:col so the dashboard can show admins
+    // exactly WHAT broke and WHERE (the stack populates the Error Intelligence
+    // "Stack trace" panel via metadata.stack → sample_stack).
     window.addEventListener('error', function (e) {
+      var err = e && e.error;
       enqueue('error', 'error.captured', {
-        message: String((e && e.message) || 'error').slice(0, 300),
+        message: String((e && e.message) || (err && err.message) || 'error').slice(0, 300),
+        name: (err && err.name) || null,
+        stack: err && err.stack ? String(err.stack).slice(0, 4000) : null,
         file: (e && e.filename) || null,
         line: (e && e.lineno) || null,
+        col: (e && e.colno) || null,
         type: 'window.error'
       });
     });
     window.addEventListener('unhandledrejection', function (e) {
       var reason = e && e.reason;
       var msg = reason && reason.message ? reason.message : String(reason);
-      enqueue('error', 'error.captured', { message: String(msg).slice(0, 300), type: 'unhandledrejection' });
+      enqueue('error', 'error.captured', {
+        message: String(msg).slice(0, 300),
+        name: (reason && reason.name) || null,
+        stack: reason && reason.stack ? String(reason.stack).slice(0, 4000) : null,
+        type: 'unhandledrejection'
+      });
     });
 
     // ---- performance (Navigation Timing) -----------------------------------
