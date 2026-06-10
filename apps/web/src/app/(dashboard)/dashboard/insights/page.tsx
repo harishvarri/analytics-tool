@@ -44,9 +44,9 @@ function statusLabel(status: ExecutiveOperationsReport['platformStatus']): strin
 }
 
 function deltaLabel(delta: MetricDelta): string {
-  if (delta.deltaPct === null) return delta.value > 0 ? 'new this week' : 'no change';
-  if (delta.deltaPct === 0) return 'flat vs last week';
-  return `${delta.deltaPct > 0 ? '+' : ''}${delta.deltaPct}% vs last week`;
+  if (delta.deltaPct === null) return delta.value > 0 ? 'new this period' : 'no change';
+  if (delta.deltaPct === 0) return 'flat vs prior period';
+  return `${delta.deltaPct > 0 ? '+' : ''}${delta.deltaPct}% vs prior period`;
 }
 
 function trendDirection(delta: MetricDelta): 'up' | 'down' | 'flat' {
@@ -76,8 +76,13 @@ function hasReportSignals(report: ExecutiveOperationsReport): boolean {
   );
 }
 
-export default async function InsightsPage() {
-  const [report, people] = await Promise.all([fetchInsights(), fetchUserProfileSummaries(300)]);
+export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+  const { period: rawPeriod } = await searchParams;
+  const monthly = rawPeriod === 'month';
+  const [report, people] = await Promise.all([
+    fetchInsights(monthly ? 30 : 7),
+    fetchUserProfileSummaries(300),
+  ]);
   const hasData = hasReportSignals(report);
 
   // User Intelligence — top performers by productivity (from real activity).
@@ -98,9 +103,19 @@ export default async function InsightsPage() {
       <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="Executive Operations Report"
-        description="Weekly operational intelligence — user activity, product performance, reliability, and risk."
+        description={`${report.periodLabel} operational intelligence — user activity, product performance, reliability, and risk.`}
         actions={
           <div className="flex items-center gap-2">
+            <div className="inline-flex overflow-hidden rounded-md border text-xs">
+              <Link href="/dashboard/insights"
+                className={`px-3 py-1.5 font-medium transition-colors ${!monthly ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
+                Weekly
+              </Link>
+              <Link href="/dashboard/insights?period=month"
+                className={`px-3 py-1.5 font-medium transition-colors ${monthly ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
+                Monthly
+              </Link>
+            </div>
             <Badge variant="outline" className={STATUS_STYLE[report.platformStatus]}>
               {statusLabel(report.platformStatus)}
             </Badge>
@@ -136,7 +151,7 @@ export default async function InsightsPage() {
           <div>
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <Sparkles className="h-4 w-4" />
-              Weekly Operations Summary
+              {report.periodLabel} Operations Summary
             </div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight">
               {report.week.startDate} - {report.week.endDate}

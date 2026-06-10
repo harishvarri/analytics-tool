@@ -299,13 +299,15 @@ export const fetchProjectComparison = (): Promise<ProjectComparisonRow[]> =>
 
 // ── Smart Insights (Module L) ────────────────────────────────────────────────
 
-export const fetchInsights = (): Promise<ExecutiveOperationsReport> =>
-  withMockFallback('insights', getInsights, () => ({
+export const fetchInsights = (periodDays = 7): Promise<ExecutiveOperationsReport> =>
+  withMockFallback('insights', () => getInsights(periodDays), () => ({
+    periodLabel: periodDays >= 28 ? 'Monthly' : 'Weekly',
+    periodNoun: periodDays >= 28 ? 'month' : 'week',
     week: {
-      startDate: new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10),
+      startDate: new Date(Date.now() - periodDays * 86400_000).toISOString().slice(0, 10),
       endDate: new Date().toISOString().slice(0, 10),
-      previousStartDate: new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10),
-      previousEndDate: new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10),
+      previousStartDate: new Date(Date.now() - 2 * periodDays * 86400_000).toISOString().slice(0, 10),
+      previousEndDate: new Date(Date.now() - periodDays * 86400_000).toISOString().slice(0, 10),
     },
     platformStatus: 'warning',
     executiveSummary: ['Live analytics data is currently unavailable.'],

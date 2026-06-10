@@ -100,7 +100,9 @@ export interface WeeklyScorecard {
 }
 
 export interface ExecutiveOperationsReport {
-  week: {
+  periodLabel: 'Weekly' | 'Monthly';
+  periodNoun: string;            // 'week' | 'month' — for narrative copy
+  week: {                        // reporting window (named 'week' for back-compat)
     startDate: string;
     endDate: string;
     previousStartDate: string;
@@ -208,22 +210,22 @@ function riskLabel(risks: RiskItem[]): WeeklyScorecard['risk'] {
   return 'Low';
 }
 
-function capabilityNarrative(item: Omit<CapabilityInsight, 'narrative'>): string {
+function capabilityNarrative(item: Omit<CapabilityInsight, 'narrative'>, noun: string): string {
   const name = titleize(item.feature);
   if (item.usersLastWeek === 0 && item.usersThisWeek > 0) {
-    return `${name} reached ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'} this week, making it a newly adopted capability.`;
+    return `${name} reached ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'} this ${noun}, making it a newly adopted capability.`;
   }
   if (item.growthPct !== null && item.growthPct > 0) {
-    return `${name} adoption increased to ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'}, up ${item.growthPct}% from last week.`;
+    return `${name} adoption increased to ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'}, up ${item.growthPct}% from last ${noun}.`;
   }
   if (item.growthPct !== null && item.growthPct < 0) {
-    return `${name} usage declined to ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'}, down ${Math.abs(item.growthPct)}% from last week.`;
+    return `${name} usage declined to ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'}, down ${Math.abs(item.growthPct)}% from last ${noun}.`;
   }
-  return `${name} remained stable with ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'} this week.`;
+  return `${name} remained stable with ${item.usersThisWeek} active user${item.usersThisWeek === 1 ? '' : 's'} this ${noun}.`;
 }
 
-function buildCapability(item: Omit<CapabilityInsight, 'narrative'>): CapabilityInsight {
-  return { ...item, narrative: capabilityNarrative(item) };
+function buildCapability(item: Omit<CapabilityInsight, 'narrative'>, noun: string): CapabilityInsight {
+  return { ...item, narrative: capabilityNarrative(item, noun) };
 }
 
 function buildRecommendationFromRisk(risk: RiskItem): Recommendation {
@@ -234,11 +236,17 @@ function buildRecommendationFromRisk(risk: RiskItem): Recommendation {
   };
 }
 
-export async function getInsights(): Promise<ExecutiveOperationsReport> {
+export async function getInsights(periodDays = 7): Promise<ExecutiveOperationsReport> {
   const admin = getSupabaseAdmin();
   const now = new Date();
-  const thisStart = new Date(now.getTime() - 7 * DAY);
-  const previousStart = new Date(now.getTime() - 14 * DAY);
+  const thisStart = new Date(now.getTime() - periodDays * DAY);
+  const previousStart = new Date(now.getTime() - 2 * periodDays * DAY);
+
+  // Period-aware labels so the same engine powers Weekly (7d) and Monthly (30d).
+  const isMonthly = periodDays >= 28;
+  const periodNoun = isMonthly ? 'month' : 'week';
+  const periodLabel: 'Weekly' | 'Monthly' = isMonthly ? 'Monthly' : 'Weekly';
+  const thisNounPhrase = `this ${periodNoun}`;
 
   const [
     eventsRes,
@@ -360,7 +368,7 @@ export async function getInsights(): Promise<ExecutiveOperationsReport> {
     usersThisWeek: value.thisUsers.size,
     usersLastWeek: value.lastUsers.size,
     growthPct: pctChange(value.thisUsers.size, value.lastUsers.size),
-  }));
+  }, periodNoun));
   const activeCapabilities = capabilities.filter((item) => item.usersThisWeek > 0 || item.usersLastWeek > 0);
   const mostUsed = activeCapabilities.filter((item) => item.usersThisWeek > 0).sort((a, b) => b.usersThisWeek - a.usersThisWeek)[0] ?? null;
   const leastUsed = activeCapabilities.filter((item) => item.usersThisWeek > 0).sort((a, b) => a.usersThisWeek - b.usersThisWeek)[0] ?? null;
@@ -406,7 +414,7 @@ export async function getInsights(): Promise<ExecutiveOperationsReport> {
       sessions: value.sessions.size,
       growthPct,
       adoptionLabel,
-      summary: `${department} recorded ${value.events} event${value.events === 1 ? '' : 's'} from ${value.thisUsers.size} active user${value.thisUsers.size === 1 ? '' : 's'} this week, indicating ${adoptionLabel.toLowerCase()}.`,
+      summary: `${department} recorded ${value.events} event${value.events === 1 ? '' : 's'} from ${value.thisUsers.size} active user${value.thisUsers.size === 1 ? '' : 's'} ${thisNounPhrase}, indicating ${adoptionLabel.toLowerCase()}.`,
     };
   }).sort((a, b) => b.events - a.events);
 
@@ -487,7 +495,7 @@ export async function getInsights(): Promise<ExecutiveOperationsReport> {
   const executiveSummary = [
     `${thisUsers.size} active user${thisUsers.size === 1 ? '' : 's'} across ${productRanking.filter((product) => product.activeUsers > 0).length} product${productRanking.filter((product) => product.activeUsers > 0).length === 1 ? '' : 's'}.`,
     `${thisSessions.length} session${thisSessions.length === 1 ? '' : 's'} recorded with ${thisLogins} successful login${thisLogins === 1 ? '' : 's'}.`,
-    mostUsed ? `${titleize(mostUsed.feature)} became the most-used capability with ${mostUsed.usersThisWeek} active user${mostUsed.usersThisWeek === 1 ? '' : 's'}.` : 'No capability adoption was recorded this week.',
+    mostUsed ? `${titleize(mostUsed.feature)} became the most-used capability with ${mostUsed.usersThisWeek} active user${mostUsed.usersThisWeek === 1 ? '' : 's'}.` : `No capability adoption was recorded ${thisNounPhrase}.`,
     thisFailures > 0 ? `${thisFailures} login failure${thisFailures === 1 ? '' : 's'} detected.` : 'No login failures detected.',
     thisErrors > 0 ? `${thisErrors} application error${thisErrors === 1 ? '' : 's'} detected.` : 'No application errors detected.',
     incidentBoard?.critical ? `${incidentBoard.critical} critical incident${incidentBoard.critical === 1 ? '' : 's'} need attention.` : 'No critical incidents detected.',
@@ -498,7 +506,7 @@ export async function getInsights(): Promise<ExecutiveOperationsReport> {
     : [{
         priority: 'low' as const,
         title: 'Maintain operating rhythm',
-        detail: 'No high-priority risks were detected. Continue monitoring weekly adoption and reliability trends.',
+        detail: 'No high-priority risks were detected. Continue monitoring adoption and reliability trends.',
       }];
 
   const topProductSummaries = productRanking.slice(0, 4).map((product) => product.summary);
@@ -509,6 +517,8 @@ export async function getInsights(): Promise<ExecutiveOperationsReport> {
   ].slice(0, 6);
 
   return {
+    periodLabel,
+    periodNoun,
     week: {
       startDate: isoDate(thisStart),
       endDate: isoDate(now),
@@ -540,7 +550,7 @@ export async function getInsights(): Promise<ExecutiveOperationsReport> {
       critical: incidentBoard?.critical ?? 0,
       summary: incidentBoard?.critical
         ? `${incidentBoard.critical} critical incident${incidentBoard.critical === 1 ? '' : 's'} require immediate review.`
-        : 'No critical incidents were detected this week.',
+        : `No critical incidents were detected ${thisNounPhrase}.`,
     },
     recommendations,
     scorecard: {

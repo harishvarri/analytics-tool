@@ -113,10 +113,10 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         description: 'Incidents and error intelligence in one place — what is failing, its impact, and how to act',
       },
       {
-        label: 'Weekly Highlights',
+        label: 'Operations Report',
         href: ROUTES.insights,
         icon: Sparkles,
-        description: 'What changed meaningfully across products this week',
+        description: 'Weekly & monthly operational intelligence — users, products, reliability, and risk',
       },
     ],
   },
