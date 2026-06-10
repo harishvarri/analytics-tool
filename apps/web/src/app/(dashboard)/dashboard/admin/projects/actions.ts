@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import {
   createProject,
+  setProjectTracking,
   slugify,
   type Project,
   type ProjectEnvironment,
@@ -86,5 +87,51 @@ export async function createProjectAction(
       : err instanceof Error ? err.message
       : 'Failed to create project.';
     return { ok: false, error: message };
+  }
+}
+
+export interface ToggleTrackingState {
+  ok: boolean;
+  error?: string;
+  slug?: string;
+  trackingEnabled?: boolean;
+}
+
+/**
+ * Connect or disconnect a project from the admin UI. Disconnecting stops event
+ * ingestion and pulls the product out of health/intelligence/dashboards; it's
+ * fully reversible (the row, key, and history are preserved).
+ */
+export async function setProjectTrackingAction(
+  _prev: ToggleTrackingState,
+  formData: FormData,
+): Promise<ToggleTrackingState> {
+  const slug = String(formData.get('slug') ?? '').trim();
+  const enabled = String(formData.get('enabled') ?? '') === 'true';
+
+  if (!slug) return { ok: false, error: 'Missing project slug.' };
+
+  try {
+    const project = await setProjectTracking(slug, enabled);
+    // Tracking state changes who appears in health, intelligence, and ingestion —
+    // refresh every surface that filters on tracking_enabled.
+    for (const path of [
+      '/dashboard/admin/projects',
+      '/dashboard',
+      '/dashboard/health',
+      '/dashboard/compare',
+      '/dashboard/applications',
+      '/dashboard/incidents',
+      '/dashboard/integrations',
+    ]) {
+      revalidatePath(path);
+    }
+    return { ok: true, slug: project.slug, trackingEnabled: project.trackingEnabled };
+  } catch (err) {
+    const message =
+      err instanceof AppError ? err.message
+      : err instanceof Error ? err.message
+      : 'Failed to update tracking.';
+    return { ok: false, error: message, slug };
   }
 }

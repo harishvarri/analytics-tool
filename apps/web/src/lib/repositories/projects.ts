@@ -83,6 +83,26 @@ export async function listProjectsRegistry(): Promise<Project[]> {
   return ((data ?? []) as Record<string, unknown>[]).map(mapRow);
 }
 
+/**
+ * Connect / disconnect a project's tracking. Disconnecting (enabled=false)
+ * stops the ingest API from accepting its events and removes it from health,
+ * intelligence, and dashboards — but keeps the row, key, and historical data so
+ * it can be reconnected later with one click.
+ */
+export async function setProjectTracking(slug: string, enabled: boolean): Promise<Project> {
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from('analytics_projects')
+    .update({ tracking_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq('slug', slug)
+    .select('*')
+    .single();
+
+  if (error) throw new AppError('PROJECT_TRACKING_UPDATE_FAILED', error.message, 500);
+  if (!data) throw new AppError('PROJECT_NOT_FOUND', `No project with slug "${slug}".`, 404);
+  return mapRow(data as Record<string, unknown>);
+}
+
 export async function getProjectBySlug(slug: string): Promise<Project | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('analytics_projects')

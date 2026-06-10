@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, KeyRound } from 'lucide-react';
+import { ChevronDown, ChevronUp, KeyRound, Loader2, Power, PowerOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScriptInstallGuide } from '@/components/shared/ScriptInstallGuide';
+import { setProjectTrackingAction, type ToggleTrackingState } from '@/app/(dashboard)/dashboard/admin/projects/actions';
 import type { Project } from '@/lib/repositories/projects';
 
 export interface ProjectStatusInfo {
@@ -32,6 +33,37 @@ const STATUS_DOT: Record<string, string> = {
 function maskKey(key: string): string {
   if (key.length <= 12) return '••••••';
   return `${key.slice(0, 10)}…${key.slice(-4)}`;
+}
+
+const toggleInitial: ToggleTrackingState = { ok: false };
+
+/** Connect / disconnect control. Disconnecting stops ingestion and removes the
+ *  product from health & dashboards; reconnecting restores it. Fully reversible. */
+function ConnectToggle({ slug, enabled }: { slug: string; enabled: boolean }) {
+  const [state, action, pending] = useActionState(setProjectTrackingAction, toggleInitial);
+  const next = !enabled; // the state this button switches the project to
+
+  return (
+    <form action={action} className="flex items-center gap-2">
+      <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="enabled" value={String(next)} />
+      <button
+        type="submit"
+        disabled={pending}
+        className={
+          enabled
+            ? 'inline-flex items-center gap-1.5 rounded-md border border-rose-500/40 bg-rose-500/5 px-2.5 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-500/10 disabled:opacity-60 dark:text-rose-400 transition-colors'
+            : 'inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-2.5 py-1 text-[11px] font-medium text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-60 dark:text-emerald-400 transition-colors'
+        }
+      >
+        {pending
+          ? <Loader2 className="h-3 w-3 animate-spin" />
+          : enabled ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
+        {pending ? 'Saving…' : enabled ? 'Disconnect' : 'Reconnect'}
+      </button>
+      {state.error && <span className="text-[10px] text-rose-500">{state.error}</span>}
+    </form>
+  );
 }
 
 export function ProjectSnippetRow({ project: p, envToneClass, status }: Props) {
@@ -84,10 +116,19 @@ export function ProjectSnippetRow({ project: p, envToneClass, status }: Props) {
                 ? `Live: ${status.activeUsers7d} active users (7d)${status.lastActivityAt ? ` · last activity ${new Date(status.lastActivityAt).toLocaleDateString()}` : ''}`
                 : 'No activity recorded yet.'}
             </span>
-            <Link href={`/dashboard/projects/${p.slug}`} className="font-medium text-primary hover:underline">
-              View live intelligence →
-            </Link>
+            <div className="flex items-center gap-3">
+              <ConnectToggle slug={p.slug} enabled={p.trackingEnabled} />
+              <Link href={`/dashboard/projects/${p.slug}`} className="font-medium text-primary hover:underline">
+                View live intelligence →
+              </Link>
+            </div>
           </div>
+          {!p.trackingEnabled && (
+            <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400">
+              This product is <strong>disconnected</strong> — it no longer ingests events and is hidden from
+              health, intelligence, and dashboards. Reconnect to resume tracking; existing history is preserved.
+            </div>
+          )}
           <ScriptInstallGuide
             projectSlug={p.slug}
             projectName={p.name}
