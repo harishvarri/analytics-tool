@@ -214,17 +214,65 @@ export async function getAppUsers(appSlug: string, limit = 100): Promise<AppUser
 }
 
 export interface UserProfileSummary {
-  userId:        string;
-  email:         string | null;
-  displayName:   string | null;
-  department:    string | null;
-  team:          string | null;
-  status:        string;
-  appsUsed:      number;
-  totalEvents:   number;
-  totalSessions: number;
-  firstSeenAt:   string | null;
-  lastActiveAt:  string | null;
+  userId:            string;
+  email:             string | null;
+  displayName:       string | null;
+  department:        string | null;
+  team:              string | null;
+  status:            string;
+  appsUsed:          number;
+  totalEvents:       number;
+  totalSessions:     number;
+  /** Mean duration of this user's sessions (login → logout), in minutes. */
+  avgSessionMinutes: number;
+  /** Total time the user has spent across all their sessions, in minutes. */
+  totalSessionMinutes: number;
+  firstSeenAt:       string | null;
+  lastActiveAt:      string | null;
+}
+
+/**
+ * Average session time per user, computed from analytics_sessions.
+ *
+ * A session is one login→logout span (started_at → ended_at, falling back to
+ * last_seen_at while still open). We average each user's session durations so
+ * repeat logins by the same person are folded into one "typical session length".
+ * Returns minutes keyed by user_id: { avg, total, count }.
+ */
+async function sessionDurationsByUser(
+  userIds: string[],
+): Promise<Map<string, { avgMin: number; totalMin: number; count: number }>> {
+  const out = new Map<string, { avgMin: number; totalMin: number; count: number }>();
+  if (userIds.length === 0) return out;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('analytics_sessions')
+    .select('user_id, started_at, ended_at, last_seen_at')
+    .in('user_id', userIds);
+  if (error) throw new AppError('USER_SESSION_DURATION_FAILED', error.message, 500);
+
+  const acc = new Map<string, { totalMs: number; count: number }>();
+  for (const r of (data ?? []) as Record<string, unknown>[]) {
+    const uid = r.user_id ? String(r.user_id) : null;
+    if (!uid) continue;
+    const start = new Date(String(r.started_at)).getTime();
+    const end = new Date(String(r.ended_at ?? r.last_seen_at)).getTime();
+    const ms = end > start ? end - start : 0;
+    const a = acc.get(uid) ?? { totalMs: 0, count: 0 };
+    a.totalMs += ms;
+    a.count += 1;
+    acc.set(uid, a);
+  }
+
+  for (const [uid, a] of acc) {
+    const totalMin = Math.round(a.totalMs / 60000);
+    out.set(uid, {
+      avgMin: a.count > 0 ? Math.round(a.totalMs / a.count / 60000) : 0,
+      totalMin,
+      count: a.count,
+    });
+  }
+  return out;
 }
 
 export async function getUserProfileSummaries(limit = 100): Promise<UserProfileSummary[]> {
@@ -234,19 +282,28 @@ export async function getUserProfileSummaries(limit = 100): Promise<UserProfileS
     .order('last_active_at', { ascending: false, nullsFirst: false })
     .limit(limit);
   if (error) throw new AppError('USER_PROFILE_FAILED', error.message, 500);
-  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-    userId:        String(r.user_id),
-    email:         (r.email as string | null) ?? null,
-    displayName:   (r.display_name as string | null) ?? null,
-    department:    (r.department as string | null) ?? null,
-    team:          (r.team as string | null) ?? null,
-    status:        String(r.status ?? 'active'),
-    appsUsed:      n(r.apps_used),
-    totalEvents:   n(r.total_events),
-    totalSessions: n(r.total_sessions),
-    firstSeenAt:   (r.first_seen_at as string | null) ?? null,
-    lastActiveAt:  (r.last_active_at as string | null) ?? null,
-  }));
+
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const durations = await sessionDurationsByUser(rows.map((r) => String(r.user_id)));
+
+  return rows.map((r) => {
+    const d = durations.get(String(r.user_id));
+    return {
+      userId:              String(r.user_id),
+      email:               (r.email as string | null) ?? null,
+      displayName:         (r.display_name as string | null) ?? null,
+      department:          (r.department as string | null) ?? null,
+      team:                (r.team as string | null) ?? null,
+      status:              String(r.status ?? 'active'),
+      appsUsed:            n(r.apps_used),
+      totalEvents:         n(r.total_events),
+      totalSessions:       n(r.total_sessions),
+      avgSessionMinutes:   d?.avgMin ?? 0,
+      totalSessionMinutes: d?.totalMin ?? 0,
+      firstSeenAt:         (r.first_seen_at as string | null) ?? null,
+      lastActiveAt:        (r.last_active_at as string | null) ?? null,
+    };
+  });
 }
 
 // ── Per-user monitoring profile (login → activity) ───────────────────────────

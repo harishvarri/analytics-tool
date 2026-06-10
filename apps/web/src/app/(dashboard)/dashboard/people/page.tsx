@@ -1,4 +1,4 @@
-import { Building2, Users } from 'lucide-react';
+import { Building2, Clock, Users } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
@@ -9,6 +9,15 @@ import { AutoRefresh } from '@/components/AutoRefresh';
 import { PeopleTable, type PersonRow } from './PeopleTable';
 
 export const dynamic = 'force-dynamic';
+
+/** Compact human duration for an average/mean session length in minutes. */
+function fmtAvg(min: number): string {
+  if (!min || min < 1) return '—';
+  if (min < 60) return `${min}m`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
 
 interface PageProps {
   searchParams: Promise<{ app?: string }>;
@@ -28,7 +37,8 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
   const appName = getPortalConfig(appSlug).name;
   const rows: PersonRow[] = users.map((u) => ({
     userId: u.userId, displayName: u.displayName, email: u.email, department: u.department,
-    appsUsed: 1, totalEvents: u.totalEvents, totalSessions: u.totalSessions, lastActiveAt: u.lastActiveAt,
+    appsUsed: 1, totalEvents: u.totalEvents, totalSessions: u.totalSessions,
+    avgSessionMinutes: 0, lastActiveAt: u.lastActiveAt,
   }));
 
   return (
@@ -69,9 +79,15 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
 
 async function CrossAppDirectory() {
   const users = await fetchUserProfileSummaries(200);
+  // Org-wide mean session length, over staff who have at least one timed session.
+  const timed = users.filter((u) => u.avgSessionMinutes > 0);
+  const orgAvgSessionMin = timed.length
+    ? Math.round(timed.reduce((s, u) => s + u.avgSessionMinutes, 0) / timed.length)
+    : 0;
   const rows: PersonRow[] = users.map((u) => ({
     userId: u.userId, displayName: u.displayName, email: u.email, department: u.department,
-    appsUsed: u.appsUsed, totalEvents: u.totalEvents, totalSessions: u.totalSessions, lastActiveAt: u.lastActiveAt,
+    appsUsed: u.appsUsed, totalEvents: u.totalEvents, totalSessions: u.totalSessions,
+    avgSessionMinutes: u.avgSessionMinutes, lastActiveAt: u.lastActiveAt,
   }));
 
   return (
@@ -83,17 +99,20 @@ async function CrossAppDirectory() {
         actions={
           <ExportButton
             filename="people"
-            headers={['Name', 'Email / ID', 'Apps used', 'Events', 'Sessions', 'Last active']}
+            headers={['Name', 'Email / ID', 'Apps used', 'Events', 'Sessions', 'Avg session (min)', 'Total time (min)', 'Last active']}
             rows={users.map((u) => [
-              u.displayName ?? '—', u.email ?? u.userId, u.appsUsed, u.totalEvents, u.totalSessions, u.lastActiveAt ?? '',
+              u.displayName ?? '—', u.email ?? u.userId, u.appsUsed, u.totalEvents, u.totalSessions,
+              u.avgSessionMinutes, u.totalSessionMinutes, u.lastActiveAt ?? '',
             ])}
           />
         }
       />
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-3">
         <KpiCard label="People tracked" value={users.length.toLocaleString()} icon={Building2}
           trend={{ direction: 'flat', label: 'Across all products' }} />
+        <KpiCard label="Avg session time" value={fmtAvg(orgAvgSessionMin)} icon={Clock}
+          trend={{ direction: 'flat', label: 'Mean login-to-logout, all staff' }} />
         <KpiCard label="Guest sessions" value={users.filter((u) => !u.email).length.toLocaleString()} icon={Users}
           trend={{ direction: 'flat', label: 'Auto-named once a product identifies them' }} />
       </section>

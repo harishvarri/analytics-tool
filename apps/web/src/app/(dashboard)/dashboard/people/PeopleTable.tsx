@@ -14,10 +14,20 @@ export interface PersonRow {
   appsUsed: number;
   totalEvents: number;
   totalSessions: number;
+  avgSessionMinutes: number;
   lastActiveAt: string | null;
 }
 
 type Mode = 'cross' | 'app';
+
+/** Compact human duration for an average session length. */
+function fmtMinutes(min: number): string {
+  if (!min || min < 1) return '<1m';
+  if (min < 60) return `${min}m`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
 
 /** Friendly label for a row — real name → email → "Guest" (never "Unidentified"). */
 function personLabel(p: PersonRow): { primary: string; secondary: string; named: boolean } {
@@ -26,7 +36,7 @@ function personLabel(p: PersonRow): { primary: string; secondary: string; named:
   return { primary: 'Guest', secondary: `Session ${p.userId.slice(0, 8)}`, named: false };
 }
 
-type SortKey = 'recent' | 'actions' | 'sessions';
+type SortKey = 'recent' | 'actions' | 'sessions' | 'avgtime';
 
 export function PeopleTable({ rows, mode }: { rows: PersonRow[]; mode: Mode }) {
   const [query, setQuery] = useState('');
@@ -49,6 +59,7 @@ export function PeopleTable({ rows, mode }: { rows: PersonRow[]; mode: Mode }) {
     const sorted = [...list];
     if (sort === 'actions') sorted.sort((a, b) => b.totalEvents - a.totalEvents);
     else if (sort === 'sessions') sorted.sort((a, b) => b.totalSessions - a.totalSessions);
+    else if (sort === 'avgtime') sorted.sort((a, b) => b.avgSessionMinutes - a.avgSessionMinutes);
     else sorted.sort((a, b) => new Date(b.lastActiveAt ?? 0).getTime() - new Date(a.lastActiveAt ?? 0).getTime());
     return sorted;
   }, [rows, query, namedOnly, sort]);
@@ -82,6 +93,7 @@ export function PeopleTable({ rows, mode }: { rows: PersonRow[]; mode: Mode }) {
             <option value="recent">Most recent</option>
             <option value="actions">Most actions</option>
             <option value="sessions">Most sessions</option>
+            <option value="avgtime">Longest avg session</option>
           </select>
         </div>
       </div>
@@ -106,6 +118,7 @@ export function PeopleTable({ rows, mode }: { rows: PersonRow[]; mode: Mode }) {
                 <th className="px-2 py-2 text-right font-medium">{mode === 'cross' ? 'Products used' : 'Department'}</th>
                 <th className="px-2 py-2 text-right font-medium">Actions taken</th>
                 <th className="px-2 py-2 text-right font-medium">Work sessions</th>
+                <th className="px-2 py-2 text-right font-medium" title="Average login-to-logout time across this person's sessions">Avg session</th>
                 <th className="px-2 py-2 text-right font-medium">Last seen</th>
               </tr>
             </thead>
@@ -129,6 +142,7 @@ export function PeopleTable({ rows, mode }: { rows: PersonRow[]; mode: Mode }) {
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{p.totalEvents.toLocaleString()}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{p.totalSessions.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{p.avgSessionMinutes > 0 ? fmtMinutes(p.avgSessionMinutes) : '—'}</td>
                     <td className="px-2 py-2 text-right text-muted-foreground">{p.lastActiveAt ? formatRelativeTime(p.lastActiveAt) : '—'}</td>
                   </tr>
                 );
