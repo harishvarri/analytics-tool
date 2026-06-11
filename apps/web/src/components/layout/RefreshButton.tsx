@@ -1,74 +1,69 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
- * Global header refresh control. Does a FULL app reload (window.location.reload)
- * so every page, layout, client state, and the tracking script reload from
- * scratch — not just the current route's server components. Auto-reloads on an
- * interval (default 60s) while the tab is visible.
+ * Global header refresh control — MANUAL ONLY.
+ *
+ * Clicking it does a soft router.refresh(): every server component on the
+ * current page (KPIs, charts, tables) re-fetches and updates in place — no
+ * full-page reload, no flash, scroll position and client state preserved.
+ * There is deliberately NO automatic/interval refresh: auto-reloading the tab
+ * while someone is working is disruptive, so refreshing only happens on click.
+ * A passive "Updated Xs ago" label keeps data-freshness visible.
  */
-export function RefreshButton({ autoMs = 60_000 }: { autoMs?: number }) {
-  const [isPending, setIsPending] = useState(false);
-  // Countdown to the next auto-reload, for the header label.
-  const [nextInMs, setNextInMs] = useState<number>(autoMs);
+export function RefreshButton() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [lastRefreshed, setLastRefreshed] = useState<number>(() => Date.now());
+  const [, force] = useState(0);
 
   const doRefresh = useCallback(() => {
-    setIsPending(true);
-    try { window.location.reload(); } catch { /* no-op */ }
-  }, []);
+    startTransition(() => {
+      router.refresh();
+      // Let client-only surfaces (e.g. the live feed) reset if they listen.
+      try { window.dispatchEvent(new CustomEvent('ncpl:refresh')); } catch { /* no-op */ }
+      setLastRefreshed(Date.now());
+    });
+  }, [router]);
 
-  // Hard reload on an interval, but ONLY while the tab is visible. When the user
-  // leaves we stop the timer (no wasted reload); when they return we reload
-  // immediately so they always land on current data.
+  // Tick once a second so the "x ago" label stays live (label only — never refreshes).
   useEffect(() => {
-    if (!autoMs) return;
-    let deadline = Date.now() + autoMs;
-    let tick: ReturnType<typeof setInterval> | null = null;
-
-    const start = () => {
-      if (tick !== null) return;
-      deadline = Date.now() + autoMs;
-      tick = setInterval(() => {
-        if (document.visibilityState !== 'visible') return;
-        const left = deadline - Date.now();
-        setNextInMs(Math.max(0, left));
-        if (left <= 0) doRefresh();
-      }, 1000);
-    };
-    const stop = () => { if (tick !== null) { clearInterval(tick); tick = null; } };
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') doRefresh(); // reload on return
-      else stop();
-    };
-
-    if (document.visibilityState === 'visible') start();
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
-  }, [autoMs, doRefresh]);
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="flex items-center gap-2">
-      {autoMs > 0 && (
-        <span className="hidden text-[11px] tabular-nums text-muted-foreground lg:inline">
-          Auto-refresh in {Math.ceil(nextInMs / 1000)}s
-        </span>
-      )}
+      <span className="hidden text-[11px] tabular-nums text-muted-foreground lg:inline">
+        Updated {relativeShort(Date.now() - lastRefreshed)}
+      </span>
       <Button
         variant="outline"
         size="sm"
         onClick={doRefresh}
         disabled={isPending}
-        aria-label="Refresh the whole app"
-        title="Reload the entire app now"
+        aria-label="Refresh dashboard data"
+        title="Refresh this page's data"
         className="h-8 gap-1.5 px-2.5 text-xs"
       >
         <RefreshCw className={cn('h-3.5 w-3.5', isPending && 'animate-spin')} />
-        <span className="hidden sm:inline">{isPending ? 'Reloading…' : 'Refresh'}</span>
+        <span className="hidden sm:inline">{isPending ? 'Refreshing…' : 'Refresh'}</span>
       </Button>
     </div>
   );
+}
+
+function relativeShort(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 5) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
 }

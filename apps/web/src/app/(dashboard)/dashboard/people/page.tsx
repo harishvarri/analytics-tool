@@ -5,7 +5,6 @@ import { ChartCard } from '@/components/charts/ChartCard';
 import { ExportButton } from '@/components/shared/ExportButton';
 import { fetchAppUsers, fetchUserProfileSummaries } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
-import { AutoRefresh } from '@/components/AutoRefresh';
 import { PeopleTable, type PersonRow } from './PeopleTable';
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +42,6 @@ async function AppDirectory({ appSlug }: { appSlug: string }) {
 
   return (
     <div className="space-y-6">
-      <AutoRefresh intervalMs={30_000} />
       <PageHeader
         title={`${appName} — Staff`}
         description={`Staff active in ${appName}, with their activity and when they were last seen.`}
@@ -92,7 +90,6 @@ async function CrossAppDirectory() {
 
   return (
     <div className="space-y-6">
-      <AutoRefresh intervalMs={30_000} />
       <PageHeader
         title="Staff Directory"
         description="Which staff members are actively using which products, and who has gone quiet?"

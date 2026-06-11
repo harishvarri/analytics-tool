@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
-import { AutoRefresh } from '@/components/AutoRefresh';
 import Link from 'next/link';
 import { ReportExport } from '@/components/shared/ReportExport';
 import { fetchInsights, fetchUserProfileSummaries, isUsingMockData } from '@/lib/data/fetchers';
@@ -100,7 +99,6 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-6">
-      <AutoRefresh intervalMs={120_000} />
       <PageHeader
         title="Executive Operations Report"
         description={`${report.periodLabel} operational intelligence — user activity, product performance, reliability, and risk.`}
