@@ -66,9 +66,9 @@ export default async function ComparePage() {
         {rows.length === 0 ? (
           <div className="flex h-[160px] items-center justify-center text-sm text-muted-foreground">No products connected yet.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-[600px] overflow-auto">
             <table className="w-full text-xs">
-              <thead className="text-muted-foreground">
+              <thead className="sticky top-0 z-10 bg-card text-muted-foreground">
                 <tr className="border-b">
                   <th className="px-2 py-2 text-left font-medium">Product</th>
                   <th className="px-2 py-2 text-left font-medium">Status</th>

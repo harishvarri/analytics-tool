@@ -88,17 +88,24 @@ export default async function ProductsDirectoryPage({ searchParams }: PageProps)
           {projects.length === 0 ? (
             <Empty />
           ) : (
-            <ul className="space-y-3 pt-1">
-              {[...projects].sort((a, b) => b.adoptionPct - a.adoptionPct).map((p) => (
-                <li key={p.slug} className="flex items-center gap-3 text-xs">
-                  <span className="w-32 shrink-0 truncate font-medium">{p.name}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-primary/70" style={{ width: `${Math.min(100, p.adoptionPct)}%` }} />
-                  </div>
-                  <span className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">{p.adoptionPct}%</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-3 pt-1">
+                {[...projects].sort((a, b) => b.adoptionPct - a.adoptionPct).slice(0, 15).map((p) => (
+                  <li key={p.slug} className="flex items-center gap-3 text-xs">
+                    <span className="w-32 shrink-0 truncate font-medium">{p.name}</span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary/70" style={{ width: `${Math.min(100, p.adoptionPct)}%` }} />
+                    </div>
+                    <span className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">{p.adoptionPct}%</span>
+                  </li>
+                ))}
+              </ul>
+              {projects.length > 15 && (
+                <p className="pt-3 text-[11px] text-muted-foreground">
+                  Top 15 by adoption · {projects.length - 15} more in the table below.
+                </p>
+              )}
+            </>
           )}
         </ChartCard>
       </section>
@@ -108,9 +115,9 @@ export default async function ProductsDirectoryPage({ searchParams }: PageProps)
         {projects.length === 0 ? (
           <Empty />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-[560px] overflow-auto">
             <table className="w-full text-xs">
-              <thead className="text-muted-foreground">
+              <thead className="sticky top-0 z-10 bg-card text-muted-foreground">
                 <tr className="border-b">
                   <th className="px-2 py-2 text-left font-medium">Product</th>
                   <th className="px-2 py-2 text-left font-medium">Type</th>

@@ -3,6 +3,7 @@ import { Check, X, Plug, UserX, Database, Activity } from 'lucide-react';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ScriptInstallGuide } from '@/components/shared/ScriptInstallGuide';
+import { ShowMore } from '@/components/shared/ShowMore';
 import { fetchIntegrationHealth } from '@/lib/data/fetchers';
 import type { IntegrationChecks } from '@/lib/repositories/integrationHealth';
 import { formatRelativeTime } from '@/lib/utils';
@@ -53,7 +54,7 @@ export default async function IntegrationHealthPage() {
           No products connected yet. Add one from Admin → Connected Products.
         </div>
       ) : (
-        <section className="space-y-4">
+        <ShowMore className="space-y-4" initial={6} noun="products">
           {data.projects.map((p) => (
             <div key={p.slug} className="rounded-lg border bg-card p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -103,7 +104,7 @@ export default async function IntegrationHealthPage() {
               />
             </div>
           ))}
-        </section>
+        </ShowMore>
       )}
 
       <div className="text-[11px] text-muted-foreground">

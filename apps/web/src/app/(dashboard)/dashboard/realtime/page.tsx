@@ -4,6 +4,7 @@ import { PORTAL_COLOR } from '@/components/charts/ChartTheme';
 import { getPortalConfig } from '@/config/portals';
 import { fetchPortalSummaries, fetchRecentActivity } from '@/lib/data/fetchers';
 import { RealtimeFeed } from '@/features/realtime-feed/components/RealtimeFeed';
+import { ShowMore } from '@/components/shared/ShowMore';
 
 export const dynamic = 'force-dynamic';
 const fmt = new Intl.NumberFormat('en-US');
@@ -25,7 +26,7 @@ export default async function RealtimePage() {
         description="A live stream of what your staff is doing across every product, right now."
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <ShowMore className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" initial={10} noun="products">
         {portals.map((p) => (
           <Card key={p.portalId}>
             <CardHeader className="flex flex-row items-center justify-between pb-1">
@@ -43,7 +44,7 @@ export default async function RealtimePage() {
             </CardContent>
           </Card>
         ))}
-      </section>
+      </ShowMore>
 
       <RealtimeFeed initial={initial} />
     </div>

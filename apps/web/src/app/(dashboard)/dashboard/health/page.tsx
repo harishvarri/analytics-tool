@@ -8,6 +8,7 @@ import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { DonutChart } from '@/components/charts/DonutChart';
+import { ShowMore } from '@/components/shared/ShowMore';
 import { fetchReliabilityHealth } from '@/lib/data/fetchers';
 import { snapshotReliabilityHealth } from '@/lib/repositories/reliabilityHealth';
 import type { HealthStatus, ReliabilityHealth } from '@/lib/repositories/reliabilityHealth';
@@ -128,9 +129,9 @@ export default async function ProjectHealthPage() {
           {board.recentChanges.length === 0 ? (
             <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">No measurable change this week.</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[420px] overflow-auto">
               <table className="w-full text-xs">
-                <thead className="text-muted-foreground">
+                <thead className="sticky top-0 z-10 bg-card text-muted-foreground">
                   <tr className="border-b">
                     <th className="px-2 py-2 text-left font-medium">Product</th>
                     <th className="px-2 py-2 text-right font-medium">Last week</th>
@@ -157,12 +158,12 @@ export default async function ProjectHealthPage() {
       </section>
 
       {/* Per-product reliability cards */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <ShowMore className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" initial={9} noun="products">
         {board.projects.map((p) => <HealthCard key={p.slug} p={p} />)}
-      </section>
+      </ShowMore>
 
       <div className="text-[11px] text-muted-foreground">
-        Health = 100 − error penalties (Frontend / API / Database / Authentication, weighted by severity) − open &amp; investigating incident penalties.
+        Health = 100 − frontend/JS error penalties − open &amp; investigating incident penalties.
         Resolved and closed incidents never reduce health. Usage, momentum, and adoption are tracked separately under Engagement &amp; Product Intelligence.
       </div>
     </div>
