@@ -5,6 +5,7 @@ import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { UserTimeline } from '@/components/analytics/UserTimeline';
+import { LocalTime } from '@/components/shared/LocalTime';
 import { fetchUserDetail, fetchUserActivityWindow, fetchUserSessionTimeline } from '@/lib/data/fetchers';
 import type { ActivityRange } from '@/lib/repositories/operational';
 import { getPortalConfig } from '@/config/portals';
@@ -28,10 +29,6 @@ function fmtDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m ? `${h}h ${m}m` : `${h}h`;
-}
-
-function clockTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 function sessionDayLabel(iso: string): string {
@@ -241,7 +238,7 @@ export default async function UserDetailPage({ params, searchParams }: PageProps
                   <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-xs hover:bg-muted/40">
                     <span className="font-semibold">{sessionDayLabel(s.startedAt)}</span>
                     <span className="tabular-nums text-muted-foreground">
-                      {clockTime(s.startedAt)} → {clockTime(s.endedAt)}
+                      <LocalTime iso={s.startedAt} mode="time" /> → <LocalTime iso={s.endedAt} mode="time" />
                     </span>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{fmtDuration(s.durationMin)}</span>
                     <span className="truncate text-muted-foreground">· {products}</span>

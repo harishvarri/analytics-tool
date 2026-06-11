@@ -5,6 +5,7 @@ import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
 import { ChartCard } from '@/components/charts/ChartCard';
 import { UserTimeline } from '@/components/analytics/UserTimeline';
+import { LocalTime } from '@/components/shared/LocalTime';
 import { fetchSessionDetail } from '@/lib/data/fetchers';
 import { getPortalConfig } from '@/config/portals';
 import { friendlyEventName } from '@/lib/event-labels';
@@ -19,20 +20,6 @@ function fmtDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m ? `${h}h ${m}m` : `${h}h`;
-}
-
-function fmtClock(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function fmtTime(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
 function portalName(slug: string): string {
@@ -75,7 +62,7 @@ export default async function SessionDetailPage({ params }: PageProps) {
 
       <PageHeader
         title={`${person}'s session`}
-        description={`${product} · ${fmtClock(s.startedAt)}`}
+        description={<>{product} · <LocalTime iso={s.startedAt} mode="datetime" /></>}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {s.userId && (
@@ -88,12 +75,12 @@ export default async function SessionDetailPage({ params }: PageProps) {
 
       {/* Session facts */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Login time" value={fmtTime(s.startedAt)} icon={LogIn}
-          trend={{ direction: 'flat', label: new Date(s.startedAt).toLocaleDateString() }} />
-        <KpiCard label="Logout time" value={s.endedAt ? fmtTime(s.endedAt) : 'still active'} icon={LogOut}
+        <KpiCard label="Login time" value={<LocalTime iso={s.startedAt} mode="time" />} icon={LogIn}
+          trend={{ direction: 'flat', label: 'logged in' }} />
+        <KpiCard label="Logout time" value={s.endedAt ? <LocalTime iso={s.endedAt} mode="time" /> : 'still active'} icon={LogOut}
           trend={{ direction: 'flat', label: s.endedAt ? 'ended' : 'open session' }} />
-        <KpiCard label="Duration" value={fmtDuration(s.durationMin)} icon={Timer}
-          trend={{ direction: 'flat', label: 'time in session' }} />
+        <KpiCard label="Active time" value={fmtDuration(s.activeMin)} icon={Timer}
+          trend={{ direction: 'flat', label: `${fmtDuration(s.durationMin)} session span` }} />
         <KpiCard label="Product" value={product} icon={Boxes}
           trend={{ direction: 'flat', label: 'where they worked' }} />
 

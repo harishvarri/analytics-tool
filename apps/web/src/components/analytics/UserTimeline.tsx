@@ -2,6 +2,7 @@ import { getPortalConfig } from '@/config/portals';
 import { PORTAL_COLOR } from '@/components/charts/ChartTheme';
 import { friendlyEventName, eventDescription } from '@/lib/event-labels';
 import { formatRelativeTime } from '@/lib/utils';
+import { LocalTime } from '@/components/shared/LocalTime';
 
 export interface TimelineEvent {
   name: string;
@@ -25,11 +26,6 @@ function portalColor(portalId: string): string {
   let hash = 0;
   for (let i = 0; i < portalId.length; i++) hash = (hash * 31 + portalId.charCodeAt(i)) >>> 0;
   return FALLBACK_COLORS[hash % FALLBACK_COLORS.length]!;
-}
-
-function clockTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 function dayLabel(iso: string): string {
@@ -89,7 +85,7 @@ export function UserTimeline({ events, userName, empty = 'No recent activity.' }
                     {friendlyEventName(e.name, e.metadata, e.url)}
                   </span>
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground" title={formatRelativeTime(e.occurredAt)}>
-                    {clockTime(e.occurredAt)}
+                    <LocalTime iso={e.occurredAt} mode="time" />
                   </span>
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">

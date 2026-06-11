@@ -411,7 +411,8 @@ export interface SessionDetail {
   startedAt:    string;
   lastSeenAt:   string;
   endedAt:      string | null;
-  durationMin:  number;
+  durationMin:  number;        // wall-clock span: login → last activity
+  activeMin:    number;        // ACTIVE time — sum of engaged time on pages (excludes idle)
   eventCount:   number;
   businessActions: number;
   errors:       number;
@@ -450,11 +451,16 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
 
   const pages = new Set<string>();
   const nameCount = new Map<string, number>();
-  let businessActions = 0, errors = 0, logins = 0;
+  let businessActions = 0, errors = 0, logins = 0, engagedMs = 0;
   for (const e of events) {
     if (e.url) pages.add(e.url);
     if (e.category === 'error') errors += 1;
     if (e.name === 'auth.login') logins += 1;
+    // ACTIVE time = time the user was actually engaged on pages. The tracking
+    // script emits performance.engagement (engagedMs) per route, flushed on
+    // route change AND on tab hide/close — so it's accurate even when the user
+    // never explicitly logs out (closes the window).
+    if (e.name === 'performance.engagement') engagedMs += Number(e.metadata?.['engagedMs'] ?? 0);
     if (isOperationalEvent(e.category, e.name)) {
       businessActions += 1;
       nameCount.set(e.name, (nameCount.get(e.name) ?? 0) + 1);
@@ -475,6 +481,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     lastSeenAt:   String(sess.last_seen_at),
     endedAt:      (sess.ended_at as string | null) ?? null,
     durationMin:  end > start ? Math.round((end - start) / 60000) : 0,
+    activeMin:    Math.round(engagedMs / 60000),
     eventCount:   n(sess.event_count) || events.length,
     businessActions,
     errors,

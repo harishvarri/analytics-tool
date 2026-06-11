@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { ACCENT_BAR, ACCENT_CHIP, ACCENT_TEXT, accentFromLabel, type AccentKey }
 
 interface KpiCardProps {
   label: string;
-  value: string;
+  value: ReactNode;
   icon?: LucideIcon;
   trend?: { direction: 'up' | 'down' | 'flat'; label: string };
   sparkline?: ReadonlyArray<{ value: number }>;

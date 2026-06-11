@@ -4,7 +4,7 @@ import { ACCENT_BAR, accentFromLabel } from '@/lib/accent';
 
 interface PageHeaderProps {
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
 }
 
