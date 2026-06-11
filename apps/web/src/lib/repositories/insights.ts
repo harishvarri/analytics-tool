@@ -147,8 +147,6 @@ interface UserRow {
   team: string | null;
 }
 
-const DAY = 86_400_000;
-
 function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -236,16 +234,15 @@ function buildRecommendationFromRisk(risk: RiskItem): Recommendation {
   };
 }
 
-export async function getInsights(periodDays = 7): Promise<ExecutiveOperationsReport> {
+export async function getInsights(
+  thisStart: Date,
+  thisEnd: Date,
+  previousStart: Date,
+  previousEnd: Date,
+  periodLabel: 'Weekly' | 'Monthly',
+  periodNoun: 'week' | 'month',
+): Promise<ExecutiveOperationsReport> {
   const admin = getSupabaseAdmin();
-  const now = new Date();
-  const thisStart = new Date(now.getTime() - periodDays * DAY);
-  const previousStart = new Date(now.getTime() - 2 * periodDays * DAY);
-
-  // Period-aware labels so the same engine powers Weekly (7d) and Monthly (30d).
-  const isMonthly = periodDays >= 28;
-  const periodNoun = isMonthly ? 'month' : 'week';
-  const periodLabel: 'Weekly' | 'Monthly' = isMonthly ? 'Monthly' : 'Weekly';
   const thisNounPhrase = `this ${periodNoun}`;
 
   const [
@@ -259,12 +256,14 @@ export async function getInsights(periodDays = 7): Promise<ExecutiveOperationsRe
       .from('analytics_events')
       .select('portal_id, category, name, user_id, session_id, occurred_at')
       .gte('occurred_at', previousStart.toISOString())
+      .lte('occurred_at', thisEnd.toISOString())
       .order('occurred_at', { ascending: false })
       .limit(12000),
     admin
       .from('analytics_sessions')
       .select('id, portal_id, user_id, started_at')
       .gte('started_at', previousStart.toISOString())
+      .lte('started_at', thisEnd.toISOString())
       .limit(12000),
     admin
       .from('analytics_projects')
@@ -293,10 +292,14 @@ export async function getInsights(periodDays = 7): Promise<ExecutiveOperationsRe
   if (usersRes.error) throw new AppError('EXEC_REPORT_USERS_FAILED', usersRes.error.message, 500);
   const usersById = new Map(((usersRes.data ?? []) as UserRow[]).map((user) => [user.id, user]));
 
-  const thisEvents = events.filter((event) => event.occurred_at >= thisStart.toISOString());
-  const lastEvents = events.filter((event) => event.occurred_at < thisStart.toISOString());
-  const thisSessions = sessions.filter((session) => session.started_at >= thisStart.toISOString());
-  const lastSessions = sessions.filter((session) => session.started_at < thisStart.toISOString());
+  const thisStartISO = thisStart.toISOString();
+  const thisEndISO = thisEnd.toISOString();
+  const prevStartISO = previousStart.toISOString();
+
+  const thisEvents = events.filter((e) => e.occurred_at >= thisStartISO && e.occurred_at <= thisEndISO);
+  const lastEvents = events.filter((e) => e.occurred_at >= prevStartISO && e.occurred_at < thisStartISO);
+  const thisSessions = sessions.filter((s) => s.started_at >= thisStartISO && s.started_at <= thisEndISO);
+  const lastSessions = sessions.filter((s) => s.started_at >= prevStartISO && s.started_at < thisStartISO);
 
   const thisUsers = new Set(thisEvents.map((event) => event.user_id).filter(Boolean) as string[]);
   const lastUsers = new Set(lastEvents.map((event) => event.user_id).filter(Boolean) as string[]);
@@ -521,9 +524,9 @@ export async function getInsights(periodDays = 7): Promise<ExecutiveOperationsRe
     periodNoun,
     week: {
       startDate: isoDate(thisStart),
-      endDate: isoDate(now),
+      endDate: isoDate(thisEnd),
       previousStartDate: isoDate(previousStart),
-      previousEndDate: isoDate(thisStart),
+      previousEndDate: isoDate(previousEnd),
     },
     platformStatus,
     executiveSummary,

@@ -1,7 +1,10 @@
+import Link from 'next/link';
 import {
   AlertTriangle,
   BarChart3,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Gauge,
   HeartPulse,
   Lightbulb,
@@ -14,11 +17,20 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/analytics/KpiCard';
 import { PageHeader } from '@/components/analytics/PageHeader';
-import Link from 'next/link';
-import { ReportExport } from '@/components/shared/ReportExport';
+import { ReportExport, type ReportSection } from '@/components/shared/ReportExport';
 import { fetchInsights, fetchUserProfileSummaries, isUsingMockData } from '@/lib/data/fetchers';
 import { computeProductivity } from '@/lib/productivity';
 import type { ExecutiveOperationsReport, MetricDelta } from '@/lib/repositories/insights';
+import {
+  dayToWeek,
+  getReportPeriod,
+  monthName,
+  monthShort,
+  periodNavLinks,
+  weekRangeLabel,
+  calendarWeekBounds,
+  type WeekNumber,
+} from '@/lib/report-periods';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,64 +80,159 @@ function hasReportSignals(report: ExecutiveOperationsReport): boolean {
     report.productRanking.length > 0 ||
     report.engagement.activeUsers.value > 0 ||
     report.adoption.mostUsed !== null ||
-    report.departments.rows.length > 0 ||
     report.risks.length > 0 ||
     report.incidents.open > 0 ||
     report.incidents.critical > 0
   );
 }
 
-export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
-  const { period: rawPeriod } = await searchParams;
-  const monthly = rawPeriod === 'month';
+function lastDayOfMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+interface PageProps {
+  searchParams: Promise<{ y?: string; m?: string; w?: string; period?: string }>;
+}
+
+export default async function InsightsPage({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const now = new Date();
+  const nowY = now.getFullYear();
+  const nowM = now.getMonth() + 1;
+  const nowWeek = dayToWeek(now.getDate());
+
+  // Parse URL params — default to current calendar week
+  const year = sp.y ? parseInt(sp.y, 10) : nowY;
+  const month = sp.m ? parseInt(sp.m, 10) : nowM;
+  // sp.w: '1'|'2'|'3'|'4' for weeks, 'month' for monthly; backward compat: sp.period='month'
+  const rawW = sp.w ?? (sp.period === 'month' ? 'month' : undefined);
+  const isMonthlyView = rawW === 'month';
+  const week: WeekNumber | null = isMonthlyView ? null
+    : rawW ? (parseInt(rawW, 10) as WeekNumber)
+    : nowWeek;
+
+  const period = getReportPeriod(year, month, week);
+  const nav = periodNavLinks(year, month, week);
+
   const [report, people] = await Promise.all([
-    fetchInsights(monthly ? 30 : 7),
+    fetchInsights(period),
     fetchUserProfileSummaries(300),
   ]);
+
   const hasData = hasReportSignals(report);
 
-  // User Intelligence — top performers by productivity (from real activity).
+  // Top performers by productivity
   const topUsers = people
     .filter((u) => u.totalEvents > 0)
     .map((u) => ({
       u,
       prod: computeProductivity({
-        activeMinutes: u.totalSessions * 8, businessActions: u.totalEvents,
-        sessions: u.totalSessions, productsUsed: u.appsUsed, errors: 0,
+        activeMinutes: u.totalSessions * 8,
+        businessActions: u.totalEvents,
+        sessions: u.totalSessions,
+        productsUsed: u.appsUsed,
+        errors: 0,
       }).score,
     }))
     .sort((a, b) => b.prod - a.prod || b.u.totalEvents - a.u.totalEvents)
     .slice(0, 8);
 
+  // Build comprehensive export sections
+  const exportSections: ReportSection[] = [
+    {
+      title: 'Report Period',
+      headers: ['Field', 'Value'],
+      rows: [
+        ['Period', period.displayLabel],
+        ['Date Range', `${report.week.startDate} to ${report.week.endDate}`],
+        ['Compared with', `${report.week.previousStartDate} to ${report.week.previousEndDate}`],
+        ['Platform Status', statusLabel(report.platformStatus)],
+        ['Overall Status', statusLabel(report.scorecard.overallStatus)],
+      ],
+    },
+    {
+      title: 'Key Metrics',
+      headers: ['Metric', 'This Period', 'Previous Period', 'Δ Change'],
+      rows: [
+        ['Active Users', report.engagement.activeUsers.value, report.engagement.activeUsers.previous, deltaLabel(report.engagement.activeUsers)],
+        ['Sessions', report.engagement.sessions.value, report.engagement.sessions.previous, deltaLabel(report.engagement.sessions)],
+        ['Successful Logins', report.engagement.logins.value, report.engagement.logins.previous, deltaLabel(report.engagement.logins)],
+        ['Open Incidents', report.incidents.open, '', ''],
+        ['Critical Incidents', report.incidents.critical, '', ''],
+        ['Returning Users', report.engagement.returningUsers, '', ''],
+        ['New Users', report.engagement.newUsers, '', ''],
+        ['Avg Sessions / User', report.engagement.avgSessionsPerUser, '', ''],
+        ['Avg Logins / User', report.engagement.avgLoginsPerUser, '', ''],
+        ['Engagement Trend', report.engagement.trend, '', ''],
+      ],
+    },
+    {
+      title: 'Product Performance',
+      headers: ['Product', 'Active Users', 'Sessions', 'Health Score', 'Trend', 'Growth %', 'Errors', 'Reliability'],
+      rows: report.productRanking.map((r) => [
+        r.name, r.activeUsers, r.sessions, r.healthScore, r.trend,
+        r.weeklyGrowthPct !== null ? `${r.weeklyGrowthPct}%` : 'New',
+        r.errorCount, r.reliabilityScore,
+      ]),
+    },
+    {
+      title: 'User Intelligence — Top Performers',
+      headers: ['User', 'Email', 'Actions', 'Sessions', 'Products Used', 'Productivity Score'],
+      rows: topUsers.map(({ u, prod }) => [
+        u.displayName ?? '', u.email ?? u.userId, u.totalEvents, u.totalSessions, u.appsUsed, prod,
+      ]),
+    },
+    {
+      title: 'Operational Scorecard',
+      headers: ['Dimension', 'Score'],
+      rows: [
+        ['Platform Health', `${report.scorecard.platformHealth}/100`],
+        ['Engagement', `${report.scorecard.engagement}/100`],
+        ['Reliability', `${report.scorecard.reliability}/100`],
+        ['Adoption', `${report.scorecard.adoption}/100`],
+        ['Risk Level', report.scorecard.risk],
+        ['Overall Status', statusLabel(report.scorecard.overallStatus)],
+      ],
+    },
+    {
+      title: 'Risk Intelligence',
+      headers: ['Priority', 'Risk', 'Count (This Period)', 'Count (Previous)', 'Potential Causes', 'Recommended Action'],
+      rows: report.risks.map((r) => [
+        r.priority.toUpperCase(), r.title, r.current, r.previous ?? '',
+        r.potentialCauses.join('; '), r.recommendedAction,
+      ]),
+    },
+    {
+      title: 'Recommendations',
+      headers: ['Priority', 'Action', 'Detail'],
+      rows: report.recommendations.map((r) => [r.priority.toUpperCase(), r.title, r.detail]),
+    },
+    {
+      title: 'Executive Summary',
+      headers: ['Point'],
+      rows: report.executiveSummary.map((s) => [s]),
+    },
+    {
+      title: 'Product Intelligence Notes',
+      headers: ['Note'],
+      rows: report.productIntelligence.map((s) => [s]),
+    },
+  ];
+
+  const exportFilename = `operations-report-${period.year}-${String(period.month).padStart(2, '0')}${period.week ? `-w${period.week}` : ''}`;
+  const exportTitle = `Operations Report — ${period.displayLabel} (${period.dateRangeLabel})`;
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Executive Operations Report"
-        description={`${report.periodLabel} operational intelligence — user activity, product performance, reliability, and risk.`}
+        title="Operations Report"
+        description={`${period.displayLabel} · ${period.dateRangeLabel} — user activity, product performance, reliability, and risk.`}
         actions={
           <div className="flex items-center gap-2">
-            <div className="inline-flex overflow-hidden rounded-md border text-xs">
-              <Link href="/dashboard/insights"
-                className={`px-3 py-1.5 font-medium transition-colors ${!monthly ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
-                Weekly
-              </Link>
-              <Link href="/dashboard/insights?period=month"
-                className={`px-3 py-1.5 font-medium transition-colors ${monthly ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
-                Monthly
-              </Link>
-            </div>
             <Badge variant="outline" className={STATUS_STYLE[report.platformStatus]}>
               {statusLabel(report.platformStatus)}
             </Badge>
-            <ReportExport
-              filename="executive-operations-report"
-              title="Executive Operations Report"
-              headers={['Product', 'Active users', 'Sessions', 'Health', 'Trend', 'Weekly growth %', 'Errors', 'Reliability']}
-              rows={report.productRanking.map((r) => [
-                r.name, r.activeUsers, r.sessions, r.healthScore, r.trend,
-                r.weeklyGrowthPct ?? '', r.errorCount, r.reliabilityScore,
-              ])}
-            />
+            <ReportExport filename={exportFilename} title={exportTitle} sections={exportSections} />
           </div>
         }
       />
@@ -137,26 +244,106 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             <div className="space-y-1 text-sm">
               <div className="font-medium text-amber-900 dark:text-amber-100">Live analytics data unavailable</div>
               <p className="text-amber-900/80 dark:text-amber-100/80">
-                This report is currently rendered from fallback data. Restore the analytics connection before relying on these weekly metrics for management decisions.
+                Restore the analytics connection before relying on these metrics for management decisions.
               </p>
             </div>
           </CardContent>
         </Card>
       ) : null}
 
+      {/* ── Period Navigator ─────────────────────────────────────────────── */}
+      <div className="rounded-lg border bg-card p-4 shadow-sm">
+        {/* Month navigation row */}
+        <div className="mb-3 flex items-center justify-between">
+          <Link
+            href={nav.prevMonthHref}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            {nav.prevMonthName}
+          </Link>
+          <span className="text-sm font-semibold">{monthName(month)} {year}</span>
+          {nav.nextMonthHref ? (
+            <Link
+              href={nav.nextMonthHref}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              {nav.nextMonthName}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground/40 cursor-not-allowed">
+              {nav.nextMonthName}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </div>
+
+        {/* Week / Monthly tabs */}
+        <div className="flex gap-1.5">
+          {([1, 2, 3, 4] as WeekNumber[]).map((w) => {
+            const isActive = !isMonthlyView && week === w;
+            const isCurrentWeek = nav.isCurrentMonth && nowWeek === w;
+            const rangeLabel = weekRangeLabel(year, month, w);
+            const [wStart] = calendarWeekBounds(year, month, w);
+            const isFuture = wStart > now;
+            return (
+              <Link
+                key={w}
+                href={isFuture ? '#' : nav.currentWeekHref(w)}
+                aria-disabled={isFuture}
+                className={`flex-1 rounded-md border px-2 py-2 text-center transition-colors ${
+                  isFuture
+                    ? 'cursor-not-allowed opacity-40'
+                    : isActive
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-transparent bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1 text-xs font-semibold">
+                  W{w}
+                  {isCurrentWeek && !isFuture && (
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${isActive ? 'bg-primary-foreground' : 'bg-primary'}`} />
+                  )}
+                </div>
+                <div className="mt-0.5 text-[10px] leading-tight opacity-80">{rangeLabel}</div>
+              </Link>
+            );
+          })}
+          <Link
+            href={`/dashboard/insights?y=${year}&m=${month}&w=month`}
+            className={`flex-1 rounded-md border px-2 py-2 text-center transition-colors ${
+              isMonthlyView
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-transparent bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <div className="text-xs font-semibold">Monthly</div>
+            <div className="mt-0.5 text-[10px] leading-tight opacity-80">
+              {monthShort(month)} 1–{lastDayOfMonth(year, month)}
+            </div>
+          </Link>
+        </div>
+
+        {/* Comparison note */}
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Comparing <span className="font-medium text-foreground">{report.week.startDate}</span> – <span className="font-medium text-foreground">{report.week.endDate}</span>
+          {' '}with <span className="text-foreground">{report.week.previousStartDate} – {report.week.previousEndDate}</span>
+        </p>
+      </div>
+
+      {/* ── Summary card ─────────────────────────────────────────────────── */}
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <Sparkles className="h-4 w-4" />
-              {report.periodLabel} Operations Summary
+              {period.periodLabel} Operations Summary
             </div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-              {report.week.startDate} - {report.week.endDate}
+              {period.displayLabel}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Compared with {report.week.previousStartDate} - {report.week.previousEndDate}
-            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{period.dateRangeLabel}</p>
           </div>
           <div className="rounded-md border bg-muted/30 px-4 py-3">
             <div className="text-xs text-muted-foreground">Overall status</div>
@@ -175,47 +362,32 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         </ul>
       </section>
 
+      {/* ── KPI band ─────────────────────────────────────────────────────── */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="Active users"
-          value={fmt.format(report.engagement.activeUsers.value)}
-          icon={Users}
-          trend={{ direction: trendDirection(report.engagement.activeUsers), label: deltaLabel(report.engagement.activeUsers) }}
-        />
-        <KpiCard
-          label="Sessions"
-          value={fmt.format(report.engagement.sessions.value)}
-          icon={LineChart}
-          trend={{ direction: trendDirection(report.engagement.sessions), label: deltaLabel(report.engagement.sessions) }}
-        />
-        <KpiCard
-          label="Successful logins"
-          value={fmt.format(report.engagement.logins.value)}
-          icon={ShieldAlert}
-          trend={{ direction: trendDirection(report.engagement.logins), label: deltaLabel(report.engagement.logins) }}
-        />
-        <KpiCard
-          label="Open incidents"
-          value={fmt.format(report.incidents.open)}
-          icon={AlertTriangle}
+        <KpiCard label="Active users" value={fmt.format(report.engagement.activeUsers.value)} icon={Users}
+          trend={{ direction: trendDirection(report.engagement.activeUsers), label: deltaLabel(report.engagement.activeUsers) }} />
+        <KpiCard label="Sessions" value={fmt.format(report.engagement.sessions.value)} icon={LineChart}
+          trend={{ direction: trendDirection(report.engagement.sessions), label: deltaLabel(report.engagement.sessions) }} />
+        <KpiCard label="Successful logins" value={fmt.format(report.engagement.logins.value)} icon={ShieldAlert}
+          trend={{ direction: trendDirection(report.engagement.logins), label: deltaLabel(report.engagement.logins) }} />
+        <KpiCard label="Open incidents" value={fmt.format(report.incidents.open)} icon={AlertTriangle}
           trend={{ direction: report.incidents.critical > 0 ? 'up' : 'flat', label: `${fmt.format(report.incidents.critical)} critical` }}
-          invertTrend
-        />
+          invertTrend />
       </section>
 
       {!hasData ? (
         <Card className="border-dashed">
           <CardContent className="p-8 text-center">
             <Lightbulb className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <div className="text-sm font-medium">No weekly operations data yet</div>
+            <div className="text-sm font-medium">No data for this period</div>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-              The executive report will populate automatically when connected products send events, sessions, logins, departments, and error data.
+              The report will populate automatically once connected products send events, sessions, and logins during this calendar period.
             </p>
           </CardContent>
         </Card>
       ) : null}
 
-      {/* User Intelligence — who's driving the work this week */}
+      {/* ── User Intelligence ────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -225,7 +397,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         </CardHeader>
         <CardContent>
           {topUsers.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">No user activity recorded this week.</div>
+            <div className="py-6 text-center text-sm text-muted-foreground">No user activity recorded this period.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -245,7 +417,6 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
                         <Link href={`/dashboard/people/${u.userId}`} className="font-medium hover:underline">
                           {i === 0 ? '🏆 ' : ''}{u.displayName ?? u.email ?? u.userId.slice(0, 8)}
                         </Link>
-                        {u.department && <span className="ml-2 text-[10px] text-muted-foreground">{u.department}</span>}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums">{fmt.format(u.totalEvents)}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{fmt.format(u.totalSessions)}</td>
@@ -260,7 +431,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+      {/* ── Product Performance + Intelligence ───────────────────────────── */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -307,11 +479,11 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              Product Intelligence Summary
+              Product Intelligence
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3 text-sm">
+            <ul className="space-y-2 text-sm">
               {report.productIntelligence.length ? report.productIntelligence.map((item) => (
                 <li key={item} className="rounded-md bg-muted/35 p-3 text-muted-foreground">{item}</li>
               )) : (
@@ -322,71 +494,99 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         </Card>
       </section>
 
-      <section className="grid gap-4">
+      {/* ── Engagement + Scorecard ────────────────────────────────────────── */}
+      <section className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Users className="h-4 w-4 text-muted-foreground" />
-              User Engagement Intelligence
+              User Engagement
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <MetricLine label="Avg sessions/user" value={report.engagement.avgSessionsPerUser.toFixed(1)} />
-            <MetricLine label="Avg logins/user" value={report.engagement.avgLoginsPerUser.toFixed(1)} />
-            <MetricLine label="Returning users" value={fmt.format(report.engagement.returningUsers)} />
-            <MetricLine label="New users" value={fmt.format(report.engagement.newUsers)} />
-            <div className="rounded-md bg-muted/35 p-3">
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <MetricTile label="Avg sessions / user" value={report.engagement.avgSessionsPerUser.toFixed(1)} />
+              <MetricTile label="Avg logins / user" value={report.engagement.avgLoginsPerUser.toFixed(1)} />
+              <MetricTile label="Returning users" value={fmt.format(report.engagement.returningUsers)} />
+              <MetricTile label="New users" value={fmt.format(report.engagement.newUsers)} />
+            </div>
+            <div className="rounded-md bg-muted/35 p-3 text-sm">
               <div className="text-xs text-muted-foreground">Engagement trend</div>
               <div className="mt-1 font-medium">{report.engagement.trend}</div>
             </div>
           </CardContent>
         </Card>
-      </section>
 
-      <section className="grid gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-              Operational Risk Intelligence
+              <HeartPulse className="h-4 w-4 text-muted-foreground" />
+              {period.periodLabel} Scorecard
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {report.risks.length ? report.risks.map((risk) => (
-              <div key={risk.id} className="rounded-md border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">{risk.title}</span>
-                      <Badge variant="outline" className={PRIORITY_STYLE[risk.priority]}>{risk.priority.toUpperCase()}</Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {fmt.format(risk.current)} detected this week{risk.previous !== null ? `; previous week: ${fmt.format(risk.previous)}.` : '.'}
-                    </p>
-                  </div>
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="mt-3 grid gap-3 text-xs md:grid-cols-2">
-                  <div>
-                    <div className="font-medium">Potential causes</div>
-                    <ul className="mt-1 space-y-1 text-muted-foreground">
-                      {risk.potentialCauses.map((cause) => <li key={cause}>{cause}</li>)}
-                    </ul>
-                  </div>
-                  <div>
-                    <div className="font-medium">Recommended action</div>
-                    <p className="mt-1 text-muted-foreground">{risk.recommendedAction}</p>
-                  </div>
-                </div>
+            <ScoreLine label="Platform Health" value={report.scorecard.platformHealth} />
+            <ScoreLine label="Engagement" value={report.scorecard.engagement} />
+            <ScoreLine label="Reliability" value={report.scorecard.reliability} />
+            <ScoreLine label="Adoption" value={report.scorecard.adoption} />
+            <div className="grid grid-cols-2 gap-2 pt-1 text-sm">
+              <div className="rounded-md bg-muted/35 p-3">
+                <div className="text-xs text-muted-foreground">Risk</div>
+                <div className="font-semibold">{report.scorecard.risk}</div>
               </div>
-            )) : (
-              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">No material operational risks detected this week.</div>
-            )}
+              <div className="rounded-md bg-muted/35 p-3">
+                <div className="text-xs text-muted-foreground">Overall</div>
+                <div className="font-semibold">{statusLabel(report.scorecard.overallStatus)}</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      {/* ── Risk Intelligence ─────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+            Operational Risk Intelligence
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {report.risks.length ? report.risks.map((risk) => (
+            <div key={risk.id} className="rounded-md border p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{risk.title}</span>
+                    <Badge variant="outline" className={PRIORITY_STYLE[risk.priority]}>{risk.priority.toUpperCase()}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {fmt.format(risk.current)} detected this period{risk.previous !== null ? `; previous: ${fmt.format(risk.previous)}.` : '.'}
+                  </p>
+                </div>
+                <AlertTriangle className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </div>
+              <div className="mt-3 grid gap-3 text-xs md:grid-cols-2">
+                <div>
+                  <div className="font-medium">Potential causes</div>
+                  <ul className="mt-1 space-y-1 text-muted-foreground">
+                    {risk.potentialCauses.map((cause) => <li key={cause}>{cause}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-medium">Recommended action</div>
+                  <p className="mt-1 text-muted-foreground">{risk.recommendedAction}</p>
+                </div>
+              </div>
+            </div>
+          )) : (
+            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">No material operational risks detected this period.</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Recommendations + Incident summary ───────────────────────────── */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -404,39 +604,72 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             <div className="rounded-md bg-muted/35 p-3 text-xs text-muted-foreground">
               {report.incidents.summary}
             </div>
-            {report.recommendations.map((recommendation) => (
-              <div key={`${recommendation.priority}-${recommendation.title}`} className="rounded-md border p-3">
+            {report.recommendations.map((rec) => (
+              <div key={`${rec.priority}-${rec.title}`} className="rounded-md border p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className={PRIORITY_STYLE[recommendation.priority]}>{recommendation.priority.toUpperCase()}</Badge>
-                  <span className="text-sm font-medium">{recommendation.title}</span>
+                  <Badge variant="outline" className={PRIORITY_STYLE[rec.priority]}>{rec.priority.toUpperCase()}</Badge>
+                  <span className="text-sm font-medium">{rec.title}</span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{recommendation.detail}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{rec.detail}</p>
               </div>
             ))}
           </CardContent>
         </Card>
 
+        {/* Quick navigator to other months */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <HeartPulse className="h-4 w-4 text-muted-foreground" />
-              Weekly Scorecard
+              <LineChart className="h-4 w-4 text-muted-foreground" />
+              Report Archive
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <ScoreLine label="Platform Health" value={report.scorecard.platformHealth} />
-            <ScoreLine label="Engagement" value={report.scorecard.engagement} />
-            <ScoreLine label="Reliability" value={report.scorecard.reliability} />
-            <ScoreLine label="Adoption" value={report.scorecard.adoption} />
-            <div className="grid grid-cols-2 gap-2 pt-2 text-sm">
-              <div className="rounded-md bg-muted/35 p-3">
-                <div className="text-xs text-muted-foreground">Risk</div>
-                <div className="font-semibold">{report.scorecard.risk}</div>
-              </div>
-              <div className="rounded-md bg-muted/35 p-3">
-                <div className="text-xs text-muted-foreground">Overall</div>
-                <div className="font-semibold">{statusLabel(report.scorecard.overallStatus)}</div>
-              </div>
+          <CardContent>
+            <p className="mb-3 text-xs text-muted-foreground">Jump to a previous period.</p>
+            <div className="space-y-1">
+              {Array.from({ length: 6 }, (_, i) => {
+                const d = new Date(nowY, nowM - 1 - i, 1);
+                const ly = d.getFullYear();
+                const lm = d.getMonth() + 1;
+                const isCurrent = ly === year && lm === month && !isMonthlyView;
+                const isCurrentMonth = ly === year && lm === month && isMonthlyView;
+                const currentW = ly === nowY && lm === nowM ? nowWeek : null;
+                return (
+                  <div key={`${ly}-${lm}`} className="rounded-md border p-2">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-xs font-medium">{monthName(lm)} {ly}</span>
+                      <Link
+                        href={`/dashboard/insights?y=${ly}&m=${lm}&w=month`}
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${isCurrentMonth ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-primary/10'}`}
+                      >
+                        Monthly
+                      </Link>
+                    </div>
+                    <div className="flex gap-1">
+                      {([1, 2, 3, 4] as WeekNumber[]).map((w) => {
+                        const [wStart] = calendarWeekBounds(ly, lm, w);
+                        const future = wStart > now;
+                        const active = !isMonthlyView && ly === year && lm === month && week === w;
+                        const isCW = currentW === w;
+                        return (
+                          <Link
+                            key={w}
+                            href={future ? '#' : `/dashboard/insights?y=${ly}&m=${lm}&w=${w}`}
+                            aria-disabled={future}
+                            className={`flex-1 rounded px-1 py-1 text-center text-[10px] transition-colors ${
+                              future ? 'cursor-not-allowed opacity-30' :
+                              active ? 'bg-primary text-primary-foreground font-semibold' :
+                              'bg-muted/60 text-muted-foreground hover:bg-muted'
+                            }`}
+                          >
+                            W{w}{isCW && !future ? '●' : ''}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -445,11 +678,11 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
   );
 }
 
-function MetricLine({ label, value }: { label: string; value: string }) {
+function MetricTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-md border px-3 py-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold tabular-nums">{value}</span>
+    <div className="rounded-md border px-3 py-2.5">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="mt-0.5 text-sm font-semibold tabular-nums">{value}</div>
     </div>
   );
 }
@@ -469,23 +702,12 @@ function ScoreLine({ label, value }: { label: string; value: number }) {
 }
 
 function IncidentMetric({
-  label,
-  value,
-  tone = 'slate',
-}: {
-  label: string;
-  value: number | null;
-  tone?: 'slate' | 'amber' | 'rose' | 'emerald';
-}) {
-  const classes =
-    tone === 'amber'
-      ? 'border-amber-500/20 bg-amber-500/5'
-      : tone === 'rose'
-        ? 'border-rose-500/20 bg-rose-500/5'
-        : tone === 'emerald'
-          ? 'border-emerald-500/20 bg-emerald-500/5'
-        : 'border-border bg-background';
-
+  label, value, tone = 'slate',
+}: { label: string; value: number | null; tone?: 'slate' | 'amber' | 'rose' | 'emerald' }) {
+  const classes = tone === 'amber' ? 'border-amber-500/20 bg-amber-500/5'
+    : tone === 'rose' ? 'border-rose-500/20 bg-rose-500/5'
+    : tone === 'emerald' ? 'border-emerald-500/20 bg-emerald-500/5'
+    : 'border-border bg-background';
   return (
     <div className={`rounded-md border p-3 ${classes}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
