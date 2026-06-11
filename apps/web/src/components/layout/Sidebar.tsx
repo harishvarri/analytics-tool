@@ -63,13 +63,16 @@ export function Sidebar() {
                     key={item.href}
                     href={`${item.href}${queryString}`}
                     className={cn(
-                      'flex items-center gap-3 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
+                      'relative flex items-center gap-3 rounded-md py-1.5 pl-4 pr-3 text-[13px] font-medium transition-colors',
                       active
-                        ? 'bg-accent text-accent-foreground'
+                        ? 'bg-accent font-semibold text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    {active && (
+                      <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-primary" aria-hidden />
+                    )}
+                    <Icon className={cn('h-4 w-4 shrink-0', active && 'text-primary')} />
                     <span className="truncate">{item.label}</span>
                   </Link>
                 );
